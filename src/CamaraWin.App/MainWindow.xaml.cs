@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using CamaraWin.Core;
 
 namespace CamaraWin.App;
@@ -15,6 +17,8 @@ public partial class MainWindow : Window
     // Shutdowns of tiles removed from the grid; OnClosed waits for them too (UI thread only).
     readonly List<Task> _pendingShutdowns = [];
     string? _statusRevealPath;
+    static readonly GridMode[] GridModes = [GridMode.Auto, GridMode.One, GridMode.Four, GridMode.Nine, GridMode.Sixteen];
+    WindowState _stateBeforeFullscreen;
 
     public MainWindow()
     {
@@ -22,6 +26,10 @@ public partial class MainWindow : Window
         _settings = _settingsStore.Load();
         _cameras = [.. _store.Load()];
         for (var i = 0; i < _cameras.Count; i++) _cameras[i].Order = i;
+
+        RestoreWindowPlacement();
+        GridModeBox.SelectedIndex = Math.Max(0, Array.IndexOf(GridModes, _settings.GridMode));
+        GridModeBox.SelectionChanged += GridMode_Changed;
         RebuildGrid();
     }
 
@@ -54,7 +62,79 @@ public partial class MainWindow : Window
         tile.EditRequested += EditCamera;
         tile.DeleteRequested += DeleteCamera;
         tile.Notify += Notify;
+        tile.FullscreenRequested += ShowFullscreen;
+        tile.SwapRequested += SwapCameras;
         return tile;
+    }
+
+    void ShowFullscreen(CameraTile tile)
+    {
+        var window = new FullscreenWindow(tile.Camera) { Owner = this };
+        // Its tile may be recording: OnClosed waits for that shutdown like any other.
+        window.Closed += (_, _) => TrackShutdown(window.TileShutdown);
+        window.Show();
+    }
+
+    void TrackShutdown(Task shutdown)
+    {
+        _pendingShutdowns.Add(shutdown);
+        shutdown.ContinueWith(_ => Dispatcher.BeginInvoke(() => _pendingShutdowns.Remove(shutdown)), TaskScheduler.Default);
+    }
+
+    void SwapCameras(Guid source, Guid target)
+    {
+        var a = _cameras.First(c => c.Id == source);
+        var b = _cameras.First(c => c.Id == target);
+        (a.Order, b.Order) = (b.Order, a.Order);
+        SaveCameras();
+        RebuildGrid();
+    }
+
+    void GridMode_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        _settings.GridMode = GridModes[GridModeBox.SelectedIndex];
+        RebuildGrid();
+    }
+
+    void Window_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.F11) ToggleFullscreen();
+        else if (e.Key == Key.Escape && WindowStyle == WindowStyle.None) ToggleFullscreen();
+    }
+
+    void ToggleFullscreen()
+    {
+        if (WindowStyle == WindowStyle.None)
+        {
+            WindowStyle = WindowStyle.SingleBorderWindow;
+            WindowState = _stateBeforeFullscreen;
+            TopBar.Visibility = BottomBar.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            _stateBeforeFullscreen = WindowState;
+            TopBar.Visibility = BottomBar.Visibility = Visibility.Collapsed;
+            WindowStyle = WindowStyle.None;
+            WindowState = WindowState.Normal; // re-maximizing after the style change covers the taskbar
+            WindowState = WindowState.Maximized;
+        }
+    }
+
+    void RestoreWindowPlacement()
+    {
+        Width = _settings.Width;
+        Height = _settings.Height;
+        if (_settings.Left is { } left && _settings.Top is { } top
+            && left >= SystemParameters.VirtualScreenLeft
+            && top >= SystemParameters.VirtualScreenTop
+            && left < SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth - 100
+            && top < SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - 100)
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = left;
+            Top = top;
+        }
+        if (_settings.Maximized) WindowState = WindowState.Maximized;
     }
 
     void AddCamera_Click(object sender, RoutedEventArgs e) => AddCamera(null);
@@ -140,6 +220,28 @@ public partial class MainWindow : Window
         {
             Notify($"No se pudieron guardar las cámaras: {ex.Message}", null);
         }
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (WindowStyle == WindowStyle.None) ToggleFullscreen();
+        var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+        _settings.Left = bounds.Left;
+        _settings.Top = bounds.Top;
+        _settings.Width = bounds.Width;
+        _settings.Height = bounds.Height;
+        _settings.Maximized = WindowState == WindowState.Maximized;
+        // Close fullscreen views now so their shutdowns are tracked before OnClosed waits.
+        foreach (var owned in OwnedWindows.Cast<Window>().ToList()) owned.Close();
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception)
+        {
+            // Losing the window placement must not block closing (the tiles still need to shut down).
+        }
+        base.OnClosing(e);
     }
 
     protected override void OnClosed(EventArgs e)

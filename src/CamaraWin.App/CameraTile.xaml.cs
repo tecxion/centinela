@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CamaraWin.Core;
@@ -45,6 +46,64 @@ public sealed partial class CameraTile : UserControl, IDisposable
     public event Action<CameraTile>? EditRequested;
     public event Action<CameraTile>? DeleteRequested;
     public event Action<string, string?>? Notify;
+
+    const string DragFormat = "CamaraWin.CameraId";
+    static readonly Brush NormalBorder = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A));
+    static readonly Brush DropBorder = Brushes.DodgerBlue;
+    Point? _dragStart;
+
+    public event Action<CameraTile>? FullscreenRequested;
+    public event Action<Guid, Guid>? SwapRequested;
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        if (e.ClickCount == 2)
+        {
+            _dragStart = null;
+            FullscreenRequested?.Invoke(this);
+            e.Handled = true;
+            return;
+        }
+        _dragStart = e.GetPosition(this);
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (!_manage || _dragStart is not { } start || e.LeftButton != MouseButtonState.Pressed) return;
+        var delta = e.GetPosition(this) - start;
+        if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        _dragStart = null;
+        DragDrop.DoDragDrop(this, new DataObject(DragFormat, Camera.Id.ToString()), DragDropEffects.Move);
+    }
+
+    protected override void OnDragEnter(DragEventArgs e)
+    {
+        base.OnDragEnter(e);
+        if (_manage && e.Data.GetDataPresent(DragFormat)) Frame.BorderBrush = DropBorder;
+    }
+
+    protected override void OnDragLeave(DragEventArgs e)
+    {
+        base.OnDragLeave(e);
+        Frame.BorderBrush = NormalBorder;
+    }
+
+    protected override void OnDragOver(DragEventArgs e)
+    {
+        e.Effects = _manage && e.Data.GetDataPresent(DragFormat) ? DragDropEffects.Move : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    protected override void OnDrop(DragEventArgs e)
+    {
+        base.OnDrop(e);
+        Frame.BorderBrush = NormalBorder;
+        if (_manage && e.Data.GetData(DragFormat) is string raw && Guid.TryParse(raw, out var source) && source != Camera.Id)
+            SwapRequested?.Invoke(source, Camera.Id);
+    }
 
     void OnRendering(object? sender, EventArgs e) =>
         _session.Mailbox.TryRead(ref _frameSequence, frame =>
