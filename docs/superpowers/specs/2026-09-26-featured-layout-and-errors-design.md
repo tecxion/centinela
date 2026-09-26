@@ -1,4 +1,4 @@
-# CamaraWin v1.1 — Featured layout + translated connection errors
+# CamaraWin v1.1 — Featured layout, translated errors, menu/backup, tray, record-all, stats
 
 Date: 2026-09-26
 Status: Approved (design), pending spec review
@@ -11,8 +11,11 @@ Base: CamaraWin v1 (docs/superpowers/specs/2026-09-26-camara-win-design.md)
 2. Understandable connection errors: classify failures, stop showing a bare "Reconectando…",
    show non-blocking Spanish toasts with advice, and keep an error log (window + files).
    Wrong passwords must be detected even when the camera does not return a clean 401.
+3. Menu bar (Archivo, Ver) with JSON import/export (optionally password-encrypted), automatic
+   backup, in-app manual, license and support windows.
+4. System tray (close-to-tray, start with Windows), "Grabar todas", per-tile stats overlay.
 
-Out of scope: PTZ, audio, 24/7 recording (unchanged from v1).
+Out of scope: PTZ (next version), audio, 24/7 recording.
 
 ## 2. Featured layout
 
@@ -128,12 +131,121 @@ string Title, string Advice)`. Spanish, brand-aware. Short is for the tile (≤ 
 - Log window: DataGrid (Hora, Cámara, Error, Detalle), newest first; buttons Copiar (selected
   rows as text), Abrir carpeta, Limpiar (clears the in-memory list only).
 
-## 4. Testing
+## 4. Menu bar and JSON backup
+
+### Menu
+A WPF `Menu` above the toolbar.
+- **Archivo**: Importar JSON… · Exportar JSON… · Carpeta de copia automática… · separator ·
+  Manual (README) · Licencia · Soporte · separator · Salir.
+- **Ver**: Mostrar estadísticas (checkable, persisted `AppSettings.ShowStats`).
+- Salir = real exit (same shutdown path as v1's window close: recordings finalized).
+
+### JSON format (Core, `CameraBackup`)
+```json
+{
+  "format": "camarawin-cameras",
+  "version": 1,
+  "exportedAt": "2026-09-26T21:40:00Z",
+  "encryption": { "algorithm": "AES-256-GCM", "kdf": "PBKDF2-SHA256", "iterations": 600000, "salt": "<base64 16 bytes>" },
+  "cameras": [
+    { "name": "Garaje", "brand": "Tapo", "host": "192.168.1.20", "port": 554, "user": "camuser",
+      "password": "<base64(nonce 12 | ciphertext | tag 16)>", "mainUrl": null, "subUrl": null, "useUdp": false }
+  ]
+}
+```
+- Without passwords: `"encryption": null`, every `"password": null`.
+- Key = PBKDF2-SHA256(passphrase UTF-8, salt, 600000 iterations, 32 bytes). Each password is
+  encrypted independently with AES-GCM (random 12-byte nonce), associated data = UTF-8 of
+  `name|host|port` so entries cannot be swapped.
+- `Order` is the array order; camera `Id` is not exported (new ids on import). Override URLs are
+  exported without credentials (v1 already strips them).
+- API: `string Export(IEnumerable<Camera>, string? passphrase)`;
+  `BackupImport Import(string json, Func<string?> askPassphrase)` → cameras + counts; errors:
+  `BackupFormatException` (not our format / corrupt / unknown future version, Spanish message),
+  `BackupPassphraseException` (wrong passphrase — detected by GCM tag failure).
+- Example file committed at `docs/ejemplo-camaras.json` (encryption null, two cameras: one Tapo,
+  one Imou, fake IPs, password null).
+
+### Import (App)
+- File dialog → if encrypted, passphrase prompt (retry on wrong key, cancel aborts).
+- Merge (pure Core function): same host (case-insensitive) + port as an existing camera → update
+  that camera's fields (keep its Id, Order and password unless the import carries one); otherwise
+  append at the end.
+- Result message: "N añadidas, M actualizadas, K sin contraseña".
+- Cameras without password show tile state "Falta contraseña" + always-visible Editar button
+  (same treatment as AuthFailed; they are still attempted — some cameras allow empty passwords).
+
+### Export (App)
+- Dialog: checkbox "Incluir contraseñas (cifradas con una clave)"; if checked, passphrase +
+  confirmation (min 8 chars, must match). Then save-file dialog, default name
+  `camarawin-camaras-yyyy-MM-dd.json`.
+
+### Automatic backup
+- After every camera-list change (add, edit, delete, reorder, import) write
+  `<BackupFolder>\camaras-copia.json` without passwords, atomically (temp + move), on a background
+  task; failures → status bar message, never an exception.
+- `AppSettings.BackupFolder` (default `%USERPROFILE%\Documents\CamaraWin`); "Carpeta de copia
+  automática…" opens `Microsoft.Win32.OpenFolderDialog` and writes a fresh copy immediately.
+
+### Manual / Licencia / Soporte windows
+- Manual: scrollable window with Spanish text (FlowDocument, embedded resource): añadir cámaras
+  (Tapo/Imou/Otra/Buscar en red), vistas (cuadrícula, principal + miniaturas, pantalla completa,
+  F11), grabar y capturas (dónde se guardan), bandeja del sistema, copias JSON, errores frecuentes
+  (the ErrorTranslator table in prose), note that true camera-to-screen latency is not measurable.
+- Licencia: plain-language explanation of MIT (use, copy, modify, distribute, sell; keep the
+  notice; no warranty) + full MIT text + note that FFmpeg is LGPL and its DLLs can be replaced.
+- Soporte: text + clickable links https://www.tecxart.es and mailto:tecxart@gmail.com (opened
+  with the shell).
+
+## 5. System tray
+
+- `System.Windows.Forms.NotifyIcon` (`UseWindowsForms` in the App project, no extra packages).
+- Window close (X) → hide window, show tray icon; first time only, balloon "CamaraWin sigue en la
+  bandeja". Persist `AppSettings.TrayHintShown`.
+- While hidden: all live-view tiles are shut down (recording sessions keep running); on show, the
+  view is rebuilt and reconnects (~1 s).
+- Tray icon: app icon; variant with a red dot while any recording is active.
+- Tray menu: Abrir · Grabar todas / Detener todas · Arrancar con Windows (checkable) · Salir.
+  Double-click → Abrir.
+- Start with Windows: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, value `CamaraWin` =
+  `"<exe path>" --tray`. Toggle reflects the registry. Default off. `--tray` → start hidden.
+- Single instance: a second launch activates the running instance (named mutex + named event the
+  first instance waits on) and exits.
+- Errors while hidden: only recording sessions are connected; their notices use NotifyIcon
+  balloon tips instead of in-window toasts.
+
+## 6. Grabar todas
+
+- Toolbar button "⏺ Grabar todas" / "⏹ Detener todas" (label reflects whether any camera is
+  recording). Grabar todas starts recording on every visible camera not already recording;
+  Detener todas stops all recordings (tiles and fullscreen). Same per-camera logic as the tile
+  button (mainstream headless session). Also in the tray menu (there "visible" = all cameras).
+
+## 7. Stats overlay
+
+- `StreamSession.Stats` → `StreamStats(double Fps, double LatencyMs, bool HardwareDecoding,
+  TimeSpan SinceLastFrame)`, produced on the session thread, read lock-free (immutable record
+  swapped via `Volatile.Write`).
+  - Fps: frames presented in the last 1 s window.
+  - LatencyMs: exponential moving average of (frame published − its packet returned by
+    `av_read_frame`), in ms.
+  - HardwareDecoding: decoded frame format was D3D11.
+- Tile overlay (bottom-left, small text) when `ShowStats` is on: `25 fps · 38 ms · GPU`,
+  refreshed twice per second; orange when `SinceLastFrame` > 1 s.
+
+## 8. Testing
 - Core: `GridLayout.ComputeFeatured` (n = 0,1,2,3,7,8,9,10), `ErrorTranslator` (every kind × brand
   returns non-empty Spanish text; Short ≤ 30 chars), settings round-trip of LayoutMode/FeaturedCameraId.
 - Media: `StreamErrorClassifier` table tests; RTSP status-line parser tests with real FFmpeg
   log strings; credential sanitizer tests; integration (mediamtx): wrong password → AuthFailed +
   ErrorOccurred with RtspStatus 401; unknown path → NotFound; unreachable port → Unreachable;
   Detail never contains the password.
-- App: build + smoke run; manual check with the user's cameras (wrong password on one Tapo and
-  one Imou must show "Contraseña incorrecta" and a toast).
+- Core: `CameraBackup` round-trip with and without passphrase; wrong passphrase →
+  `BackupPassphraseException`; corrupt/foreign JSON and version 2 → `BackupFormatException`;
+  swapped entry fails authentication; export never contains a plaintext password;
+  `docs/ejemplo-camaras.json` imports cleanly; merge function (host+port match); auto-start
+  registry helper behind an interface (tested with a fake).
+- Media: Stats fps/latency/hardware flag populated during the mediamtx integration run.
+- App: build + smoke run (menu opens, export/import round-trip in a temp folder, tray hide/show,
+  second instance activates the first); manual check with the user's cameras (wrong password on
+  one Tapo and one Imou must show "Contraseña incorrecta" and a toast).
