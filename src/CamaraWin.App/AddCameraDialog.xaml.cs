@@ -10,6 +10,9 @@ namespace CamaraWin.App;
 public partial class AddCameraDialog : Window
 {
     readonly Camera _camera;
+    // Host/port the override URLs currently point at; moved along when the user edits IP or port.
+    string _urlHost;
+    int _urlPort;
     StreamSession? _test;
     WriteableBitmap? _previewBitmap;
     long _previewSequence;
@@ -18,6 +21,8 @@ public partial class AddCameraDialog : Window
     {
         InitializeComponent();
         _camera = initial?.Clone() ?? new Camera { Brand = Brand.Tapo };
+        _urlHost = _camera.Host;
+        _urlPort = _camera.Port;
         Title = isNew ? "Añadir cámara" : "Editar cámara";
 
         NameBox.Text = _camera.Name;
@@ -49,7 +54,7 @@ public partial class AddCameraDialog : Window
         {
             Brand.Tapo => "Usa el usuario y la contraseña de la «Cuenta de cámara» (app Tapo › Ajustes avanzados).",
             Brand.Imou => "Usuario «admin». La contraseña es el código de seguridad de la pegatina. Si no conecta, activa RTSP/ONVIF en la app Imou.",
-            _ => "Pon la URL RTSP completa en «Avanzado». El usuario y la contraseña se añaden si la URL no los incluye.",
+            _ => "Pon la URL RTSP en «Avanzado» sin usuario ni contraseña (rtsp://IP:puerto/ruta). Escribe las credenciales en los campos Usuario y Contraseña: se guardan cifradas.",
         };
     }
 
@@ -64,10 +69,21 @@ public partial class AddCameraDialog : Window
         else if (!int.TryParse(PortBox.Text, out var port) || port is < 1 or > 65535) error = "Puerto no válido.";
         if (error.Length > 0) return false;
 
+        var host = HostBox.Text.Trim();
+        var newPort = int.Parse(PortBox.Text);
+        if (!string.Equals(host, _urlHost, StringComparison.OrdinalIgnoreCase) || newPort != _urlPort)
+        {
+            // ONVIF-added cameras keep their stream URLs as overrides: follow the IP/port change.
+            MainUrlBox.Text = mainUrl = StreamUrlBuilder.RebaseOverride(mainUrl, _urlHost, _urlPort, host, newPort);
+            SubUrlBox.Text = StreamUrlBuilder.RebaseOverride(SubUrlBox.Text.Trim(), _urlHost, _urlPort, host, newPort);
+            _urlHost = host;
+            _urlPort = newPort;
+        }
+
         _camera.Brand = brand;
         _camera.Name = NameBox.Text.Trim();
-        _camera.Host = HostBox.Text.Trim();
-        _camera.Port = int.Parse(PortBox.Text);
+        _camera.Host = host;
+        _camera.Port = newPort;
         _camera.User = UserBox.Text.Trim();
         _camera.Password = PasswordInput.Password;
         _camera.MainUrlOverride = mainUrl.Length == 0 ? null : mainUrl;

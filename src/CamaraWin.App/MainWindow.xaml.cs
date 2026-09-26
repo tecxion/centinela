@@ -218,6 +218,8 @@ public partial class MainWindow : Window
             var error = done.Exception?.GetBaseException().Message;
             if (!wasRecording && error is null) return;
             if (error is null) Notify($"Grabación de {name} detenida y guardada", AppPaths.RecordingsDirectory);
+            else if (wasRecording || done.Exception?.GetBaseException() is CamaraWin.Media.RecordingException)
+                Notify($"Error al guardar la grabación de {name}: {error}", AppPaths.RecordingsDirectory);
             else Notify($"Error al detener la cámara {name}: {error}", null);
         }), TaskScheduler.Default);
     }

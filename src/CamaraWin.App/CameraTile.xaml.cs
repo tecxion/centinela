@@ -11,7 +11,8 @@ namespace CamaraWin.App;
 
 public sealed partial class CameraTile : UserControl, IDisposable
 {
-    readonly StreamSession _session;
+    // Null when the camera has no usable URL (custom camera without one): the tile only shows the error.
+    readonly StreamSession? _session;
     readonly bool _manage;
     StreamSession? _recording;
     // Every stopped recording still being finalized (UI thread only).
@@ -20,6 +21,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
     WriteableBitmap? _bitmap;
     long _frameSequence;
     bool _disposed;
+    bool _recordingPauseNotified;
 
     public CameraTile(Camera camera, StreamKind kind, bool manage = true)
     {
@@ -32,7 +34,19 @@ public sealed partial class CameraTile : UserControl, IDisposable
         MouseEnter += (_, _) => Actions.Visibility = Visibility.Visible;
         MouseLeave += (_, _) => Actions.Visibility = Visibility.Collapsed;
 
-        _session = new StreamSession(StreamUrlBuilder.Build(camera, kind), camera.UseUdp);
+        string url;
+        try
+        {
+            url = StreamUrlBuilder.Build(camera, kind);
+        }
+        catch (InvalidOperationException)
+        {
+            StatusLabel.Text = "Falta la URL RTSP";
+            Video.Opacity = 0.4;
+            SnapshotButton.IsEnabled = RecordButton.IsEnabled = false;
+            return;
+        }
+        _session = new StreamSession(url, camera.UseUdp);
         _session.StateChanged += state => Dispatcher.BeginInvoke(() => ShowState(state));
         SizeChanged += (_, _) => UpdateTargetSize();
         CompositionTarget.Rendering += OnRendering;
@@ -106,7 +120,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
     }
 
     void OnRendering(object? sender, EventArgs e) =>
-        _session.Mailbox.TryRead(ref _frameSequence, frame =>
+        _session?.Mailbox.TryRead(ref _frameSequence, frame =>
         {
             if (_bitmap is null || _bitmap.PixelWidth != frame.Width || _bitmap.PixelHeight != frame.Height)
             {
@@ -119,7 +133,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
     void UpdateTargetSize()
     {
         var dpi = VisualTreeHelper.GetDpi(this);
-        _session.SetTargetSize((int)(ActualWidth * dpi.DpiScaleX), (int)(ActualHeight * dpi.DpiScaleY));
+        _session?.SetTargetSize((int)(ActualWidth * dpi.DpiScaleX), (int)(ActualHeight * dpi.DpiScaleY));
     }
 
     void ShowState(SessionState state)
@@ -161,22 +175,26 @@ public sealed partial class CameraTile : UserControl, IDisposable
         }
     }
 
-    /// <summary>Grid tiles show the substream; grab one full-resolution frame from the mainstream instead.</summary>
+    /// <summary>
+    /// Grid tiles show the substream; try to grab one full-resolution frame from the mainstream instead
+    /// (up to 3 s, or until it fails authentication), falling back to the substream frame.
+    /// </summary>
     async Task<bool> SaveMainStreamSnapshotAsync(string path)
     {
-        if (Kind == StreamKind.Main) return await _session.SaveSnapshotAsync(path);
+        if (_session is not { } session) return false;
+        if (Kind == StreamKind.Main) return await session.SaveSnapshotAsync(path);
         var main = new StreamSession(StreamUrlBuilder.Build(Camera, StreamKind.Main), Camera.UseUdp);
         try
         {
             main.SetTargetSize(2, 2);
             main.Start();
-            var deadline = DateTime.UtcNow.AddSeconds(8);
-            while (DateTime.UtcNow < deadline && !_disposed)
+            var deadline = DateTime.UtcNow.AddSeconds(3);
+            while (DateTime.UtcNow < deadline && !_disposed && main.State != SessionState.AuthFailed)
             {
                 if (main.Mailbox.Sequence > 0) return await main.SaveSnapshotAsync(path);
                 await Task.Delay(100);
             }
-            return !_disposed && await _session.SaveSnapshotAsync(path);
+            return !_disposed && await session.SaveSnapshotAsync(path);
         }
         finally
         {
@@ -211,22 +229,61 @@ public sealed partial class CameraTile : UserControl, IDisposable
             StopRecording();
             Notify?.Invoke($"Grabación de {name} detenida: {message}", null);
         });
-        recording.StateChanged += state =>
+        recording.StateChanged += state => Dispatcher.BeginInvoke(() =>
         {
-            if (state != SessionState.AuthFailed) return;
-            Dispatcher.BeginInvoke(() =>
+            if (_recording != recording || _disposed) return;
+            if (state == SessionState.AuthFailed)
             {
-                if (_recording != recording) return;
                 StopRecording();
                 Notify?.Invoke($"No se pudo grabar {name}: credenciales incorrectas.", null);
-            });
-        };
+                return;
+            }
+            ShowRecordingState(state, name);
+        });
         _recording = recording;
+        _recordingPauseNotified = false;
         recording.Start();
-        RecDot.Visibility = Visibility.Visible;
+        ShowRecordingDot(paused: true, "Grabación: conectando…");
         RecordButton.Content = "⏹";
         RecordButton.ToolTip = "Detener grabación";
         Notify?.Invoke($"Grabando {name}…", null);
+    }
+
+    /// <summary>
+    /// Solid red while the recording session is playing (packets reach the file); hollow while it
+    /// (re)connects, with one status notice per interruption.
+    /// </summary>
+    void ShowRecordingState(SessionState state, string name)
+    {
+        switch (state)
+        {
+            case SessionState.Playing:
+                _recordingPauseNotified = false;
+                ShowRecordingDot(paused: false, "Grabando");
+                break;
+            case SessionState.Reconnecting:
+                ShowRecordingDot(paused: true, "Grabación en pausa: reconectando…");
+                if (!_recordingPauseNotified)
+                {
+                    _recordingPauseNotified = true;
+                    Notify?.Invoke($"Grabación de {name} en pausa: reconectando…", null);
+                }
+                break;
+            case SessionState.Connecting:
+                // Connecting follows Reconnecting on every retry; before the first Playing it is the initial connection.
+                ShowRecordingDot(paused: true, _recordingPauseNotified ? "Grabación en pausa: reconectando…" : "Grabación: conectando…");
+                break;
+        }
+    }
+
+    void ShowRecordingDot(bool paused, string tooltip)
+    {
+        RecDot.Visibility = Visibility.Visible;
+        RecDot.Fill = paused ? Brushes.Transparent : Brushes.Red;
+        RecDot.Stroke = Brushes.Red;
+        RecDot.StrokeThickness = paused ? 2 : 0;
+        RecDot.Opacity = paused ? 0.7 : 1;
+        RecDot.ToolTip = tooltip;
     }
 
     /// <summary>Stops the active recording; the returned task (also tracked for shutdown) completes once the file is finalized.</summary>
@@ -255,7 +312,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         }
     }
 
-    public void RequestStop() => _session.RequestStop();
+    public void RequestStop() => _session?.RequestStop();
 
     /// <summary>
     /// Stops the live view and any recording, then finalizes recordings (active and already stopped)
@@ -271,18 +328,19 @@ public sealed partial class CameraTile : UserControl, IDisposable
         _recording = null;
         var finalizing = _finalizing;
 
-        session.RequestStop();
+        session?.RequestStop();
         recording?.RequestStop();
         _shutdown = Task.Run(async () =>
         {
             try
             {
-                if (recording is not null) await FinalizeRecordingAsync(recording).ConfigureAwait(false);
-                await finalizing.ConfigureAwait(false);
+                // WhenAll: a failing active finalize must not skip waiting for the earlier ones.
+                var finalizeActive = recording is null ? Task.CompletedTask : FinalizeRecordingAsync(recording);
+                await Task.WhenAll(finalizeActive, finalizing).ConfigureAwait(false);
             }
             finally
             {
-                session.Dispose();
+                session?.Dispose();
             }
         });
         return _shutdown;

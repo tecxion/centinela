@@ -23,6 +23,15 @@ public partial class App : Application
             Shutdown(1);
             return;
         }
-        new MainWindow().Show();
+        try
+        {
+            new MainWindow().Show();
+        }
+        catch (Exception ex)
+        {
+            // Without this the process would keep running with no window.
+            MessageBox.Show($"No se pudo abrir CamaraWin: {ex.Message}", "CamaraWin", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+        }
     }
 }
