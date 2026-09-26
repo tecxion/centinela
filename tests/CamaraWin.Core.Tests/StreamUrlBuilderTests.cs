@@ -64,6 +64,15 @@ public class StreamUrlBuilderTests
     }
 
     [Fact]
+    public void Blank_sub_override_falls_back_to_main()
+    {
+        var cam = Cam(Brand.Custom);
+        cam.MainUrlOverride = "rtsp://host/x";
+        cam.SubUrlOverride = "  ";
+        Assert.Equal("rtsp://user:pass@host/x", StreamUrlBuilder.Build(cam, StreamKind.Sub));
+    }
+
+    [Fact]
     public void Override_with_existing_credentials_is_untouched()
     {
         var cam = Cam(Brand.Custom);

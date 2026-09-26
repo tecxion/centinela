@@ -6,7 +6,7 @@ public static class StreamUrlBuilder
     {
         var overrideUrl = kind == StreamKind.Main
             ? camera.MainUrlOverride
-            : camera.SubUrlOverride ?? camera.MainUrlOverride;
+            : string.IsNullOrWhiteSpace(camera.SubUrlOverride) ? camera.MainUrlOverride : camera.SubUrlOverride;
         if (!string.IsNullOrWhiteSpace(overrideUrl))
             return InjectCredentials(overrideUrl.Trim(), camera.User, camera.Password);
 
