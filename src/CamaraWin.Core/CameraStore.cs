@@ -19,7 +19,17 @@ public sealed class CameraStore(string filePath)
     public IReadOnlyList<Camera> Load()
     {
         if (!File.Exists(filePath)) return [];
-        var dtos = JsonSerializer.Deserialize<List<CameraDto>>(File.ReadAllText(filePath), Json) ?? [];
+        List<CameraDto> dtos;
+        try
+        {
+            dtos = JsonSerializer.Deserialize<List<CameraDto>>(File.ReadAllText(filePath), Json) ?? [];
+        }
+        catch (JsonException)
+        {
+            // Keep the unreadable file so a later Save never silently overwrites the user's data.
+            File.Move(filePath, $"{filePath}.bad-{DateTime.Now:yyyyMMddHHmmss}");
+            return [];
+        }
         return dtos.Select(FromDto).OrderBy(c => c.Order).ToList();
     }
 
@@ -49,9 +59,20 @@ public sealed class CameraStore(string filePath)
         ? ""
         : Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(plain), null, DataProtectionScope.CurrentUser));
 
-    static string Unprotect(string? protectedValue) => string.IsNullOrEmpty(protectedValue)
-        ? ""
-        : Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(protectedValue), null, DataProtectionScope.CurrentUser));
+    static string Unprotect(string? protectedValue)
+    {
+        if (string.IsNullOrEmpty(protectedValue)) return "";
+        try
+        {
+            return Encoding.UTF8.GetString(
+                ProtectedData.Unprotect(Convert.FromBase64String(protectedValue), null, DataProtectionScope.CurrentUser));
+        }
+        catch (Exception e) when (e is CryptographicException or FormatException)
+        {
+            // Undecryptable (e.g. file from another Windows user): the camera just loses its password.
+            return "";
+        }
+    }
 
     sealed class CameraDto
     {

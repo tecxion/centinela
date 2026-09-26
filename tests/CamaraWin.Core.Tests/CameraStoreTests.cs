@@ -58,4 +58,54 @@ public sealed class CameraStoreTests : IDisposable
         new CameraStore(FilePath).Save([Sample(2), Sample(0), Sample(1)]);
         Assert.Equal(new[] { 0, 1, 2 }, new CameraStore(FilePath).Load().Select(c => c.Order));
     }
+
+    static string CameraJson(string passwordProtected) => $$"""
+        [
+          {
+            "id": "11111111-2222-3333-4444-555555555555",
+            "name": "Cam",
+            "brand": "Imou",
+            "host": "192.168.1.30",
+            "port": 554,
+            "user": "admin",
+            "passwordProtected": "{{passwordProtected}}",
+            "useUdp": false,
+            "order": 0
+          }
+        ]
+        """;
+
+    [Fact]
+    public void Undecryptable_password_loads_as_empty()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(FilePath, CameraJson("AAAA"));
+        var loaded = Assert.Single(new CameraStore(FilePath).Load());
+        Assert.Equal("Cam", loaded.Name);
+        Assert.Equal("", loaded.Password);
+    }
+
+    [Fact]
+    public void Invalid_base64_password_loads_as_empty()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(FilePath, CameraJson("not base64!"));
+        var loaded = Assert.Single(new CameraStore(FilePath).Load());
+        Assert.Equal("Cam", loaded.Name);
+        Assert.Equal("", loaded.Password);
+    }
+
+    [Fact]
+    public void Corrupt_file_is_moved_aside_and_load_returns_empty()
+    {
+        Directory.CreateDirectory(_dir);
+        const string content = "{ not json";
+        File.WriteAllText(FilePath, content);
+
+        Assert.Empty(new CameraStore(FilePath).Load());
+
+        Assert.False(File.Exists(FilePath));
+        var moved = Assert.Single(Directory.GetFiles(_dir, "cameras.json.bad-*"));
+        Assert.Equal(content, File.ReadAllText(moved));
+    }
 }

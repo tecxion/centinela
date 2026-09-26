@@ -28,9 +28,10 @@ public sealed class SettingsStore(string filePath)
 
     public AppSettings Load()
     {
+        AppSettings settings;
         try
         {
-            return File.Exists(filePath)
+            settings = File.Exists(filePath)
                 ? JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(filePath), Json) ?? new AppSettings()
                 : new AppSettings();
         }
@@ -38,6 +39,8 @@ public sealed class SettingsStore(string filePath)
         {
             return new AppSettings();
         }
+        if (!Enum.IsDefined(settings.GridMode)) settings.GridMode = GridMode.Auto;
+        return settings;
     }
 
     public void Save(AppSettings settings)

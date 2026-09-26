@@ -40,4 +40,14 @@ public sealed class SettingsStoreTests : IDisposable
         File.WriteAllText(FilePath, "{ not json");
         Assert.Equal(GridMode.Auto, new SettingsStore(FilePath).Load().GridMode);
     }
+
+    [Fact]
+    public void Undefined_grid_mode_becomes_auto()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(FilePath, """{ "width": 900, "gridMode": 12 }""");
+        var s = new SettingsStore(FilePath).Load();
+        Assert.Equal(GridMode.Auto, s.GridMode);
+        Assert.Equal(900, s.Width);
+    }
 }
