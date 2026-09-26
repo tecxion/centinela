@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CamaraWin.Core/CamaraWin.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CamaraWin.Core.Tests/CamaraWin.Core.Tests.csproj" />
+  </Folder>
+</Solution>
