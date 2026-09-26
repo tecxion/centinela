@@ -45,8 +45,9 @@ PTZ (planned next), audio, 24/7 recording, motion detection, cloud APIs.
 
 Decode on GPU (D3D11VA) → `av_hwframe_transfer_data` to system memory →
 `sws_scale` to BGRA at tile size → WPF `WriteableBitmap`.
-Extra cost ~1–3 ms/frame; allows WPF overlays on video. Rendering sits behind an
-interface (`IFrameSink`) so a zero-copy D3D11 path can replace it later.
+Extra cost ~1–3 ms/frame; allows WPF overlays on video. Tiles read the latest frame
+directly from the session's `FrameMailbox` on `CompositionTarget.Rendering`; a future
+zero-copy D3D11 path would replace that mailbox read (there is no separate sink interface in v1).
 
 ## 3. Solution layout
 
@@ -95,6 +96,15 @@ class Camera {
 - Password stored as base64 of `ProtectedData.Protect(..., DataProtectionScope.CurrentUser)`.
   Never written in plaintext; never logged.
 - Credentials are URL-encoded when embedded in the RTSP URL.
+- Credentials typed inside an override URL (`rtsp://user:pass@…`) are never saved there:
+  `CameraStore` strips the userinfo from both overrides on save and, if the camera has no
+  User of its own, moves the decoded user/password into User / the DPAPI-protected password.
+  `StreamUrlBuilder` re-adds them when building the URL. The "Otra" dialog asks for the
+  credentials in the Usuario/Contraseña fields instead of the URL.
+- Loading never loses data: a locked/unreadable file loads as empty and is left untouched;
+  a corrupt file is renamed to `cameras.json.bad-<timestamp>` (left in place if the rename
+  fails); an unknown brand loads as Custom. A Custom camera without a URL shows the tile
+  error "Falta la URL RTSP" and can still be edited.
 - Window settings (size, position, grid mode) in `%AppData%\CamaraWin\settings.json`.
 
 ### URL rules (`StreamUrlBuilder`)
@@ -106,6 +116,8 @@ class Camera {
 | Custom | `MainUrlOverride` | `SubUrlOverride ?? MainUrlOverride` |
 
 Overrides (e.g. from ONVIF) win over brand rules for any brand.
+When the IP or RTSP port of a camera is edited, override URLs pointing at the old host are
+moved to the new host (and to the new port when they used the old one).
 Imou default user: `admin`; password = device safety code.
 
 ## 5. Streaming pipeline (`StreamSession`)
@@ -177,7 +189,8 @@ Session state: `Connecting`, `Playing`, `Reconnecting`, `AuthFailed`, `Stopped`.
 
 - Button on tile (and in fullscreen).
 - In fullscreen: from the mainstream session's `lastFrame`. In the grid: a temporary mainstream
-  session grabs one frame (~1 s), falling back to the substream frame on timeout.
+  session grabs one frame (waits up to 3 s, gives up at once on an auth failure), falling back
+  to the substream frame.
 - Encoded with FFmpeg's PNG encoder (RGB24) and saved to
   `%USERPROFILE%\Pictures\CamaraWin\<CameraName>_yyyy-MM-dd_HH-mm-ss.png`.
 - Brief toast "Captura guardada" with click-to-open-folder.
@@ -192,7 +205,10 @@ Fixed modes (1/4/9/16) show the first N cameras by `Order` (no pagination in v1)
 sessions for hidden cameras are stopped.
 Empty grid shows a call-to-action "Añade tu primera cámara".
 
-**Tile:** video (Uniform stretch, black bars), name + state label, red ● when recording.
+**Tile:** video (Uniform stretch, black bars), name + state label, red ● when recording
+(hollow ○ with tooltip "Grabación en pausa: reconectando…" and one status notice while the
+recording session reconnects; solid again once it plays). Finalize errors of a recording are
+reported instead of "guardada".
 On hover: 📷 snapshot, ⏺ record, ✎ edit, 🗑 delete (confirm dialog).
 Drag tile onto another → swap `Order`, persist.
 
@@ -214,7 +230,12 @@ Drag tile onto another → swap `Order`, persist.
 4. Brand inferred: manufacturer contains "TP-Link"/"Tapo" → Tapo; "Dahua"/"Imou" → Imou;
    else Custom.
 5. Auth: WS-UsernameToken with PasswordDigest. Minimal hand-written SOAP (HttpClient +
-   XDocument) — no WCF dependency.
+   XDocument) — no WCF dependency. The token's `Created` uses the camera's clock:
+   `GetSystemDateAndTime` (unauthenticated) is called once per client and the camera-minus-PC
+   UTC offset is applied (offset 0 if the call fails).
+6. HTTP-level auth answers **Digest only** (never Basic, so the password is never sent in
+   cleartext), and only to the device's host. The Media XAddr from `GetCapabilities` is rebased
+   to the device service URL's host (keeping its port/path) before use.
 
 Cameras not answering ONVIF are added manually.
 
