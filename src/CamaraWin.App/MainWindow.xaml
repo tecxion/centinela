@@ -4,15 +4,20 @@
         Title="CamaraWin" Width="1280" Height="800" Background="#111">
     <DockPanel>
         <ToolBarTray x:Name="TopBar" DockPanel.Dock="Top">
-            <ToolBar x:Name="MainToolBar"/>
+            <ToolBar x:Name="MainToolBar">
+                <Button Content="➕ Añadir cámara" Click="AddCamera_Click"/>
+                <Separator/>
+                <Button Content="📁 Grabaciones" Click="OpenRecordings_Click"/>
+            </ToolBar>
         </ToolBarTray>
         <StatusBar x:Name="BottomBar" DockPanel.Dock="Bottom">
-            <TextBlock x:Name="StatusText"/>
+            <TextBlock x:Name="StatusText" Cursor="Hand" MouseLeftButtonUp="StatusText_Click"/>
         </StatusBar>
         <Grid>
             <UniformGrid x:Name="TileGrid"/>
             <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="No hay cámaras" Foreground="#AAA" FontSize="20" HorizontalAlignment="Center"/>
+                <Button Content="Añade tu primera cámara" Margin="0,12,0,0" Padding="12,6" Click="AddCamera_Click"/>
             </StackPanel>
         </Grid>
     </DockPanel>
