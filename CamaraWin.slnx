@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/CamaraWin.App/CamaraWin.App.csproj" />
     <Project Path="src/CamaraWin.Core/CamaraWin.Core.csproj" />
     <Project Path="src/CamaraWin.Media/CamaraWin.Media.csproj" />
   </Folder>

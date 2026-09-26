@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\CamaraWin.Core\CamaraWin.Core.csproj" />
+    <ProjectReference Include="..\CamaraWin.Media\CamaraWin.Media.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>CamaraWin</AssemblyName>
+    <CopyFFmpeg>true</CopyFFmpeg>
+  </PropertyGroup>
+
+</Project>
