@@ -1,0 +1,8 @@
+<Project>
+  <ItemGroup Condition="'$(CopyFFmpeg)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)ffmpeg\bin\*.dll"
+          Link="ffmpeg\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+</Project>
