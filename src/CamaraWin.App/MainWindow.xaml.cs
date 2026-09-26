@@ -70,21 +70,20 @@ public partial class MainWindow : Window
     void ShowFullscreen(CameraTile tile)
     {
         var window = new FullscreenWindow(tile.Camera) { Owner = this };
+        var name = tile.Camera.Name;
+        var wasRecording = false;
+        // Read before the window's Closed handler disposes the tile (which clears the recording).
+        window.Closing += (_, _) => wasRecording = window.TileIsRecording;
         // Its tile may be recording: OnClosed waits for that shutdown like any other.
-        window.Closed += (_, _) => TrackShutdown(window.TileShutdown);
+        window.Closed += (_, _) => TrackShutdown(window.TileShutdown, name, wasRecording);
         window.Show();
-    }
-
-    void TrackShutdown(Task shutdown)
-    {
-        _pendingShutdowns.Add(shutdown);
-        shutdown.ContinueWith(_ => Dispatcher.BeginInvoke(() => _pendingShutdowns.Remove(shutdown)), TaskScheduler.Default);
     }
 
     void SwapCameras(Guid source, Guid target)
     {
-        var a = _cameras.First(c => c.Id == source);
-        var b = _cameras.First(c => c.Id == target);
+        var a = _cameras.FirstOrDefault(c => c.Id == source);
+        var b = _cameras.FirstOrDefault(c => c.Id == target);
+        if (a is null || b is null) return;
         (a.Order, b.Order) = (b.Order, a.Order);
         SaveCameras();
         RebuildGrid();
@@ -202,9 +201,16 @@ public partial class MainWindow : Window
     {
         if (!_tiles.Remove(id, out var tile)) return;
         TileGrid.Children.Remove(tile);
-        var name = tile.Camera.Name;
-        var wasRecording = tile.IsRecording;
-        var shutdown = tile.ShutdownAsync();
+        var wasRecording = tile.IsRecording; // ShutdownAsync clears the recording: read it first.
+        TrackShutdown(tile.ShutdownAsync(), tile.Camera.Name, wasRecording);
+    }
+
+    /// <summary>
+    /// Keeps a tile shutdown in <see cref="_pendingShutdowns"/> until it completes, then reports the
+    /// saved recording or the failure. Call on the UI thread; wasRecording must be read before shutdown starts.
+    /// </summary>
+    void TrackShutdown(Task shutdown, string name, bool wasRecording)
+    {
         _pendingShutdowns.Add(shutdown);
         shutdown.ContinueWith(done => Dispatcher.BeginInvoke(() =>
         {

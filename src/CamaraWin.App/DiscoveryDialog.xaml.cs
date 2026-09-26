@@ -7,12 +7,14 @@ namespace CamaraWin.App;
 public partial class DiscoveryDialog : Window
 {
     readonly HashSet<string> _knownHosts;
+    bool _closed;
 
     public DiscoveryDialog(IEnumerable<string> knownHosts)
     {
         InitializeComponent();
         _knownHosts = new HashSet<string>(knownHosts, StringComparer.OrdinalIgnoreCase);
         Loaded += async (_, _) => await SearchAsync();
+        Closed += (_, _) => _closed = true;
     }
 
     public Camera? Result { get; private set; }
@@ -66,6 +68,7 @@ public partial class DiscoveryDialog : Window
             catch (OnvifException ex) when (ex is not OnvifAuthException) { }
 
             var (main, sub) = await client.ResolveStreamUrisAsync();
+            if (_closed) return;
             Result = new Camera
             {
                 Name = DisplayName(info, row),
@@ -81,10 +84,12 @@ public partial class DiscoveryDialog : Window
         }
         catch (OnvifAuthException)
         {
+            if (_closed) return;
             StatusText.Text = "Usuario o contraseña incorrectos.";
         }
         catch (Exception ex)
         {
+            if (_closed) return;
             StatusText.Text = $"No se pudo consultar la cámara: {ex.Message}";
         }
         finally

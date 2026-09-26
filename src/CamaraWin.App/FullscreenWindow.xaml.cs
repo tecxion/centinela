@@ -24,6 +24,8 @@ public partial class FullscreenWindow : Window
         Closed += (_, _) => _tile.Dispose();
     }
 
+    internal bool TileIsRecording => _tile.IsRecording;
+
     /// <summary>Completes once the tile's session (and any recording) has shut down after the window closed.</summary>
     internal Task TileShutdown => _tile.ShutdownAsync();
 }
