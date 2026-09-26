@@ -72,7 +72,11 @@ public sealed unsafe partial class StreamSession : IDisposable
     public void Stop()
     {
         RequestStop();
-        if (_thread is { } thread && thread != Thread.CurrentThread) thread.Join(TimeSpan.FromSeconds(3));
+        if (_thread is { } thread && thread != Thread.CurrentThread)
+        {
+            thread.Join(TimeSpan.FromSeconds(3));
+            WaitForRecorders(); // recorder threads are background threads: let them write the trailer
+        }
     }
 
     public void Dispose() => Stop();
