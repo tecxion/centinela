@@ -41,4 +41,16 @@ static class OnvifSamples
         <s:Code><s:Value>s:Sender</s:Value><s:Subcode><s:Value>ter:NotAuthorized</s:Value></s:Subcode></s:Code>
         <s:Reason><s:Text xml:lang="en">Sender not Authorized</s:Text></s:Reason></s:Fault></s:Body></s:Envelope>
         """;
+
+    public static string SystemDateAndTime(DateTime utc) => Head + $"""
+        <tds:GetSystemDateAndTimeResponse><tds:SystemDateAndTime><tt:DateTimeType>NTP</tt:DateTimeType>
+        <tt:DaylightSavings>false</tt:DaylightSavings><tt:TimeZone><tt:TZ>CET-1CEST,M3.5.0,M10.5.0/3</tt:TZ></tt:TimeZone>
+        <tt:UTCDateTime><tt:Time><tt:Hour>{utc.Hour}</tt:Hour><tt:Minute>{utc.Minute}</tt:Minute><tt:Second>{utc.Second}</tt:Second></tt:Time>
+        <tt:Date><tt:Year>{utc.Year}</tt:Year><tt:Month>{utc.Month}</tt:Month><tt:Day>{utc.Day}</tt:Day></tt:Date></tt:UTCDateTime>
+        <tt:LocalDateTime><tt:Time><tt:Hour>1</tt:Hour><tt:Minute>2</tt:Minute><tt:Second>3</tt:Second></tt:Time>
+        <tt:Date><tt:Year>1999</tt:Year><tt:Month>1</tt:Month><tt:Day>1</tt:Day></tt:Date></tt:LocalDateTime>
+        </tds:SystemDateAndTime></tds:GetSystemDateAndTimeResponse>
+        """ + Tail;
+
+    public static string CapabilitiesWithMedia(string xaddr) => Capabilities.Replace("http://192.168.1.20:2020/onvif/service", xaddr);
 }

@@ -60,12 +60,14 @@ public partial class DiscoveryDialog : Window
         {
             var user = UserBox.Text.Trim();
             var password = PasswordInput.Password;
-            using var http = OnvifClient.CreateHttpClient(user, password);
-            var client = new OnvifClient(http, new Uri(row.Device.DeviceServiceUrl), user, password);
+            var deviceUrl = new Uri(row.Device.DeviceServiceUrl);
+            using var http = OnvifClient.CreateHttpClient(deviceUrl, user, password);
+            var client = new OnvifClient(http, deviceUrl, user, password);
 
+            // Optional: without device info the camera is still added (timeouts, HTTP or XML errors).
             OnvifDeviceInfo? info = null;
             try { info = await client.GetDeviceInformationAsync(); }
-            catch (OnvifException ex) when (ex is not OnvifAuthException) { }
+            catch (Exception ex) when (ex is not OnvifAuthException) { }
 
             var (main, sub) = await client.ResolveStreamUrisAsync();
             if (_closed) return;

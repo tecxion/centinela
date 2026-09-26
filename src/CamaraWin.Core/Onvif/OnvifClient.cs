@@ -22,12 +22,34 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
     const string MediaNs = "http://www.onvif.org/ver10/media/wsdl";
     const string SchemaNs = "http://www.onvif.org/ver10/schema";
 
-    /// <summary>HttpClient that also answers HTTP Digest challenges (some Dahua/Imou firmwares).</summary>
-    public static HttpClient CreateHttpClient(string user, string password) =>
-        new(new HttpClientHandler { Credentials = new NetworkCredential(user, password) })
+    readonly object _clockLock = new();
+    Task<TimeSpan>? _clockOffset;
+
+    /// <summary>
+    /// HttpClient that also answers HTTP Digest challenges (some Dahua/Imou firmwares). It never answers
+    /// Basic (or any other scheme), so the password is never sent in cleartext over plain HTTP.
+    /// </summary>
+    public static HttpClient CreateHttpClient(Uri deviceServiceUrl, string user, string password) =>
+        new(new HttpClientHandler { Credentials = CreateDigestCredentials(deviceServiceUrl, user, password), PreAuthenticate = false })
         {
             Timeout = TimeSpan.FromSeconds(5),
         };
+
+    /// <summary>Credentials offered only for HTTP Digest challenges from the device's host (any port).</summary>
+    public static ICredentials CreateDigestCredentials(Uri deviceServiceUrl, string user, string password) =>
+        new DigestOnlyCredentials(deviceServiceUrl.Host, new NetworkCredential(user, password));
+
+    sealed class DigestOnlyCredentials(string host, NetworkCredential credential) : ICredentials
+    {
+        public NetworkCredential? GetCredential(Uri uri, string authType) =>
+            string.Equals(authType, "Digest", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(uri.Host, host, StringComparison.OrdinalIgnoreCase)
+                ? credential
+                : null;
+    }
+
+    /// <summary>Keeps the service's port and path but on the device's host (a camera may advertise a wrong IP).</summary>
+    public static Uri RebaseToHost(Uri service, Uri device) => new UriBuilder(service) { Host = device.Host }.Uri;
 
     public async Task<OnvifDeviceInfo> GetDeviceInformationAsync(CancellationToken ct = default) =>
         ParseDeviceInformation(await SendAsync(deviceServiceUrl, $"<GetDeviceInformation xmlns=\"{DeviceNs}\"/>", ct));
@@ -50,7 +72,7 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
         {
             var xml = await SendAsync(deviceServiceUrl,
                 $"<GetCapabilities xmlns=\"{DeviceNs}\"><Category>Media</Category></GetCapabilities>", ct);
-            return ParseMediaXAddr(xml) ?? deviceServiceUrl;
+            return ParseMediaXAddr(xml) is { } media ? RebaseToHost(media, deviceServiceUrl) : deviceServiceUrl;
         }
         catch (OnvifException ex) when (ex is not OnvifAuthException)
         {
@@ -65,8 +87,40 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
 
     async Task<string> SendAsync(Uri url, string body, CancellationToken ct)
     {
-        var header = BuildSecurityHeader(user, password, RandomNumberGenerator.GetBytes(16), DateTime.UtcNow);
-        var envelope = $"""<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Header>{header}</s:Header><s:Body>{body}</s:Body></s:Envelope>""";
+        var offset = await GetClockOffsetAsync(ct);
+        var header = BuildSecurityHeader(user, password, RandomNumberGenerator.GetBytes(16), DateTime.UtcNow + offset);
+        return await PostAsync(url, $"<s:Header>{header}</s:Header>", body, ct);
+    }
+
+    /// <summary>
+    /// Camera clock minus PC clock (UTC), queried once per client without authentication: cameras reject a
+    /// UsernameToken whose Created is too far from their own clock. Zero when the query fails.
+    /// </summary>
+    Task<TimeSpan> GetClockOffsetAsync(CancellationToken ct)
+    {
+        lock (_clockLock)
+        {
+            if (_clockOffset is { IsCompleted: true, IsCompletedSuccessfully: false }) _clockOffset = null; // cancelled
+            return _clockOffset ??= QueryClockOffsetAsync(ct);
+        }
+    }
+
+    async Task<TimeSpan> QueryClockOffsetAsync(CancellationToken ct)
+    {
+        try
+        {
+            var xml = await PostAsync(deviceServiceUrl, "", $"<GetSystemDateAndTime xmlns=\"{DeviceNs}\"/>", ct);
+            return ParseSystemDateAndTime(xml) is { } cameraUtc ? cameraUtc - DateTime.UtcNow : TimeSpan.Zero;
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return TimeSpan.Zero;
+        }
+    }
+
+    async Task<string> PostAsync(Uri url, string header, string body, CancellationToken ct)
+    {
+        var envelope = $"""<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope">{header}<s:Body>{body}</s:Body></s:Envelope>""";
         using var content = new StringContent(envelope, Encoding.UTF8);
         content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/soap+xml; charset=utf-8");
 
@@ -99,6 +153,24 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
         var media = Find(XDocument.Parse(xml), "Media");
         var address = media is null ? null : Find(media, "XAddr")?.Value.Trim();
         return Uri.TryCreate(address, UriKind.Absolute, out var uri) ? uri : null;
+    }
+
+    /// <summary>The camera's UTC clock from a GetSystemDateAndTimeResponse, or null when absent or invalid.</summary>
+    public static DateTime? ParseSystemDateAndTime(string xml)
+    {
+        var utc = Find(XDocument.Parse(xml), "UTCDateTime");
+        var date = utc is null ? null : Find(utc, "Date");
+        var time = utc is null ? null : Find(utc, "Time");
+        if (date is null || time is null) return null;
+        try
+        {
+            return new DateTime(Int(date, "Year"), Int(date, "Month"), Int(date, "Day"),
+                Int(time, "Hour"), Int(time, "Minute"), Int(time, "Second"), DateTimeKind.Utc);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
     }
 
     public static IReadOnlyList<OnvifProfile> ParseProfiles(string xml) =>
