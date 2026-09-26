@@ -108,4 +108,73 @@ public sealed class CameraStoreTests : IDisposable
         var moved = Assert.Single(Directory.GetFiles(_dir, "cameras.json.bad-*"));
         Assert.Equal(content, File.ReadAllText(moved));
     }
+
+    [Fact]
+    public void Credentials_in_override_urls_are_moved_to_protected_storage()
+    {
+        var camera = new Camera
+        {
+            Name = "Otra", Brand = Brand.Custom, MainUrlOverride = "rtsp://bob:s3cr%40t@h/x",
+            SubUrlOverride = "rtsp://bob:s3cr%40t@h/y",
+        };
+        new CameraStore(FilePath).Save([camera]);
+
+        var json = File.ReadAllText(FilePath);
+        Assert.DoesNotContain("s3cr", json);
+        Assert.DoesNotContain("bob:", json);
+
+        var loaded = Assert.Single(new CameraStore(FilePath).Load());
+        Assert.Equal("bob", loaded.User);
+        Assert.Equal("s3cr@t", loaded.Password);
+        Assert.Equal("rtsp://h/x", loaded.MainUrlOverride);
+        Assert.Equal("rtsp://h/y", loaded.SubUrlOverride);
+        Assert.Equal("rtsp://bob:s3cr%40t@h/x", StreamUrlBuilder.Build(loaded, StreamKind.Main));
+    }
+
+    [Fact]
+    public void Override_credentials_are_stripped_when_user_fields_are_set()
+    {
+        var camera = Sample(0);
+        camera.MainUrlOverride = "rtsp://other:pw@h:554/main";
+        new CameraStore(FilePath).Save([camera]);
+
+        Assert.DoesNotContain("other:pw", File.ReadAllText(FilePath));
+        var loaded = Assert.Single(new CameraStore(FilePath).Load());
+        Assert.Equal("admin", loaded.User);
+        Assert.Equal("SuperSecreta123", loaded.Password);
+        Assert.Equal("rtsp://h:554/main", loaded.MainUrlOverride);
+    }
+
+    [Fact]
+    public void Locked_file_loads_empty_and_is_left_untouched()
+    {
+        new CameraStore(FilePath).Save([Sample(0)]);
+        var before = File.ReadAllText(FilePath);
+        using (new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.None))
+            Assert.Empty(new CameraStore(FilePath).Load());
+
+        Assert.Equal(before, File.ReadAllText(FilePath));
+        Assert.Empty(Directory.GetFiles(_dir, "cameras.json.bad-*"));
+    }
+
+    [Fact]
+    public void Corrupt_file_that_cannot_be_moved_is_left_untouched()
+    {
+        Directory.CreateDirectory(_dir);
+        const string content = "{ not json";
+        File.WriteAllText(FilePath, content);
+        using (new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.Empty(new CameraStore(FilePath).Load());
+
+        Assert.Equal(content, File.ReadAllText(FilePath));
+        Assert.Empty(Directory.GetFiles(_dir, "cameras.json.bad-*"));
+    }
+
+    [Fact]
+    public void Undefined_brand_loads_as_custom()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(FilePath, CameraJson("").Replace("\"brand\": \"Imou\"", "\"brand\": 7"));
+        Assert.Equal(Brand.Custom, Assert.Single(new CameraStore(FilePath).Load()).Brand);
+    }
 }

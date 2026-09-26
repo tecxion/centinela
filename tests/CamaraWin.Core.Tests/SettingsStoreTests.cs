@@ -50,4 +50,13 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(GridMode.Auto, s.GridMode);
         Assert.Equal(900, s.Width);
     }
+
+    [Fact]
+    public void Locked_file_gives_defaults()
+    {
+        new SettingsStore(FilePath).Save(new AppSettings { Width = 900, GridMode = GridMode.Nine });
+        using var _ = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.None);
+        var s = new SettingsStore(FilePath).Load();
+        Assert.Equal((1280d, GridMode.Auto), (s.Width, s.GridMode));
+    }
 }

@@ -19,15 +19,33 @@ public sealed class CameraStore(string filePath)
     public IReadOnlyList<Camera> Load()
     {
         if (!File.Exists(filePath)) return [];
+        string text;
+        try
+        {
+            text = File.ReadAllText(filePath);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Locked or unreadable right now: start empty and leave the file exactly as it is.
+            return [];
+        }
+
         List<CameraDto> dtos;
         try
         {
-            dtos = JsonSerializer.Deserialize<List<CameraDto>>(File.ReadAllText(filePath), Json) ?? [];
+            dtos = JsonSerializer.Deserialize<List<CameraDto>>(text, Json) ?? [];
         }
         catch (JsonException)
         {
             // Keep the unreadable file so a later Save never silently overwrites the user's data.
-            File.Move(filePath, $"{filePath}.bad-{DateTime.Now:yyyyMMddHHmmss}");
+            try
+            {
+                File.Move(filePath, $"{filePath}.bad-{DateTime.Now:yyyyMMddHHmmss}");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // Could not set it aside: leave it untouched.
+            }
             return [];
         }
         return dtos.Select(FromDto).OrderBy(c => c.Order).ToList();
@@ -41,16 +59,35 @@ public sealed class CameraStore(string filePath)
         File.Move(tmp, filePath, overwrite: true);
     }
 
-    static CameraDto ToDto(Camera c) => new()
+    /// <summary>
+    /// Credentials typed inside an override URL never reach the file: they are stripped from the URL
+    /// and, when the camera has no user of its own, kept in User / PasswordProtected instead
+    /// (<see cref="StreamUrlBuilder.Build"/> puts them back into the URL).
+    /// </summary>
+    static CameraDto ToDto(Camera c)
     {
-        Id = c.Id, Name = c.Name, Brand = c.Brand, Host = c.Host, Port = c.Port, User = c.User,
-        PasswordProtected = Protect(c.Password), MainUrlOverride = c.MainUrlOverride,
-        SubUrlOverride = c.SubUrlOverride, UseUdp = c.UseUdp, Order = c.Order,
-    };
+        var main = StripCredentials(c.MainUrlOverride, out var mainCredentials);
+        var sub = StripCredentials(c.SubUrlOverride, out var subCredentials);
+        var (user, password) = c.User.Length == 0 && (mainCredentials ?? subCredentials) is { } fromUrl
+            ? (fromUrl.User, fromUrl.Password)
+            : (c.User, c.Password);
+        return new()
+        {
+            Id = c.Id, Name = c.Name, Brand = c.Brand, Host = c.Host, Port = c.Port, User = user,
+            PasswordProtected = Protect(password), MainUrlOverride = main,
+            SubUrlOverride = sub, UseUdp = c.UseUdp, Order = c.Order,
+        };
+    }
+
+    static string? StripCredentials(string? url, out UrlCredentials? credentials)
+    {
+        credentials = null;
+        return url is null ? null : StreamUrlBuilder.StripCredentials(url.Trim(), out credentials);
+    }
 
     static Camera FromDto(CameraDto d) => new()
     {
-        Id = d.Id, Name = d.Name, Brand = d.Brand, Host = d.Host, Port = d.Port, User = d.User,
+        Id = d.Id, Name = d.Name, Brand = Enum.IsDefined(d.Brand) ? d.Brand : Brand.Custom, Host = d.Host, Port = d.Port, User = d.User,
         Password = Unprotect(d.PasswordProtected), MainUrlOverride = d.MainUrlOverride,
         SubUrlOverride = d.SubUrlOverride, UseUdp = d.UseUdp, Order = d.Order,
     };

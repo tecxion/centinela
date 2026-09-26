@@ -95,4 +95,31 @@ public class StreamUrlBuilderTests
         Assert.Equal(cam.Id, copy.Id);
         Assert.Equal(cam.Password, copy.Password);
     }
+
+    [Theory]
+    [InlineData("rtsp://10.0.0.5:554/stream1", "rtsp://10.0.0.9:8554/stream1")]
+    [InlineData("rtsp://u:p@10.0.0.5:554/a?b=1&c=2", "rtsp://u:p@10.0.0.9:8554/a?b=1&c=2")]
+    [InlineData("rtsp://10.0.0.5:9000/stream1", "rtsp://10.0.0.9:9000/stream1")]
+    [InlineData("rtsp://10.0.0.5/stream1", "rtsp://10.0.0.9:8554/stream1")]
+    [InlineData("rtsp://10.0.0.5", "rtsp://10.0.0.9:8554")]
+    [InlineData("rtsp://other:554/stream1", "rtsp://other:554/stream1")]
+    [InlineData("not a url", "not a url")]
+    public void Rebase_override_moves_urls_that_point_at_the_old_host(string url, string expected) =>
+        Assert.Equal(expected, StreamUrlBuilder.RebaseOverride(url, "10.0.0.5", 554, "10.0.0.9", 8554));
+
+    [Fact]
+    public void Rebase_override_matches_host_case_insensitively_and_keeps_port_when_unchanged() =>
+        Assert.Equal("rtsp://newcam:554/x",
+            StreamUrlBuilder.RebaseOverride("rtsp://OldCam:554/x", "oldcam", 554, "newcam", 554));
+
+    [Theory]
+    [InlineData("rtsp://bob:s3cr%40t@h/x", "rtsp://h/x", "bob", "s3cr@t")]
+    [InlineData("rtsp://bob@h:554/x", "rtsp://h:554/x", "bob", "")]
+    [InlineData("rtsp://h/x", "rtsp://h/x", null, null)]
+    public void Strip_credentials_returns_decoded_userinfo(string url, string expected, string? user, string? password)
+    {
+        Assert.Equal(expected, StreamUrlBuilder.StripCredentials(url, out var credentials));
+        Assert.Equal(user, credentials?.User);
+        Assert.Equal(password, credentials?.Password);
+    }
 }
