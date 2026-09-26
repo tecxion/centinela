@@ -10,4 +10,8 @@
     <PackageReference Include="FFmpeg.AutoGen" Version="9.0.1.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\CamaraWin.Core\CamaraWin.Core.csproj" />
+  </ItemGroup>
+
 </Project>

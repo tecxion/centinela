@@ -1,3 +1,4 @@
+using CamaraWin.Core;
 using FFmpeg.AutoGen;
 
 namespace CamaraWin.Media;
@@ -14,6 +15,7 @@ public sealed unsafe partial class StreamSession : IDisposable
     const int StallTimeoutMs = 5_000;
     const int MaxBackoffSeconds = 10;
     const int MaxConsecutiveDecodeErrors = 100;
+    const int SlowRetrySeconds = 30;
 
     readonly string _url;
     readonly bool _useUdp;
@@ -33,6 +35,9 @@ public sealed unsafe partial class StreamSession : IDisposable
     int _decodeErrors;
     SwsContext* _sws;
     AVFrame* _lastFrame; // native-resolution software frame for snapshots; guarded by _snapshotLock
+    volatile bool _deadlineHit;
+    volatile int _lastRtspStatus;          // 0 = none, for the current attempt
+    volatile string? _lastLogLine;
 
     public StreamSession(string url, bool useUdp = false, bool decode = true)
     {
@@ -40,14 +45,23 @@ public sealed unsafe partial class StreamSession : IDisposable
         _useUdp = useUdp;
         _decode = decode;
         // Delegates are kept in fields so the GC never collects them while FFmpeg holds the pointer.
-        _interrupt = _ => _stopping || Environment.TickCount64 > Interlocked.Read(ref _deadline) ? 1 : 0;
+        _interrupt = _ =>
+        {
+            if (_stopping) return 1;
+            if (Environment.TickCount64 <= Interlocked.Read(ref _deadline)) return 0;
+            _deadlineHit = true;
+            return 1;
+        };
         _getFormat = GetFormat;
     }
 
     public FrameMailbox Mailbox { get; } = new();
     public SessionState State => _state;
     public string? LastError { get; private set; }
+    public StreamErrorKind? LastErrorKind { get; private set; }
     public event Action<SessionState>? StateChanged;
+    /// <summary>Raised on the session thread for every failed attempt or stall; subscriber exceptions are isolated.</summary>
+    public event Action<StreamError>? ErrorOccurred;
 
     /// <summary>Box the decoded image must fit in, in device pixels. 0 = native size.</summary>
     public void SetTargetSize(int width, int height)
@@ -93,25 +107,34 @@ public sealed unsafe partial class StreamSession : IDisposable
             while (!_stopping)
             {
                 var reachedPlaying = false;
+                StreamError? error = null;
                 try
                 {
                     PlayOnce(hwDevice, ref reachedPlaying);
                 }
-                catch (FFmpegException ex) when (ex.IsAuthError)
+                catch (Exception ex) when (!_stopping)
                 {
-                    LastError = ex.Message;
-                    SetState(SessionState.AuthFailed);
-                    return;
+                    error = BuildError(ex, reachedPlaying);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    LastError = ex.Message;
+                    // stopping: interruption is expected
                 }
                 if (_stopping) break;
+                if (error is not null)
+                {
+                    Report(error);
+                    if (error.Kind == StreamErrorKind.AuthFailed)
+                    {
+                        SetState(SessionState.AuthFailed);
+                        return;
+                    }
+                }
                 if (reachedPlaying) backoff = 1;
                 SetState(SessionState.Reconnecting);
-                _stopSignal.Wait(TimeSpan.FromSeconds(backoff));
-                backoff = Math.Min(backoff * 2, MaxBackoffSeconds);
+                var wait = error?.Kind is StreamErrorKind.NotFound or StreamErrorKind.CameraBusy ? SlowRetrySeconds : backoff;
+                _stopSignal.Wait(TimeSpan.FromSeconds(wait));
+                if (wait == backoff) backoff = Math.Min(backoff * 2, MaxBackoffSeconds);
             }
         }
         finally
@@ -133,6 +156,11 @@ public sealed unsafe partial class StreamSession : IDisposable
     void PlayOnce(AVBufferRef* hwDevice, ref bool reachedPlaying)
     {
         var fmt = ffmpeg.avformat_alloc_context();
+        var logContext = (nint)fmt; // FFmpeg frees fmt on a failed open; unregister by the original address
+        _deadlineHit = false;
+        _lastRtspStatus = 0;
+        _lastLogLine = null;
+        FFmpegLog.Register(fmt, OnFFmpegLog);
         AVCodecContext* dec = null;
         var pkt = ffmpeg.av_packet_alloc();
         var frame = ffmpeg.av_frame_alloc();
@@ -182,6 +210,7 @@ public sealed unsafe partial class StreamSession : IDisposable
         }
         finally
         {
+            FFmpegLog.Unregister((void*)logContext);
             OnConnectionClosed();
             ffmpeg.av_frame_free(&sw);
             ffmpeg.av_frame_free(&frame);
@@ -300,7 +329,31 @@ public sealed unsafe partial class StreamSession : IDisposable
         reachedPlaying = true;
         if (_state == SessionState.Playing) return;
         LastError = null;
+        LastErrorKind = null;
         SetState(SessionState.Playing);
+    }
+
+    StreamError BuildError(Exception ex, bool wasPlaying)
+    {
+        var code = ex is FFmpegException f ? f.ErrorCode : 0;
+        int? status = _lastRtspStatus == 0 ? null : _lastRtspStatus;
+        var kind = StreamErrorClassifier.Classify(code, status, wasPlaying, _deadlineHit);
+        var detail = _lastLogLine is { } line ? $"{ex.Message} — {line}" : ex.Message;
+        return new StreamError(kind, status, code, CredentialSanitizer.Sanitize(detail), DateTime.UtcNow);
+    }
+
+    void Report(StreamError error)
+    {
+        LastError = error.Detail;
+        LastErrorKind = error.Kind;
+        try { ErrorOccurred?.Invoke(error); }
+        catch (Exception) { /* isolated like StateChanged */ }
+    }
+
+    void OnFFmpegLog(string line)
+    {
+        _lastLogLine = line;
+        if (RtspStatusParser.Parse(line) is { } status) _lastRtspStatus = status;
     }
 
     void ArmDeadline(int milliseconds) =>

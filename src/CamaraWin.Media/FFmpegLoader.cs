@@ -22,6 +22,7 @@ public static class FFmpegLoader
 
             ffmpeg.RootPath = dir;
             DynamicallyLoadedBindings.Initialize();
+            FFmpegLog.Install();
             ffmpeg.av_log_set_level(ffmpeg.AV_LOG_ERROR);
             _loaded = true;
         }

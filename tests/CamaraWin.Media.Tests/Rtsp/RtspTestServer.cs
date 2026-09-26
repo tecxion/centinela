@@ -40,6 +40,8 @@ public sealed class RtspTestServer : IDisposable
               - action: publish
               - action: read
                 path: open
+              - action: read
+                path: missing
           - user: {{SecureUser}}
             pass: "sha256:{{Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(SecurePassword)))}}"
             ips: []
