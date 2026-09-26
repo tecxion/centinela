@@ -156,7 +156,8 @@ A WPF `Menu` above the toolbar.
 - Without passwords: `"encryption": null`, every `"password": null`.
 - Key = PBKDF2-SHA256(passphrase UTF-8, salt, 600000 iterations, 32 bytes). Each password is
   encrypted independently with AES-GCM (random 12-byte nonce), associated data = UTF-8 of
-  `name|host|port` so entries cannot be swapped.
+  `name|host|port|mainUrl|subUrl` (null → empty) so entries cannot be swapped and override URLs
+  cannot be redirected to another host without failing authentication.
 - `Order` is the array order; camera `Id` is not exported (new ids on import). Override URLs are
   exported without credentials (v1 already strips them).
 - API: `string Export(IEnumerable<Camera>, string? passphrase)`;
