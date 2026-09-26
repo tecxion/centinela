@@ -26,19 +26,25 @@ public sealed unsafe partial class StreamSession
         lock (_recordLock) _recordPathFactory = pathFactory;
     }
 
-    /// <summary>Stops recording; completes once every file this session wrote has been finalized.</summary>
+    /// <summary>
+    /// Stops recording; completes once every file this session was still writing has been finalized.
+    /// Faults with a <see cref="RecordingException"/> carrying the recorder errors if any of those files failed.
+    /// </summary>
     public Task StopRecordingAsync()
     {
         Recorder? recorder;
+        IReadOnlyList<(Task, Func<string?>)> draining;
         lock (_recordLock)
         {
             _recordPathFactory = null;
             recorder = _recorder;
             _recorder = null;
+            // Snapshot before Complete() so a file that finishes at once still has its error reported.
+            draining = PendingRecorders();
         }
         recorder?.Complete();
 
-        return Drain.UntilNonePendingAsync(PendingRecorders);
+        return RecorderFinalization.WhenAllFinalizedAsync(draining, PendingRecorders);
     }
 
     /// <summary>Called by Stop() after the session thread ended: bounded wait so files get their trailer.</summary>
@@ -49,10 +55,11 @@ public sealed unsafe partial class StreamSession
         if (pending.Length > 0) Task.WaitAll(pending, RecorderDrainTimeout);
     }
 
-    Task[] PendingRecorders()
+    IReadOnlyList<(Task, Func<string?>)> PendingRecorders()
     {
         lock (_recordLock)
-            return [.. _unfinished.Where(entry => entry.Key != _recorder).Select(entry => entry.Value)];
+            return [.. _unfinished.Where(entry => entry.Key != _recorder)
+                .Select(entry => (entry.Value, (Func<string?>)(() => entry.Key.Error)))];
     }
 
     partial void OnVideoPacketCore(AVStream* stream, AVPacket* pkt)
@@ -151,16 +158,5 @@ public sealed unsafe partial class StreamSession
     {
         lock (_recordLock) _recordPathFactory = null;
         OnConnectionClosedCore();
-    }
-}
-
-// await is not allowed inside the unsafe StreamSession, so the async loop lives here.
-file static class Drain
-{
-    /// <summary>Loops because a recorder being created concurrently may register after the first snapshot.</summary>
-    public static async Task UntilNonePendingAsync(Func<Task[]> pending)
-    {
-        while (pending() is { Length: > 0 } tasks)
-            await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 }
