@@ -5,6 +5,8 @@ namespace CamaraWin.Core;
 
 public enum GridMode { Auto = 0, One = 1, Four = 4, Nine = 9, Sixteen = 16 }
 
+public enum LayoutMode { Grid, Featured }
+
 public sealed class AppSettings
 {
     public double? Left { get; set; }
@@ -13,6 +15,11 @@ public sealed class AppSettings
     public double Height { get; set; } = 800;
     public bool Maximized { get; set; }
     public GridMode GridMode { get; set; } = GridMode.Auto;
+    public LayoutMode LayoutMode { get; set; } = LayoutMode.Grid;
+    public Guid? FeaturedCameraId { get; set; }
+    public bool ShowStats { get; set; }
+    public string? BackupFolder { get; set; }
+    public bool TrayHintShown { get; set; }
 }
 
 public sealed class SettingsStore(string filePath)
@@ -40,6 +47,7 @@ public sealed class SettingsStore(string filePath)
             return new AppSettings();
         }
         if (!Enum.IsDefined(settings.GridMode)) settings.GridMode = GridMode.Auto;
+        if (!Enum.IsDefined(settings.LayoutMode)) settings.LayoutMode = LayoutMode.Grid;
         return settings;
     }
 

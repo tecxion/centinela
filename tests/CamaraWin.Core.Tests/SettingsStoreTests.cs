@@ -59,4 +59,26 @@ public sealed class SettingsStoreTests : IDisposable
         var s = new SettingsStore(FilePath).Load();
         Assert.Equal((1280d, GridMode.Auto), (s.Width, s.GridMode));
     }
+
+    [Fact]
+    public void New_settings_round_trip()
+    {
+        var id = Guid.NewGuid();
+        new SettingsStore(FilePath).Save(new AppSettings
+        {
+            LayoutMode = LayoutMode.Featured, FeaturedCameraId = id, ShowStats = true,
+            BackupFolder = @"D:\Copias", TrayHintShown = true,
+        });
+        var s = new SettingsStore(FilePath).Load();
+        Assert.Equal((LayoutMode.Featured, id, true, @"D:\Copias", true),
+            (s.LayoutMode, s.FeaturedCameraId!.Value, s.ShowStats, s.BackupFolder, s.TrayHintShown));
+    }
+
+    [Fact]
+    public void Undefined_layout_mode_becomes_grid()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(FilePath, """{ "layoutMode": 7 }""");
+        Assert.Equal(LayoutMode.Grid, new SettingsStore(FilePath).Load().LayoutMode);
+    }
 }

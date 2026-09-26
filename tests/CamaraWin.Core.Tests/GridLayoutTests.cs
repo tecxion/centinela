@@ -31,4 +31,29 @@ public class GridLayoutTests
     [InlineData(7, GridMode.One, 1)]
     public void Visible_count(int count, GridMode mode, int expected) =>
         Assert.Equal(expected, GridLayout.VisibleCount(count, mode));
+
+    [Theory]
+    [InlineData(1, 1, 1)]
+    [InlineData(2, 2, 1)]
+    [InlineData(3, 2, 1)]
+    [InlineData(5, 3, 2)]
+    [InlineData(7, 4, 3)]
+    [InlineData(8, 4, 3)]
+    [InlineData(9, 5, 4)]
+    [InlineData(10, 5, 4)]
+    public void Featured_size_and_span(int count, int size, int span)
+    {
+        var layout = GridLayout.ComputeFeatured(count);
+        Assert.Equal((size, span), (layout.Size, layout.FeaturedSpan));
+        Assert.Equal(Math.Max(0, count - 1), layout.Slots.Count);
+    }
+
+    [Fact]
+    public void Featured_slots_for_seven_go_right_column_then_bottom_row() =>
+        Assert.Equal(new[] { (0, 3), (1, 3), (2, 3), (3, 0), (3, 1), (3, 2) },
+            GridLayout.ComputeFeatured(7).Slots.ToArray());
+
+    [Fact]
+    public void Featured_slots_for_eight_fill_the_corner() =>
+        Assert.Equal((3, 3), GridLayout.ComputeFeatured(8).Slots[^1]);
 }
