@@ -1,0 +1,30 @@
+{
+  "format": "camarawin-cameras",
+  "version": 1,
+  "exportedAt": "2026-09-26T21:40:00Z",
+  "encryption": null,
+  "cameras": [
+    {
+      "name": "Garaje",
+      "brand": "Tapo",
+      "host": "192.168.1.20",
+      "port": 554,
+      "user": "camuser",
+      "password": null,
+      "mainUrl": null,
+      "subUrl": null,
+      "useUdp": false
+    },
+    {
+      "name": "Jardín",
+      "brand": "Imou",
+      "host": "192.168.1.30",
+      "port": 554,
+      "user": "admin",
+      "password": null,
+      "mainUrl": null,
+      "subUrl": null,
+      "useUdp": false
+    }
+  ]
+}
