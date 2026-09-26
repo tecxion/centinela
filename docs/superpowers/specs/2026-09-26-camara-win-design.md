@@ -35,8 +35,9 @@ PTZ (planned next), audio, 24/7 recording, motion detection, cloud APIs.
 
 - **C# / .NET 10**, **WPF** (Windows only).
 - **FFmpeg via FFmpeg.AutoGen** — direct control of buffering (no player clock).
-- FFmpeg **LGPL shared** DLLs (BtbN build, 7.1 series) next to the exe; fetched with
-  `tools/get-ffmpeg.ps1`. FFmpeg.AutoGen package version must match the FFmpeg major.
+- FFmpeg **LGPL shared** DLLs (BtbN build `ffmpeg-n9.0-latest-win64-lgpl-shared-9.0`) next to the
+  exe; fetched with `tools/get-ffmpeg.ps1`. **FFmpeg.AutoGen 9.0.1.1** (expects avcodec-63,
+  avformat-63, avutil-61, swscale-10). Package and DLL majors must match.
 - xUnit for tests.
 - License: MIT for app code; FFmpeg LGPL (dynamically linked, DLLs shipped separately).
 
@@ -112,18 +113,22 @@ Imou default user: `admin`; password = device safety code.
 One dedicated thread per session. Options passed to `avformat_open_input`:
 
 ```
-rtsp_transport = tcp   (udp if Camera.UseUdp)
-fflags         = nobuffer
-flags          = low_delay
-probesize      = 32768
-analyzeduration= 0      (raised to 500000 only if stream info is incomplete)
-max_delay      = 0
-timeout        = 5000000 (µs, socket I/O)
+rtsp_transport     = tcp   (udp if Camera.UseUdp)
+fflags             = nobuffer
+probesize          = 32768
+max_delay          = 0
+reorder_queue_size = 0
+timeout            = 5000000 (µs, socket I/O)
 ```
+
+Live-view sessions **skip `avformat_find_stream_info`** (it waits for frames; `analyzeduration=0`
+means "default 5 s" in FFmpeg). Codec id and extradata come from the RTSP SDP; the decoder
+learns size from the bitstream. Recording sessions (no decode) do call it, to get width/height
+for the MKV header.
 
 Loop:
 1. `av_read_frame` → packet.
-2. If recording → hand packet to `Recorder` (clone).
+2. (Recording sessions only) hand packet to `Recorder` (clone).
 3. Decode (D3D11VA hw device; fall back to software decode on failure, silently).
 4. `av_hwframe_transfer_data` → keep as `lastFrame` (native res, for snapshots).
 5. `sws_scale` to BGRA at current target size (set by UI when tile resizes).
@@ -156,6 +161,9 @@ Session state: `Connecting`, `Playing`, `Reconnecting`, `AuthFailed`, `Stopped`.
 ## 6. Recording (`Recorder`)
 
 - Manual start/stop per tile.
+- **Always records the mainstream** through a separate headless session (`decode: false`,
+  near-zero CPU), so grid recordings are full quality. Costs one extra RTSP connection per
+  recording camera. On reconnect a new file is started.
 - Output: `%USERPROFILE%\Videos\CamaraWin\<CameraName>\yyyy-MM-dd_HH-mm-ss.mkv`
   (camera name sanitized for filesystem).
 - Remux only: copy codec parameters from input stream, `av_interleaved_write_frame`.
@@ -168,7 +176,9 @@ Session state: `Connecting`, `Playing`, `Reconnecting`, `AuthFailed`, `Stopped`.
 ## 7. Snapshots
 
 - Button on tile (and in fullscreen).
-- Converts `lastFrame` (native resolution) to BGRA and saves PNG to
+- In fullscreen: from the mainstream session's `lastFrame`. In the grid: a temporary mainstream
+  session grabs one frame (~1 s), falling back to the substream frame on timeout.
+- Encoded with FFmpeg's PNG encoder (RGB24) and saved to
   `%USERPROFILE%\Pictures\CamaraWin\<CameraName>_yyyy-MM-dd_HH-mm-ss.png`.
 - Brief toast "Captura guardada" with click-to-open-folder.
 
