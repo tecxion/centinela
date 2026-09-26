@@ -1,0 +1,40 @@
+<Window x:Class="CamaraWin.App.DiscoveryDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Buscar cámaras en la red" Width="620" Height="460"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="SearchButton" Content="🔍 Buscar de nuevo" Padding="10,4" Click="Search_Click"/>
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Usuario" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="UserBox" Grid.Column="1" Margin="0,0,12,0"/>
+                <TextBlock Grid.Column="2" Text="Contraseña" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <PasswordBox x:Name="PasswordInput" Grid.Column="3"/>
+            </Grid>
+            <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0"
+                       Text="Tapo: la «Cuenta de cámara». Imou: admin + código de seguridad."/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                <Button x:Name="AddButton" Content="Añadir seleccionada" Padding="10,4" Margin="0,0,8,0" IsDefault="True" Click="Add_Click"/>
+                <Button Content="Cerrar" Padding="10,4" IsCancel="True"/>
+            </StackPanel>
+        </StackPanel>
+        <ListView x:Name="DeviceList">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="IP" Width="130" DisplayMemberBinding="{Binding Host}"/>
+                    <GridViewColumn Header="Nombre" Width="170" DisplayMemberBinding="{Binding Name}"/>
+                    <GridViewColumn Header="Modelo" Width="140" DisplayMemberBinding="{Binding Hardware}"/>
+                    <GridViewColumn Header="Estado" Width="110" DisplayMemberBinding="{Binding Status}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </DockPanel>
+</Window>

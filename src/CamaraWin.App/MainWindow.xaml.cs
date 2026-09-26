@@ -150,6 +150,12 @@ public partial class MainWindow : Window
         RebuildGrid();
     }
 
+    void Discover_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new DiscoveryDialog(_cameras.Select(c => c.Host)) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.Result is { } found) AddCamera(found);
+    }
+
     void EditCamera(CameraTile tile)
     {
         var dialog = new AddCameraDialog(tile.Camera, isNew: false) { Owner = this };
