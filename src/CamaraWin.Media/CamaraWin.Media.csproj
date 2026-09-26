@@ -14,4 +14,8 @@
     <ProjectReference Include="..\CamaraWin.Core\CamaraWin.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="CamaraWin.Media.Tests" />
+  </ItemGroup>
+
 </Project>

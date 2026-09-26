@@ -21,6 +21,7 @@ public class ErrorClassificationTests
     [InlineData("open rtsp://viewer:p%40ss@127.0.0.1:18554/secure failed", "open rtsp://127.0.0.1:18554/secure failed")]
     [InlineData("a rtsp://u:p@h/x and http://x:y@z/w", "a rtsp://h/x and http://z/w")]
     [InlineData("no credentials rtsp://h/x", "no credentials rtsp://h/x")]
+    [InlineData("rtsp://admin:p@ss@host/x", "rtsp://host/x")]
     public void Sanitizer_removes_userinfo(string input, string expected) =>
         Assert.Equal(expected, CredentialSanitizer.Sanitize(input));
 
@@ -35,6 +36,23 @@ public class ErrorClassificationTests
     [InlineData(461, StreamErrorKind.Unknown)]
     public void Status_wins(int status, StreamErrorKind kind) =>
         Assert.Equal(kind, StreamErrorClassifier.Classify(-1, status, wasPlaying: false, deadlineHit: false));
+
+    [Fact]
+    public unsafe void Unregister_leaves_a_newer_sink_for_a_reused_address()
+    {
+        var context = (void*)0x1234_5678;
+        var first = new List<string>();
+        var second = new List<string>();
+        Action<string> s1 = first.Add, s2 = second.Add;
+        FFmpegLog.Register(context, s1);
+        FFmpegLog.Register(context, s2); // another session got the freed address
+        FFmpegLog.Unregister(context, s1);
+        FFmpegLog.Route((nint)context, "line");
+        FFmpegLog.Unregister(context, s2);
+        FFmpegLog.Route((nint)context, "after");
+        Assert.Empty(first);
+        Assert.Equal(["line"], second);
+    }
 
     [Fact]
     public void Ffmpeg_codes_classify()

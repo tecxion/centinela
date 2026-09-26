@@ -143,6 +143,19 @@ public sealed class StreamSessionTests(RtspTestServer server, ITestOutputHelper 
     }
 
     [SkippableFact]
+    public void Stats_are_empty_before_the_first_frame()
+    {
+        using var session = Open("rtsp://127.0.0.1:1/none");
+        Assert.Equal(StreamStats.Empty, session.Stats);
+        session.Start();
+        Assert.True(TestUtil.WaitFor(() => session.State == SessionState.Reconnecting, Ten), session.LastError);
+        var stats = session.Stats;
+        Assert.Equal(0, stats.Fps);
+        Assert.Equal(TimeSpan.Zero, stats.SinceLastFrame);
+        Assert.Equal(StreamStats.Empty, stats);
+    }
+
+    [SkippableFact]
     public void Stats_report_fps_latency_and_freshness()
     {
         using var session = Open(server.Url("open"));

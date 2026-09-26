@@ -39,6 +39,7 @@ public sealed unsafe partial class StreamSession : IDisposable
     volatile bool _deadlineHit;
     volatile int _lastRtspStatus;          // 0 = none, for the current attempt
     volatile string? _lastLogLine;
+    volatile StreamError? _lastError;      // LastError and LastErrorKind derive from this one reference
     StreamStats _stats = StreamStats.Empty;
     long _lastFrameTimestamp;       // Stopwatch ticks, 0 = none
     long _statsWindowStart;
@@ -65,8 +66,8 @@ public sealed unsafe partial class StreamSession : IDisposable
 
     public FrameMailbox Mailbox { get; } = new();
     public SessionState State => _state;
-    public string? LastError { get; private set; }
-    public StreamErrorKind? LastErrorKind { get; private set; }
+    public string? LastError => _lastError?.Detail;
+    public StreamErrorKind? LastErrorKind => _lastError?.Kind;
     public event Action<SessionState>? StateChanged;
     /// <summary>Raised on the session thread for every failed attempt or stall; subscriber exceptions are isolated.</summary>
     public event Action<StreamError>? ErrorOccurred;
@@ -77,7 +78,10 @@ public sealed unsafe partial class StreamSession : IDisposable
         {
             var stats = Volatile.Read(ref _stats);
             var last = Interlocked.Read(ref _lastFrameTimestamp);
-            return last == 0 ? stats : stats with { SinceLastFrame = Stopwatch.GetElapsedTime(last) };
+            if (last == 0) return stats;
+            var since = Stopwatch.GetElapsedTime(last);
+            // No frame for over a second: the last measured rate no longer describes the stream.
+            return since > TimeSpan.FromSeconds(1) ? stats with { Fps = 0, SinceLastFrame = since } : stats with { SinceLastFrame = since };
         }
     }
 
@@ -178,7 +182,12 @@ public sealed unsafe partial class StreamSession : IDisposable
         _deadlineHit = false;
         _lastRtspStatus = 0;
         _lastLogLine = null;
-        FFmpegLog.Register(fmt, OnFFmpegLog);
+        _statsFrames = 0;
+        _statsWindowStart = 0;
+        _latencyEma = -1;
+        _fps = 0;
+        var logSink = (Action<string>)OnFFmpegLog; // identity for Unregister: fmt's address may be reused by another session
+        FFmpegLog.Register(fmt, logSink);
         AVCodecContext* dec = null;
         var pkt = ffmpeg.av_packet_alloc();
         var frame = ffmpeg.av_frame_alloc();
@@ -229,7 +238,7 @@ public sealed unsafe partial class StreamSession : IDisposable
         }
         finally
         {
-            FFmpegLog.Unregister((void*)logContext);
+            FFmpegLog.Unregister((void*)logContext, logSink);
             OnConnectionClosed();
             ffmpeg.av_frame_free(&sw);
             ffmpeg.av_frame_free(&frame);
@@ -367,8 +376,10 @@ public sealed unsafe partial class StreamSession : IDisposable
     {
         reachedPlaying = true;
         if (_state == SessionState.Playing) return;
-        LastError = null;
-        LastErrorKind = null;
+        _lastError = null;
+        // Lines logged before playback (non-fatal warnings) must not reclassify a later stall.
+        _lastRtspStatus = 0;
+        _lastLogLine = null;
         SetState(SessionState.Playing);
     }
 
@@ -383,8 +394,7 @@ public sealed unsafe partial class StreamSession : IDisposable
 
     void Report(StreamError error)
     {
-        LastError = error.Detail;
-        LastErrorKind = error.Kind;
+        _lastError = error;
         try { ErrorOccurred?.Invoke(error); }
         catch (Exception) { /* isolated like StateChanged */ }
     }
