@@ -13,6 +13,11 @@ public static class AppPaths
     public static string SnapshotsDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), AppFolder);
 
+    public static string LogsDirectory => Path.Combine(DataDirectory, "logs");
+
+    public static string DefaultBackupDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), AppFolder);
+
     public static string SanitizeFileName(string name)
     {
         var invalid = Path.GetInvalidFileNameChars();
