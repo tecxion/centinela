@@ -14,14 +14,10 @@ public sealed partial class CameraTile : UserControl, IDisposable
     // Null when the camera has no usable URL (custom camera without one): the tile only shows the error.
     readonly StreamSession? _session;
     readonly bool _manage;
-    StreamSession? _recording;
-    // Every stopped recording still being finalized (UI thread only).
-    Task _finalizing = Task.CompletedTask;
     Task? _shutdown;
     WriteableBitmap? _bitmap;
     long _frameSequence;
     bool _disposed;
-    bool _recordingPauseNotified;
 
     public CameraTile(Camera camera, StreamKind kind, bool manage = true)
     {
@@ -59,6 +55,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
 
     public event Action<CameraTile>? EditRequested;
     public event Action<CameraTile>? DeleteRequested;
+    public event Action<CameraTile>? RecordRequested;
     public event Action<string, string?>? Notify;
 
     const string DragFormat = "CamaraWin.CameraId";
@@ -203,79 +200,29 @@ public sealed partial class CameraTile : UserControl, IDisposable
         }
     }
 
-    public bool IsRecording => _recording is not null;
+    void Record_Click(object sender, RoutedEventArgs e) => RecordRequested?.Invoke(this);
 
-    void Record_Click(object sender, RoutedEventArgs e)
+    /// <summary>Shows the recording owned by the window's RecordingController (dot and button).</summary>
+    public void SetRecordingStatus(RecordingStatus status)
     {
-        var name = Camera.Name;
-        if (_recording is not null)
+        if (status == RecordingStatus.Off)
         {
-            StopRecording().ContinueWith(finalize => Dispatcher.BeginInvoke(() =>
-            {
-                if (_disposed) return;
-                if (finalize.Exception is { } ex)
-                    Notify?.Invoke($"No se pudo cerrar la grabación de {name}: {ex.GetBaseException().Message}", null);
-                else
-                    Notify?.Invoke($"Grabación guardada en {AppPaths.RecordingsDirectory}", AppPaths.RecordingsDirectory);
-            }), TaskScheduler.Default);
-            Notify?.Invoke($"Guardando grabación de {name}…", null);
+            RecDot.Visibility = Visibility.Collapsed;
+            RecordButton.Content = "⏺";
+            RecordButton.ToolTip = "Grabar";
             return;
         }
-        var recording = new StreamSession(StreamUrlBuilder.Build(Camera, StreamKind.Main), Camera.UseUdp, decode: false);
-        recording.StartRecording(() => AppPaths.RecordingFile(name, DateTime.Now));
-        recording.RecordingFailed += message => Dispatcher.BeginInvoke(() =>
+        ShowRecordingDot(paused: status != RecordingStatus.Recording, status switch
         {
-            if (_recording != recording) return;
-            StopRecording();
-            Notify?.Invoke($"Grabación de {name} detenida: {message}", null);
+            RecordingStatus.Recording => "Grabando",
+            RecordingStatus.Paused => "Grabación en pausa: reconectando…",
+            _ => "Grabación: conectando…",
         });
-        recording.StateChanged += state => Dispatcher.BeginInvoke(() =>
-        {
-            if (_recording != recording || _disposed) return;
-            if (state == SessionState.AuthFailed)
-            {
-                StopRecording();
-                Notify?.Invoke($"No se pudo grabar {name}: credenciales incorrectas.", null);
-                return;
-            }
-            ShowRecordingState(state, name);
-        });
-        _recording = recording;
-        _recordingPauseNotified = false;
-        recording.Start();
-        ShowRecordingDot(paused: true, "Grabación: conectando…");
         RecordButton.Content = "⏹";
         RecordButton.ToolTip = "Detener grabación";
-        Notify?.Invoke($"Grabando {name}…", null);
     }
 
-    /// <summary>
-    /// Solid red while the recording session is playing (packets reach the file); hollow while it
-    /// (re)connects, with one status notice per interruption.
-    /// </summary>
-    void ShowRecordingState(SessionState state, string name)
-    {
-        switch (state)
-        {
-            case SessionState.Playing:
-                _recordingPauseNotified = false;
-                ShowRecordingDot(paused: false, "Grabando");
-                break;
-            case SessionState.Reconnecting:
-                ShowRecordingDot(paused: true, "Grabación en pausa: reconectando…");
-                if (!_recordingPauseNotified)
-                {
-                    _recordingPauseNotified = true;
-                    Notify?.Invoke($"Grabación de {name} en pausa: reconectando…", null);
-                }
-                break;
-            case SessionState.Connecting:
-                // Connecting follows Reconnecting on every retry; before the first Playing it is the initial connection.
-                ShowRecordingDot(paused: true, _recordingPauseNotified ? "Grabación en pausa: reconectando…" : "Grabación: conectando…");
-                break;
-        }
-    }
-
+    /// <summary>Solid red while recording; hollow while the recording session (re)connects.</summary>
     void ShowRecordingDot(bool paused, string tooltip)
     {
         RecDot.Visibility = Visibility.Visible;
@@ -286,37 +233,11 @@ public sealed partial class CameraTile : UserControl, IDisposable
         RecDot.ToolTip = tooltip;
     }
 
-    /// <summary>Stops the active recording; the returned task (also tracked for shutdown) completes once the file is finalized.</summary>
-    Task StopRecording()
-    {
-        var recording = _recording;
-        if (recording is null) return Task.CompletedTask;
-        _recording = null;
-        RecDot.Visibility = Visibility.Collapsed;
-        RecordButton.Content = "⏺";
-        RecordButton.ToolTip = "Grabar";
-        var finalize = Task.Run(() => FinalizeRecordingAsync(recording));
-        _finalizing = Task.WhenAll(_finalizing, finalize);
-        return finalize;
-    }
-
-    static async Task FinalizeRecordingAsync(StreamSession recording)
-    {
-        try
-        {
-            await recording.StopRecordingAsync().ConfigureAwait(false);
-        }
-        finally
-        {
-            recording.Dispose();
-        }
-    }
-
     public void RequestStop() => _session?.RequestStop();
 
     /// <summary>
-    /// Stops the live view and any recording, then finalizes recordings (active and already stopped)
-    /// and disposes the sessions off the UI thread. Call on the UI thread; repeated calls return the same task.
+    /// Stops the live view and disposes its session off the UI thread (recordings are owned by
+    /// RecordingController). Call on the UI thread; repeated calls return the same task.
     /// </summary>
     public Task ShutdownAsync()
     {
@@ -324,25 +245,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
         _disposed = true;
         CompositionTarget.Rendering -= OnRendering;
         var session = _session;
-        var recording = _recording;
-        _recording = null;
-        var finalizing = _finalizing;
-
         session?.RequestStop();
-        recording?.RequestStop();
-        _shutdown = Task.Run(async () =>
-        {
-            try
-            {
-                // WhenAll: a failing active finalize must not skip waiting for the earlier ones.
-                var finalizeActive = recording is null ? Task.CompletedTask : FinalizeRecordingAsync(recording);
-                await Task.WhenAll(finalizeActive, finalizing).ConfigureAwait(false);
-            }
-            finally
-            {
-                session?.Dispose();
-            }
-        });
+        _shutdown = session is null ? Task.CompletedTask : Task.Run(session.Dispose);
         return _shutdown;
     }
 

@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     readonly AppSettings _settings;
     readonly List<Camera> _cameras;
     readonly Dictionary<Guid, CameraTile> _tiles = [];
+    readonly RecordingController _recordings;
     // Shutdowns of tiles removed from the grid; OnClosed waits for them too (UI thread only).
     readonly List<Task> _pendingShutdowns = [];
     string? _statusRevealPath;
@@ -30,6 +31,12 @@ public partial class MainWindow : Window
         RestoreWindowPlacement();
         GridModeBox.SelectedIndex = Math.Max(0, Array.IndexOf(GridModes, _settings.GridMode));
         GridModeBox.SelectionChanged += GridMode_Changed;
+        _recordings = new RecordingController(Dispatcher);
+        _recordings.Notify += Notify;
+        _recordings.StatusChanged += (id, status) =>
+        {
+            foreach (var tile in TilesOf(id)) tile.SetRecordingStatus(status);
+        };
         RebuildGrid();
     }
 
@@ -64,18 +71,34 @@ public partial class MainWindow : Window
         tile.Notify += Notify;
         tile.FullscreenRequested += ShowFullscreen;
         tile.SwapRequested += SwapCameras;
+        tile.RecordRequested += t => ToggleRecording(t.Camera);
+        tile.SetRecordingStatus(_recordings.StatusOf(camera.Id));
         return tile;
+    }
+
+    /// <summary>Every tile showing this camera: its grid tile plus any open fullscreen view.</summary>
+    IEnumerable<CameraTile> TilesOf(Guid id)
+    {
+        if (_tiles.TryGetValue(id, out var tile)) yield return tile;
+        foreach (var window in OwnedWindows.OfType<FullscreenWindow>())
+            if (window.Tile.Camera.Id == id) yield return window.Tile;
+    }
+
+    void ToggleRecording(Camera camera)
+    {
+        if (_recordings.IsRecording(camera.Id)) _recordings.StopWithNotice(camera.Id);
+        else _recordings.Start(camera);
     }
 
     void ShowFullscreen(CameraTile tile)
     {
         var window = new FullscreenWindow(tile.Camera) { Owner = this };
         var name = tile.Camera.Name;
-        var wasRecording = false;
-        // Read before the window's Closed handler disposes the tile (which clears the recording).
-        window.Closing += (_, _) => wasRecording = window.TileIsRecording;
-        // Its tile may be recording: OnClosed waits for that shutdown like any other.
-        window.Closed += (_, _) => TrackShutdown(window.TileShutdown, name, wasRecording);
+        window.Tile.RecordRequested += t => ToggleRecording(t.Camera);
+        window.Tile.Notify += Notify;
+        window.Tile.SetRecordingStatus(_recordings.StatusOf(tile.Camera.Id));
+        // OnClosed waits for the live session's shutdown like any other.
+        window.Closed += (_, _) => TrackShutdown(window.Tile.ShutdownAsync(), name);
         window.Show();
     }
 
@@ -160,6 +183,8 @@ public partial class MainWindow : Window
         var dialog = new AddCameraDialog(tile.Camera, isNew: false) { Owner = this };
         if (dialog.ShowDialog() != true) return;
         var updated = dialog.Result;
+        // The URL may change: never keep recording from the old one.
+        if (_recordings.IsRecording(updated.Id)) _recordings.StopWithNotice(updated.Id);
         _cameras[_cameras.FindIndex(c => c.Id == updated.Id)] = updated;
         DisposeTile(updated.Id);
         SaveCameras();
@@ -171,6 +196,7 @@ public partial class MainWindow : Window
         var answer = MessageBox.Show(this, $"¿Eliminar la cámara «{tile.Camera.Name}»?", "CamaraWin",
             MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (answer != MessageBoxResult.Yes) return;
+        if (_recordings.IsRecording(tile.Camera.Id)) _recordings.StopWithNotice(tile.Camera.Id);
         _cameras.RemoveAll(c => c.Id == tile.Camera.Id);
         DisposeTile(tile.Camera.Id);
         SaveCameras();
@@ -196,31 +222,26 @@ public partial class MainWindow : Window
         Process.Start("explorer.exe", $"\"{AppPaths.RecordingsDirectory}\"");
     }
 
-    /// <summary>Removes the tile at once; its sessions stop and recordings finalize in the background.</summary>
+    /// <summary>Removes the tile at once; its live session stops in the background (recordings are unaffected).</summary>
     void DisposeTile(Guid id)
     {
         if (!_tiles.Remove(id, out var tile)) return;
         TileGrid.Children.Remove(tile);
-        var wasRecording = tile.IsRecording; // ShutdownAsync clears the recording: read it first.
-        TrackShutdown(tile.ShutdownAsync(), tile.Camera.Name, wasRecording);
+        TrackShutdown(tile.ShutdownAsync(), tile.Camera.Name);
     }
 
     /// <summary>
-    /// Keeps a tile shutdown in <see cref="_pendingShutdowns"/> until it completes, then reports the
-    /// saved recording or the failure. Call on the UI thread; wasRecording must be read before shutdown starts.
+    /// Keeps a tile shutdown in <see cref="_pendingShutdowns"/> until it completes, then reports any
+    /// failure. Call on the UI thread.
     /// </summary>
-    void TrackShutdown(Task shutdown, string name, bool wasRecording)
+    void TrackShutdown(Task shutdown, string name)
     {
         _pendingShutdowns.Add(shutdown);
         shutdown.ContinueWith(done => Dispatcher.BeginInvoke(() =>
         {
             _pendingShutdowns.Remove(shutdown);
-            var error = done.Exception?.GetBaseException().Message;
-            if (!wasRecording && error is null) return;
-            if (error is null) Notify($"Grabación de {name} detenida y guardada", AppPaths.RecordingsDirectory);
-            else if (wasRecording || done.Exception?.GetBaseException() is CamaraWin.Media.RecordingException)
-                Notify($"Error al guardar la grabación de {name}: {error}", AppPaths.RecordingsDirectory);
-            else Notify($"Error al detener la cámara {name}: {error}", null);
+            if (done.Exception?.GetBaseException().Message is { } error)
+                Notify($"Error al detener la cámara {name}: {error}", null);
         }), TaskScheduler.Default);
     }
 
@@ -260,8 +281,11 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        // Every tile shuts down in parallel; one bounded wait so recordings get their trailer.
-        var shutdowns = _tiles.Values.Select(tile => tile.ShutdownAsync()).Concat(_pendingShutdowns).ToArray();
+        // Tiles and recordings shut down in parallel; one bounded wait so recordings get their trailer.
+        var shutdowns = _tiles.Values.Select(tile => tile.ShutdownAsync())
+            .Concat(_pendingShutdowns)
+            .Append(_recordings.ShutdownAsync())
+            .ToArray();
         _tiles.Clear();
         try
         {
