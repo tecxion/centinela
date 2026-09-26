@@ -93,6 +93,39 @@ public sealed class StreamSessionTests(RtspTestServer server, ITestOutputHelper 
     }
 
     [SkippableFact]
+    public void Throwing_StateChanged_subscriber_does_not_break_the_session()
+    {
+        using var session = Open(server.Url("open"));
+        var calls = 0;
+        session.StateChanged += _ =>
+        {
+            Interlocked.Increment(ref calls);
+            throw new InvalidOperationException("subscriber failure");
+        };
+        session.Start();
+
+        Assert.True(TestUtil.WaitFor(() => session.Mailbox.Sequence > 5, Ten), $"state={session.State} error={session.LastError}");
+        Assert.Equal(SessionState.Playing, session.State);
+        Assert.True(calls >= 2, $"subscriber called {calls} times"); // Connecting + Playing
+    }
+
+    [SkippableFact]
+    public void LastError_is_cleared_when_playing_again()
+    {
+        using var session = Open(server.Url("open"));
+        string? errorWhileReconnecting = null;
+        session.StateChanged += s => { if (s == SessionState.Reconnecting) errorWhileReconnecting ??= session.LastError; };
+        session.Start();
+        Assert.True(TestUtil.WaitFor(() => session.State == SessionState.Playing, Ten), session.LastError);
+
+        server.RestartServer();
+
+        Assert.True(TestUtil.WaitFor(() => errorWhileReconnecting is not null && session.State == SessionState.Playing,
+            TimeSpan.FromSeconds(25)), $"state={session.State} error={session.LastError}");
+        Assert.Null(session.LastError);
+    }
+
+    [SkippableFact]
     public void Reconnects_after_server_restart()
     {
         using var session = Open(server.Url("open"));

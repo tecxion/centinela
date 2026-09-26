@@ -153,9 +153,13 @@ public sealed unsafe partial class StreamSession : IDisposable
             // Recording needs width/height for the MKV header, and latency does not matter there.
             if (!_decode) FFmpegException.ThrowIfError(ffmpeg.avformat_find_stream_info(fmt, null), "stream info");
 
+            // Remux-only sessions skip the decoder lookup so codecs we cannot decode can still be recorded.
             AVCodec* codec = null;
             var videoIndex = FFmpegException.ThrowIfError(
-                ffmpeg.av_find_best_stream(fmt, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0), "find video");
+                _decode
+                    ? ffmpeg.av_find_best_stream(fmt, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0)
+                    : ffmpeg.av_find_best_stream(fmt, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, null, 0),
+                "find video");
             var stream = fmt->streams[videoIndex];
             if (_decode) dec = OpenDecoder(codec, stream->codecpar, hwDevice);
 
@@ -290,6 +294,8 @@ public sealed unsafe partial class StreamSession : IDisposable
     void MarkPlaying(ref bool reachedPlaying)
     {
         reachedPlaying = true;
+        if (_state == SessionState.Playing) return;
+        LastError = null;
         SetState(SessionState.Playing);
     }
 
@@ -300,10 +306,17 @@ public sealed unsafe partial class StreamSession : IDisposable
     {
         if (_state == state) return;
         _state = state;
-        StateChanged?.Invoke(state);
+        try
+        {
+            StateChanged?.Invoke(state);
+        }
+        catch (Exception)
+        {
+            // A faulty subscriber must neither tear down a healthy stream nor crash this thread.
+        }
     }
 
-    // Recording hooks; Task 9 replaces these with real implementations.
+    // Recording hooks, implemented in StreamSession.Recording.cs.
     partial void OnVideoPacketCore(AVStream* stream, AVPacket* pkt);
     partial void OnConnectionClosedCore();
     partial void OnSessionEndingCore();
