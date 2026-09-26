@@ -40,17 +40,24 @@ public static class CameraBackup
             Version = Version,
             ExportedAt = (now ?? DateTime.UtcNow).ToUniversalTime(),
             Encryption = salt is null ? null : new EncryptionInfo { Salt = Convert.ToBase64String(salt) },
-            Cameras = cameras.OrderBy(c => c.Order).Select(c => new BackupCamera
+            Cameras = cameras.OrderBy(c => c.Order).Select(c =>
             {
-                Name = c.Name,
-                Brand = c.Brand,
-                Host = c.Host,
-                Port = c.Port,
-                User = c.User,
-                Password = key is null || c.Password.Length == 0 ? null : Encrypt(key, c.Password, Aad(c.Name, c.Host, c.Port)),
-                MainUrl = Strip(c.MainUrlOverride),
-                SubUrl = Strip(c.SubUrlOverride),
-                UseUdp = c.UseUdp,
+                var mainUrl = Strip(c.MainUrlOverride);
+                var subUrl = Strip(c.SubUrlOverride);
+                return new BackupCamera
+                {
+                    Name = c.Name,
+                    Brand = c.Brand,
+                    Host = c.Host,
+                    Port = c.Port,
+                    User = c.User,
+                    Password = key is null || c.Password.Length == 0
+                        ? null
+                        : Encrypt(key, c.Password, Aad(c.Name, c.Host, c.Port, mainUrl, subUrl)),
+                    MainUrl = mainUrl,
+                    SubUrl = subUrl,
+                    UseUdp = c.UseUdp,
+                };
             }).ToList(),
         };
         return JsonSerializer.Serialize(file, Json);
@@ -71,11 +78,13 @@ public static class CameraBackup
             throw new BackupFormatException("El archivo no es una copia de cámaras de CamaraWin.");
         if (file.Version > Version)
             throw new BackupFormatException("Esta copia se hizo con una versión más nueva de CamaraWin. Actualiza la aplicación.");
+        if (file.Version != Version)
+            throw new BackupFormatException("Versión de copia no soportada.");
 
         byte[]? key = null;
         if (file.Encryption is { } encryption)
         {
-            if (encryption.Iterations != Iterations)
+            if (encryption.Iterations != Iterations || encryption.Algorithm != "AES-256-GCM" || encryption.Kdf != "PBKDF2-SHA256")
                 throw new BackupFormatException("Parámetros de cifrado no soportados.");
             var salt = DecodeSalt(encryption.Salt);
             var passphrase = askPassphrase() ?? throw new OperationCanceledException();
@@ -85,6 +94,8 @@ public static class CameraBackup
         var cameras = new List<Camera>();
         foreach (var (entry, index) in (file.Cameras ?? []).Select((e, i) => (e, i)))
         {
+            if (entry is null)
+                throw new BackupFormatException("El archivo está dañado o no es un JSON válido.");
             var name = string.IsNullOrWhiteSpace(entry.Name) ? $"Cámara {index + 1}" : entry.Name;
             var host = entry.Host ?? "";
             var port = entry.Port is > 0 and <= 65535 ? entry.Port : 554;
@@ -95,7 +106,7 @@ public static class CameraBackup
                 Host = host,
                 Port = port,
                 User = entry.User ?? "",
-                Password = key is null || entry.Password is null ? "" : Decrypt(key, entry.Password, Aad(entry.Name ?? "", host, entry.Port)),
+                Password = key is null || entry.Password is null ? "" : Decrypt(key, entry.Password, Aad(entry.Name ?? "", host, entry.Port, entry.MainUrl, entry.SubUrl)),
                 MainUrlOverride = entry.MainUrl,
                 SubUrlOverride = entry.SubUrl,
                 UseUdp = entry.UseUdp,
@@ -120,7 +131,9 @@ public static class CameraBackup
         throw new BackupFormatException("Parámetros de cifrado no soportados.");
     }
 
-    static string Aad(string name, string host, int port) => $"{name}|{host}|{port}";
+    /// <summary>Binds each encrypted password to the entry's identity and override URLs.</summary>
+    static string Aad(string name, string host, int port, string? mainUrl, string? subUrl) =>
+        $"{name}|{host}|{port}|{mainUrl ?? ""}|{subUrl ?? ""}";
 
     static byte[] DeriveKey(string passphrase, byte[] salt) =>
         Rfc2898DeriveBytes.Pbkdf2(Encoding.UTF8.GetBytes(passphrase), salt, Iterations, HashAlgorithmName.SHA256, KeySize);
@@ -176,6 +189,7 @@ public static class CameraBackup
     sealed class BackupCamera
     {
         public string? Name { get; set; }
+        [JsonConverter(typeof(LenientBrandConverter))]
         public Brand Brand { get; set; }
         public string? Host { get; set; }
         public int Port { get; set; } = 554;
@@ -184,5 +198,21 @@ public static class CameraBackup
         public string? MainUrl { get; set; }
         public string? SubUrl { get; set; }
         public bool UseUdp { get; set; }
+    }
+
+    /// <summary>Unknown brand names or numbers map to <see cref="Brand.Custom"/> instead of failing the whole file.</summary>
+    sealed class LenientBrandConverter : JsonConverter<Brand>
+    {
+        public override Brand Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            reader.TokenType switch
+            {
+                JsonTokenType.String => Enum.TryParse<Brand>(reader.GetString(), ignoreCase: true, out var b) && Enum.IsDefined(b) ? b : Brand.Custom,
+                JsonTokenType.Number => reader.TryGetInt32(out var n) && Enum.IsDefined((Brand)n) ? (Brand)n : Brand.Custom,
+                JsonTokenType.Null => Brand.Custom,
+                _ => throw new JsonException("Invalid brand."),
+            };
+
+        public override void Write(Utf8JsonWriter writer, Brand value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.ToString());
     }
 }

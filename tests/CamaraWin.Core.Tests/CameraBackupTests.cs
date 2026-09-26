@@ -106,4 +106,72 @@ public class CameraBackupTests
         Assert.Throws<BackupFormatException>(() =>
             CameraBackup.Import(node.ToJsonString(), () => throw new InvalidOperationException("must not ask")));
     }
+
+    [Fact]
+    public void Null_camera_entry_throws_format() =>
+        Assert.Throws<BackupFormatException>(() =>
+            CameraBackup.Import("""{ "format": "camarawin-cameras", "version": 1, "cameras": [null] }""", () => null));
+
+    [Fact]
+    public void Editing_main_url_of_encrypted_entry_fails_authentication()
+    {
+        var node = JsonNode.Parse(CameraBackup.Export(Sample(), "clave-larga"))!;
+        node["cameras"]![0]!["mainUrl"] = "rtsp://evil/x";
+        Assert.Throws<BackupPassphraseException>(() => CameraBackup.Import(node.ToJsonString(), () => "clave-larga"));
+    }
+
+    [Fact]
+    public void Editing_sub_url_of_encrypted_entry_fails_authentication()
+    {
+        var node = JsonNode.Parse(CameraBackup.Export(Sample(), "clave-larga"))!;
+        node["cameras"]![1]!["subUrl"] = "rtsp://evil/y";
+        Assert.Throws<BackupPassphraseException>(() => CameraBackup.Import(node.ToJsonString(), () => "clave-larga"));
+    }
+
+    [Fact]
+    public void Encrypted_round_trip_with_override_urls_restores_password()
+    {
+        var cam = new Camera { Name = "U", Brand = Brand.Custom, MainUrlOverride = "rtsp://bob:s3cret@h/x", SubUrlOverride = "rtsp://h/y", Password = "pw" };
+        var result = CameraBackup.Import(CameraBackup.Export([cam], "clave-larga"), () => "clave-larga");
+        Assert.Equal(("pw", "rtsp://h/x", "rtsp://h/y"), (result.Cameras[0].Password, result.Cameras[0].MainUrlOverride, result.Cameras[0].SubUrlOverride));
+    }
+
+    [Theory]
+    [InlineData("\"Desconocida\"")]
+    [InlineData("99")]
+    [InlineData("null")]
+    public void Unknown_brand_imports_as_custom(string brand)
+    {
+        var json = """{ "format": "camarawin-cameras", "version": 1, "cameras": [ { "name": "A", "brand": BRAND, "host": "h" } ] }""".Replace("BRAND", brand);
+        Assert.Equal(Brand.Custom, CameraBackup.Import(json, () => null).Cameras[0].Brand);
+    }
+
+    [Fact]
+    public void Brand_names_are_case_insensitive() =>
+        Assert.Equal(Brand.Imou, CameraBackup.Import(
+            """{ "format": "camarawin-cameras", "version": 1, "cameras": [ { "name": "A", "brand": "imou", "host": "h" } ] }""", () => null).Cameras[0].Brand);
+
+    [Theory]
+    [InlineData("""{ "format": "camarawin-cameras", "cameras": [] }""")]
+    [InlineData("""{ "format": "camarawin-cameras", "version": 0, "cameras": [] }""")]
+    [InlineData("""{ "format": "camarawin-cameras", "version": -1, "cameras": [] }""")]
+    public void Missing_or_non_positive_version_throws_format(string json)
+    {
+        var e = Assert.Throws<BackupFormatException>(() => CameraBackup.Import(json, () => null));
+        Assert.Equal("Versión de copia no soportada.", e.Message);
+    }
+
+    [Theory]
+    [InlineData("algorithm", "AES-128-CBC")]
+    [InlineData("kdf", "scrypt")]
+    [InlineData("salt", "***not base64***")]
+    [InlineData("salt", "AAAA")]
+    public void Unsupported_encryption_parameters_throw_format(string field, string value)
+    {
+        var node = JsonNode.Parse(CameraBackup.Export(Sample(), "clave-larga"))!;
+        node["encryption"]![field] = value;
+        var e = Assert.Throws<BackupFormatException>(() =>
+            CameraBackup.Import(node.ToJsonString(), () => throw new InvalidOperationException("must not ask")));
+        Assert.Equal("Parámetros de cifrado no soportados.", e.Message);
+    }
 }

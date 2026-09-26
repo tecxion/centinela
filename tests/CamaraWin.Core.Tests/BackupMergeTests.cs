@@ -42,4 +42,41 @@ public class BackupMergeTests
         var r = BackupMerge.Merge(existing, [new Camera { Brand = Brand.Custom, MainUrlOverride = "RTSP://h/x", Name = "N" }]);
         Assert.Equal((0, 1), (r.Added, r.Updated));
     }
+
+    [Fact]
+    public void Passwordless_import_cannot_redirect_stored_password_to_other_urls()
+    {
+        var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "keep", MainUrlOverride = null, SubUrlOverride = "rtsp://h/sub" } };
+        var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Password = "", MainUrlOverride = "rtsp://evil/x", SubUrlOverride = "rtsp://evil/y" }]);
+        Assert.Equal(("keep", (string?)null, "rtsp://h/sub"), (r.Cameras[0].Password, r.Cameras[0].MainUrlOverride, r.Cameras[0].SubUrlOverride));
+    }
+
+    [Fact]
+    public void Import_with_password_may_change_urls()
+    {
+        var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "keep" } };
+        var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Password = "new", MainUrlOverride = "rtsp://h/x" }]);
+        Assert.Equal(("new", "rtsp://h/x"), (r.Cameras[0].Password, r.Cameras[0].MainUrlOverride));
+    }
+
+    [Fact]
+    public void Duplicate_imported_entries_are_counted_once()
+    {
+        var r = BackupMerge.Merge([],
+        [
+            new Camera { Name = "A", Host = "h", Port = 554, Password = "" },
+            new Camera { Name = "B", Host = "H", Port = 554, Password = "" },
+        ]);
+        Assert.Equal((1, 0, 1), (r.Added, r.Updated, r.WithoutPassword));
+        Assert.Empty(r.UpdatedIds);
+        Assert.Equal("B", Assert.Single(r.Cameras).Name);
+    }
+
+    [Fact]
+    public void Existing_camera_matched_twice_counts_once()
+    {
+        var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "" } };
+        var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554 }, new Camera { Host = "h", Port = 554 }]);
+        Assert.Equal((0, 1, 1), (r.Added, r.Updated, r.WithoutPassword));
+    }
 }

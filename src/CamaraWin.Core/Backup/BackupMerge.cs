@@ -9,8 +9,8 @@ public static class BackupMerge
     {
         var result = existing.Select(c => c.Clone()).ToList();
         var updatedIds = new HashSet<Guid>();
-        var touched = new List<Camera>();
-        var added = 0;
+        var addedIds = new HashSet<Guid>();
+        var touched = new Dictionary<Guid, Camera>();
         var nextOrder = result.Count == 0 ? 0 : result.Max(c => c.Order) + 1;
         foreach (var incoming in imported)
         {
@@ -21,24 +21,30 @@ public static class BackupMerge
                 copy.Id = Guid.NewGuid();
                 copy.Order = nextOrder++;
                 result.Add(copy);
-                touched.Add(copy);
-                added++;
+                addedIds.Add(copy.Id);
+                touched[copy.Id] = copy;
                 continue;
             }
+            // A password-less entry must not redirect a stored password to different URLs.
+            var keepsStoredPassword = incoming.Password.Length == 0 && match.Password.Length > 0;
             match.Name = incoming.Name;
             match.Brand = incoming.Brand;
             match.Host = incoming.Host;
             match.Port = incoming.Port;
             match.User = incoming.User;
             if (incoming.Password.Length > 0) match.Password = incoming.Password;
-            match.MainUrlOverride = incoming.MainUrlOverride;
-            match.SubUrlOverride = incoming.SubUrlOverride;
+            if (!keepsStoredPassword || SameUrl(match.MainUrlOverride, incoming.MainUrlOverride))
+                match.MainUrlOverride = incoming.MainUrlOverride;
+            if (!keepsStoredPassword || SameUrl(match.SubUrlOverride, incoming.SubUrlOverride))
+                match.SubUrlOverride = incoming.SubUrlOverride;
             match.UseUdp = incoming.UseUdp;
-            updatedIds.Add(match.Id);
-            touched.Add(match);
+            if (!addedIds.Contains(match.Id)) updatedIds.Add(match.Id);
+            touched[match.Id] = match;
         }
-        return new MergeResult(result, added, updatedIds.Count, touched.Count(c => c.Password.Length == 0), updatedIds);
+        return new MergeResult(result, addedIds.Count, updatedIds.Count, touched.Values.Count(c => c.Password.Length == 0), updatedIds);
     }
+
+    static bool SameUrl(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
     static bool SameCamera(Camera a, Camera b) =>
         a.Host.Length > 0 && b.Host.Length > 0
