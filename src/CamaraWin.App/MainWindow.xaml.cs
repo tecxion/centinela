@@ -12,6 +12,8 @@ public partial class MainWindow : Window
     readonly AppSettings _settings;
     readonly List<Camera> _cameras;
     readonly Dictionary<Guid, CameraTile> _tiles = [];
+    // Shutdowns of tiles removed from the grid; OnClosed waits for them too (UI thread only).
+    readonly List<Task> _pendingShutdowns = [];
     string? _statusRevealPath;
 
     public MainWindow()
@@ -109,19 +111,50 @@ public partial class MainWindow : Window
         Process.Start("explorer.exe", $"\"{AppPaths.RecordingsDirectory}\"");
     }
 
+    /// <summary>Removes the tile at once; its sessions stop and recordings finalize in the background.</summary>
     void DisposeTile(Guid id)
     {
         if (!_tiles.Remove(id, out var tile)) return;
         TileGrid.Children.Remove(tile);
-        tile.Dispose();
+        var name = tile.Camera.Name;
+        var wasRecording = tile.IsRecording;
+        var shutdown = tile.ShutdownAsync();
+        _pendingShutdowns.Add(shutdown);
+        shutdown.ContinueWith(done => Dispatcher.BeginInvoke(() =>
+        {
+            _pendingShutdowns.Remove(shutdown);
+            var error = done.Exception?.GetBaseException().Message;
+            if (!wasRecording && error is null) return;
+            if (error is null) Notify($"Grabación de {name} detenida y guardada", AppPaths.RecordingsDirectory);
+            else Notify($"Error al detener la cámara {name}: {error}", null);
+        }), TaskScheduler.Default);
     }
 
-    void SaveCameras() => _store.Save(_cameras);
+    void SaveCameras()
+    {
+        try
+        {
+            _store.Save(_cameras);
+        }
+        catch (Exception ex)
+        {
+            Notify($"No se pudieron guardar las cámaras: {ex.Message}", null);
+        }
+    }
 
     protected override void OnClosed(EventArgs e)
     {
-        foreach (var tile in _tiles.Values) tile.RequestStop();
-        foreach (var tile in _tiles.Values) tile.Dispose();
+        // Every tile shuts down in parallel; one bounded wait so recordings get their trailer.
+        var shutdowns = _tiles.Values.Select(tile => tile.ShutdownAsync()).Concat(_pendingShutdowns).ToArray();
+        _tiles.Clear();
+        try
+        {
+            Task.WaitAll(shutdowns, TimeSpan.FromSeconds(8));
+        }
+        catch (AggregateException)
+        {
+            // Failures were already reported or cannot be shown any more; exit anyway.
+        }
         base.OnClosed(e);
     }
 }

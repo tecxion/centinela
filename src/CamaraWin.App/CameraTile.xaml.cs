@@ -13,6 +13,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
     readonly StreamSession _session;
     readonly bool _manage;
     StreamSession? _recording;
+    // Every stopped recording still being finalized (UI thread only).
+    Task _finalizing = Task.CompletedTask;
+    Task? _shutdown;
     WriteableBitmap? _bitmap;
     long _frameSequence;
     bool _disposed;
@@ -84,13 +87,14 @@ public sealed partial class CameraTile : UserControl, IDisposable
         SnapshotButton.IsEnabled = false;
         try
         {
-            Notify?.Invoke(await SaveMainStreamSnapshotAsync(path)
-                ? $"Captura guardada: {path}"
-                : "Aún no hay imagen para capturar.", File.Exists(path) ? path : null);
+            var saved = await SaveMainStreamSnapshotAsync(path);
+            if (_disposed) return;
+            Notify?.Invoke(saved ? $"Captura guardada: {path}" : "Aún no hay imagen para capturar.",
+                File.Exists(path) ? path : null);
         }
         catch (Exception ex)
         {
-            Notify?.Invoke($"No se pudo guardar la captura: {ex.Message}", null);
+            if (!_disposed) Notify?.Invoke($"No se pudo guardar la captura: {ex.Message}", null);
         }
         finally
         {
@@ -102,27 +106,44 @@ public sealed partial class CameraTile : UserControl, IDisposable
     async Task<bool> SaveMainStreamSnapshotAsync(string path)
     {
         if (Kind == StreamKind.Main) return await _session.SaveSnapshotAsync(path);
-        using var main = new StreamSession(StreamUrlBuilder.Build(Camera, StreamKind.Main), Camera.UseUdp);
-        main.SetTargetSize(2, 2);
-        main.Start();
-        var deadline = DateTime.UtcNow.AddSeconds(8);
-        while (DateTime.UtcNow < deadline)
+        var main = new StreamSession(StreamUrlBuilder.Build(Camera, StreamKind.Main), Camera.UseUdp);
+        try
         {
-            if (main.Mailbox.Sequence > 0) return await main.SaveSnapshotAsync(path);
-            await Task.Delay(100);
+            main.SetTargetSize(2, 2);
+            main.Start();
+            var deadline = DateTime.UtcNow.AddSeconds(8);
+            while (DateTime.UtcNow < deadline && !_disposed)
+            {
+                if (main.Mailbox.Sequence > 0) return await main.SaveSnapshotAsync(path);
+                await Task.Delay(100);
+            }
+            return !_disposed && await _session.SaveSnapshotAsync(path);
         }
-        return await _session.SaveSnapshotAsync(path);
+        finally
+        {
+            // Stopping joins the session thread: keep that off the UI thread.
+            _ = Task.Run(main.Dispose);
+        }
     }
+
+    public bool IsRecording => _recording is not null;
 
     void Record_Click(object sender, RoutedEventArgs e)
     {
+        var name = Camera.Name;
         if (_recording is not null)
         {
-            StopRecording();
-            Notify?.Invoke($"Grabación guardada en {AppPaths.RecordingsDirectory}", AppPaths.RecordingsDirectory);
+            StopRecording().ContinueWith(finalize => Dispatcher.BeginInvoke(() =>
+            {
+                if (_disposed) return;
+                if (finalize.Exception is { } ex)
+                    Notify?.Invoke($"No se pudo cerrar la grabación de {name}: {ex.GetBaseException().Message}", null);
+                else
+                    Notify?.Invoke($"Grabación guardada en {AppPaths.RecordingsDirectory}", AppPaths.RecordingsDirectory);
+            }), TaskScheduler.Default);
+            Notify?.Invoke($"Guardando grabación de {name}…", null);
             return;
         }
-        var name = Camera.Name;
         var recording = new StreamSession(StreamUrlBuilder.Build(Camera, StreamKind.Main), Camera.UseUdp, decode: false);
         recording.StartRecording(() => AppPaths.RecordingFile(name, DateTime.Now));
         recording.RecordingFailed += message => Dispatcher.BeginInvoke(() =>
@@ -149,34 +170,65 @@ public sealed partial class CameraTile : UserControl, IDisposable
         Notify?.Invoke($"Grabando {name}…", null);
     }
 
-    void StopRecording()
+    /// <summary>Stops the active recording; the returned task (also tracked for shutdown) completes once the file is finalized.</summary>
+    Task StopRecording()
     {
         var recording = _recording;
-        if (recording is null) return;
+        if (recording is null) return Task.CompletedTask;
         _recording = null;
         RecDot.Visibility = Visibility.Collapsed;
         RecordButton.Content = "⏺";
         RecordButton.ToolTip = "Grabar";
-        _ = Task.Run(async () =>
+        var finalize = Task.Run(() => FinalizeRecordingAsync(recording));
+        _finalizing = Task.WhenAll(_finalizing, finalize);
+        return finalize;
+    }
+
+    static async Task FinalizeRecordingAsync(StreamSession recording)
+    {
+        try
         {
-            await recording.StopRecordingAsync();
+            await recording.StopRecordingAsync().ConfigureAwait(false);
+        }
+        finally
+        {
             recording.Dispose();
-        });
+        }
     }
 
     public void RequestStop() => _session.RequestStop();
 
-    public void Dispose()
+    /// <summary>
+    /// Stops the live view and any recording, then finalizes recordings (active and already stopped)
+    /// and disposes the sessions off the UI thread. Call on the UI thread; repeated calls return the same task.
+    /// </summary>
+    public Task ShutdownAsync()
     {
-        if (_disposed) return;
+        if (_shutdown is not null) return _shutdown;
         _disposed = true;
         CompositionTarget.Rendering -= OnRendering;
-        if (_recording is { } recording)
+        var session = _session;
+        var recording = _recording;
+        _recording = null;
+        var finalizing = _finalizing;
+
+        session.RequestStop();
+        recording?.RequestStop();
+        _shutdown = Task.Run(async () =>
         {
-            _recording = null;
-            recording.StopRecordingAsync().Wait(TimeSpan.FromSeconds(3));
-            recording.Dispose();
-        }
-        _session.Dispose();
+            try
+            {
+                if (recording is not null) await FinalizeRecordingAsync(recording).ConfigureAwait(false);
+                await finalizing.ConfigureAwait(false);
+            }
+            finally
+            {
+                session.Dispose();
+            }
+        });
+        return _shutdown;
     }
+
+    /// <summary>Starts <see cref="ShutdownAsync"/> without waiting for it.</summary>
+    public void Dispose() => _ = ShutdownAsync();
 }

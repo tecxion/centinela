@@ -114,7 +114,8 @@ public partial class AddCameraDialog : Window
 
     void StopTest()
     {
-        _test?.Dispose();
+        // Stopping joins the session thread: keep that off the UI thread.
+        if (_test is { } test) _ = Task.Run(test.Dispose);
         _test = null;
         _previewSequence = 0;
     }
