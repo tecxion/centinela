@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CamaraWin.Core;
 using FFmpeg.AutoGen;
 
@@ -38,6 +39,13 @@ public sealed unsafe partial class StreamSession : IDisposable
     volatile bool _deadlineHit;
     volatile int _lastRtspStatus;          // 0 = none, for the current attempt
     volatile string? _lastLogLine;
+    StreamStats _stats = StreamStats.Empty;
+    long _lastFrameTimestamp;       // Stopwatch ticks, 0 = none
+    long _statsWindowStart;
+    int _statsFrames;
+    double _fps;
+    double _latencyEma = -1;
+    long _packetTimestamp;          // when the packet being decoded was read
 
     public StreamSession(string url, bool useUdp = false, bool decode = true)
     {
@@ -62,6 +70,16 @@ public sealed unsafe partial class StreamSession : IDisposable
     public event Action<SessionState>? StateChanged;
     /// <summary>Raised on the session thread for every failed attempt or stall; subscriber exceptions are isolated.</summary>
     public event Action<StreamError>? ErrorOccurred;
+
+    public StreamStats Stats
+    {
+        get
+        {
+            var stats = Volatile.Read(ref _stats);
+            var last = Interlocked.Read(ref _lastFrameTimestamp);
+            return last == 0 ? stats : stats with { SinceLastFrame = Stopwatch.GetElapsedTime(last) };
+        }
+    }
 
     /// <summary>Box the decoded image must fit in, in device pixels. 0 = native size.</summary>
     public void SetTargetSize(int width, int height)
@@ -199,6 +217,7 @@ public sealed unsafe partial class StreamSession : IDisposable
             {
                 ArmDeadline(StallTimeoutMs);
                 FFmpegException.ThrowIfError(ffmpeg.av_read_frame(fmt, pkt), "read");
+                _packetTimestamp = Stopwatch.GetTimestamp();
                 if (pkt->stream_index == videoIndex)
                 {
                     OnVideoPacket(stream, pkt);
@@ -286,6 +305,7 @@ public sealed unsafe partial class StreamSession : IDisposable
 
     void PresentFrame(AVFrame* frame, AVFrame* sw)
     {
+        var hardware = frame->format == (int)AVPixelFormat.AV_PIX_FMT_D3D11;
         var src = frame;
         if (frame->format == (int)AVPixelFormat.AV_PIX_FMT_D3D11)
         {
@@ -312,6 +332,25 @@ public sealed unsafe partial class StreamSession : IDisposable
                 new byte*[] { dst, null, null, null }, new[] { target.Stride, 0, 0, 0 });
         }
         Mailbox.Publish(target);
+        UpdateStats(hardware);
+    }
+
+    void UpdateStats(bool hardware)
+    {
+        var now = Stopwatch.GetTimestamp();
+        var latency = Stopwatch.GetElapsedTime(_packetTimestamp, now).TotalMilliseconds;
+        _latencyEma = _latencyEma < 0 ? latency : _latencyEma * 0.9 + latency * 0.1;
+        _statsFrames++;
+        if (_statsWindowStart == 0) _statsWindowStart = now;
+        var window = Stopwatch.GetElapsedTime(_statsWindowStart, now).TotalSeconds;
+        if (window >= 1)
+        {
+            _fps = _statsFrames / window;
+            _statsFrames = 0;
+            _statsWindowStart = now;
+        }
+        Interlocked.Exchange(ref _lastFrameTimestamp, now);
+        Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero));
     }
 
     void KeepForSnapshot(AVFrame* src)

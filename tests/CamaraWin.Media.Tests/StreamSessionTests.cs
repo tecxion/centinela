@@ -141,4 +141,18 @@ public sealed class StreamSessionTests(RtspTestServer server, ITestOutputHelper 
             lock (states) return states.Contains(SessionState.Reconnecting) && session.State == SessionState.Playing;
         }, TimeSpan.FromSeconds(25)), $"state={session.State} error={session.LastError}");
     }
+
+    [SkippableFact]
+    public void Stats_report_fps_latency_and_freshness()
+    {
+        using var session = Open(server.Url("open"));
+        session.Start();
+        Assert.True(TestUtil.WaitFor(() => session.State == SessionState.Playing, Ten), session.LastError);
+        Thread.Sleep(2500);
+        var stats = session.Stats;
+        output.WriteLine($"fps={stats.Fps:0.0} latency={stats.LatencyMs:0.0}ms hw={stats.HardwareDecoding} since={stats.SinceLastFrame.TotalMilliseconds:0}ms");
+        Assert.InRange(stats.Fps, 15, 35);
+        Assert.InRange(stats.LatencyMs, 0.01, 1000);
+        Assert.True(stats.SinceLastFrame < TimeSpan.FromSeconds(1));
+    }
 }
