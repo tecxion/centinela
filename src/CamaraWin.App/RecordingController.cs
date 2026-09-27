@@ -51,7 +51,7 @@ public sealed class RecordingController(Dispatcher dispatcher)
         session.RecordingFailed += message => dispatcher.BeginInvoke(() =>
         {
             if (!IsCurrent(entry)) return;
-            _ = Stop(camera.Id);
+            StopObserved(camera.Id, name);
             Failure?.Invoke($"Grabación de {name} detenida: {message}");
         });
         session.ErrorOccurred += error => dispatcher.BeginInvoke(() =>
@@ -64,7 +64,7 @@ public sealed class RecordingController(Dispatcher dispatcher)
             SessionStateChanged?.Invoke(camera, state);
             if (state == SessionState.AuthFailed)
             {
-                _ = Stop(camera.Id);
+                StopObserved(camera.Id, name);
                 Failure?.Invoke($"No se pudo grabar {name}: contraseña incorrecta.");
                 return;
             }
@@ -112,6 +112,12 @@ public sealed class RecordingController(Dispatcher dispatcher)
                 Notify?.Invoke($"Grabación de {name} guardada en {AppPaths.RecordingsDirectory}", AppPaths.RecordingsDirectory);
         }), TaskScheduler.Default);
     }
+
+    /// <summary>Stop after an automatic failure: the file is still finalized, and a finalize fault is reported too.</summary>
+    void StopObserved(Guid cameraId, string name) =>
+        Stop(cameraId).ContinueWith(done => dispatcher.BeginInvoke(() =>
+            Failure?.Invoke($"No se pudo cerrar la grabación de {name}: {done.Exception!.GetBaseException().Message}")),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
 
     public void StopAllWithNotice()
     {

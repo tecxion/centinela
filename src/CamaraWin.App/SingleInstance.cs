@@ -1,12 +1,14 @@
 using System.Runtime.InteropServices;
+using CamaraWin.Core;
 
 namespace CamaraWin.App;
 
 /// <summary>One CamaraWin per user session: a later launch wakes the first one and exits.</summary>
 static class SingleInstance
 {
-    const string MutexName = @"Local\CamaraWin.SingleInstance";
-    const string EventName = @"Local\CamaraWin.Activate";
+    // A CAMARAWIN_DATA_DIR run gets its own names, so a test build never wakes (or yields to) the user's instance.
+    static readonly string MutexName = @"Local\CamaraWin.SingleInstance" + AppPaths.InstanceSuffix;
+    static readonly string EventName = @"Local\CamaraWin.Activate" + AppPaths.InstanceSuffix;
     // Held for the life of the process; the OS releases the mutex when the process ends.
     static Mutex? _mutex;
     static EventWaitHandle? _activate;

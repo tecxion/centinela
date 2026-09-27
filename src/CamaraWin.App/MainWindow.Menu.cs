@@ -1,6 +1,4 @@
 using System.IO;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Windows;
 using CamaraWin.Core;
 using Microsoft.Win32;
@@ -18,6 +16,8 @@ public partial class MainWindow
     (string Folder, List<Camera> Cameras)? _pendingAutomaticBackup;
     bool _automaticBackupRunning;
     Task _automaticBackupWorker = Task.CompletedTask;
+    // The latest manual export (only one runs at a time); the exit wait includes it.
+    Task _manualExport = Task.CompletedTask;
 
     string BackupFolder => string.IsNullOrWhiteSpace(_settings.BackupFolder) ? AppPaths.DefaultBackupDirectory : _settings.BackupFolder;
 
@@ -47,7 +47,7 @@ public partial class MainWindow
         try
         {
             var json = await File.ReadAllTextAsync(path);
-            var encrypted = IsEncrypted(json);
+            var encrypted = CameraBackup.IsEncrypted(json);
             while (true)
             {
                 string? passphrase = null;
@@ -80,22 +80,6 @@ public partial class MainWindow
         }
     }
 
-    /// <summary>
-    /// Whether the backup carries encrypted passwords. Malformed files report false so that
-    /// <see cref="CameraBackup.Import"/> produces its own format error.
-    /// </summary>
-    static bool IsEncrypted(string json)
-    {
-        try
-        {
-            return JsonNode.Parse(json) is JsonObject root && root["encryption"] is JsonObject;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
-
     void ApplyImport(BackupImport imported)
     {
         var merge = BackupMerge.Merge(_cameras, imported.Cameras);
@@ -109,9 +93,16 @@ public partial class MainWindow
         _cameras.Clear();
         _cameras.AddRange(merge.Cameras);
         SaveCameras();
+        var summary = $"{merge.Added} añadidas, {merge.Updated} actualizadas, {merge.WithoutPassword} sin contraseña.";
+        if (IsHiddenInTray)
+        {
+            // Hidden in the tray: no live tiles (ShowFromTray rebuilds the view) and no dialog owned by a hidden window.
+            Notify($"Importación terminada: {summary}", null);
+            _tray.ShowBalloon("Importar", summary);
+            return;
+        }
         RebuildView();
-        MessageBox.Show(this, $"{merge.Added} añadidas, {merge.Updated} actualizadas, {merge.WithoutPassword} sin contraseña.",
-            "Importar", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(this, summary, "Importar", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     async void Export_Click(object sender, RoutedEventArgs e)
@@ -133,11 +124,16 @@ public partial class MainWindow
         Notify(passphrase is null ? "Exportando…" : "Cifrando la copia…", null);
         try
         {
-            await Task.Run(() => File.WriteAllText(path, CameraBackup.Export(snapshot, passphrase)));
+            // Atomic, and tracked so that exiting meanwhile waits for it instead of cutting the file short.
+            var export = Task.Run(() => BackupWriter.WriteAtomic(path, CameraBackup.Export(snapshot, passphrase)));
+            _manualExport = export;
+            await export;
+            if (_closed) return;
             Notify($"Copia exportada: {path}", path);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            if (_closed) return;
             Notify("", null);
             MessageBox.Show(this, ex.Message, "Exportar", MessageBoxButton.OK, MessageBoxImage.Error);
         }

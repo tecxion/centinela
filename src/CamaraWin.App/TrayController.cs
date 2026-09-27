@@ -14,13 +14,17 @@ sealed class TrayController : IDisposable
     // Set while the check mark is changed from code, so only user clicks raise AutoStartToggled.
     bool _settingAutoStart;
 
-    public TrayController(bool autoStartEnabled)
+    /// <param name="autoStartAvailable">False hides «Arrancar con Windows» (test runs must not touch the Run key).</param>
+    public TrayController(bool autoStartEnabled, bool autoStartAvailable = true)
     {
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Abrir", null, (_, _) => OpenRequested?.Invoke());
         _recordAll = new Forms.ToolStripMenuItem("Grabar todas", null, (_, _) => RecordAllRequested?.Invoke());
         menu.Items.Add(_recordAll);
-        _autoStart = new Forms.ToolStripMenuItem("Arrancar con Windows") { CheckOnClick = true, Checked = autoStartEnabled };
+        _autoStart = new Forms.ToolStripMenuItem("Arrancar con Windows")
+        {
+            CheckOnClick = true, Checked = autoStartEnabled, Visible = autoStartAvailable,
+        };
         _autoStart.CheckedChanged += (_, _) =>
         {
             if (!_settingAutoStart) AutoStartToggled?.Invoke(_autoStart.Checked);

@@ -66,8 +66,12 @@ public partial class MainWindow : Window
             if (window.Tile.Camera.Id == id) yield return window.Tile;
     }
 
-    void ToggleRecording(Camera camera)
+    /// <summary>
+    /// Uses the current camera with that Id (the tile may hold an older copy); does nothing if it was deleted.
+    /// </summary>
+    void ToggleRecording(Camera shown)
     {
+        if (_cameras.FirstOrDefault(c => c.Id == shown.Id) is not { } camera) return;
         if (_recordings.IsRecording(camera.Id)) _recordings.StopWithNotice(camera.Id);
         else _recordings.Start(camera);
     }
@@ -314,6 +318,7 @@ public partial class MainWindow : Window
             .Concat(_pendingShutdowns)
             .Append(_recordings.ShutdownAsync())
             .Append(AutomaticBackupAsync())
+            .Append(_manualExport)
             .ToArray();
         _tiles.Clear();
         _placeholders.Clear();

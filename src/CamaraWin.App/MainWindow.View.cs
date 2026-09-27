@@ -138,9 +138,15 @@ public partial class MainWindow
         RemoveAndShutdown(tile);
     }
 
+    /// <summary>
+    /// Removes every view of the camera, including fullscreen windows (they hold the old <see cref="Camera"/>
+    /// object and would keep showing, and recording, the old settings). Their shutdowns are tracked on close.
+    /// </summary>
     void DisposeTilesOf(Guid cameraId)
     {
         foreach (var key in _tiles.Keys.Where(k => k.Id == cameraId).ToList()) DisposeTile(key);
+        foreach (var window in OwnedWindows.OfType<FullscreenWindow>().Where(w => w.Tile.Camera.Id == cameraId).ToList())
+            window.Close();
     }
 
     void RemoveAndShutdown(CameraTile tile)

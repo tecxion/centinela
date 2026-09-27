@@ -15,14 +15,21 @@ public partial class MainWindow
     void InitTray()
     {
         _autoStart = new AutoStart(new RegistryRunKey(), Environment.ProcessPath!);
-        _tray = new TrayController(IsAutoStartEnabled());
-        _tray.OpenRequested += ShowFromTray;
-        // Deferred so the context menu closes before the exit wait or the sessions start.
+        _tray = new TrayController(IsAutoStartEnabled(), autoStartAvailable: AutoStartAvailable);
+        // Deferred so the context menu closes before the window shows, the exit wait or the sessions start.
+        _tray.OpenRequested += () => Dispatcher.BeginInvoke(ShowFromTray);
         _tray.ExitRequested += () => Dispatcher.BeginInvoke(ExitApp);
-        _tray.RecordAllRequested += () => Dispatcher.BeginInvoke(ToggleRecordAll);
+        // The tray acts on every camera, even when the window is open.
+        _tray.RecordAllRequested += () => Dispatcher.BeginInvoke(() => ToggleRecordAll(allCameras: true));
         _tray.MenuOpening += RefreshAutoStartCheck;
         _tray.AutoStartToggled += enabled =>
         {
+            if (!AutoStartAvailable)
+            {
+                Notify("«Arrancar con Windows» no está disponible con CAMARAWIN_DATA_DIR.", null);
+                _tray.SetAutoStart(false);
+                return;
+            }
             if (enabled == IsAutoStartEnabled()) return;
             try
             {
@@ -46,8 +53,12 @@ public partial class MainWindow
         Application.Current.SessionEnding += (_, _) => _exitRequested = true;
     }
 
+    /// <summary>A CAMARAWIN_DATA_DIR (test) run never reads or writes the Windows Run key.</summary>
+    static bool AutoStartAvailable => !AppPaths.IsDataDirectoryOverridden;
+
     bool IsAutoStartEnabled()
     {
+        if (!AutoStartAvailable) return false;
         try { return _autoStart.IsEnabled; }
         catch (Exception) { return false; }
     }
@@ -104,13 +115,13 @@ public partial class MainWindow
         Close();
     }
 
-    void RecordAll_Click(object sender, RoutedEventArgs e) => ToggleRecordAll();
+    void RecordAll_Click(object sender, RoutedEventArgs e) => ToggleRecordAll(allCameras: false);
 
     /// <summary>
-    /// Stops every recording if any is running; otherwise records the cameras on screen
-    /// (every camera while the window is in the tray).
+    /// Stops every recording if any is running; otherwise records every camera (<paramref name="allCameras"/>,
+    /// the tray menu) or the cameras on screen (the toolbar; every camera while the window is in the tray).
     /// </summary>
-    void ToggleRecordAll()
+    void ToggleRecordAll(bool allCameras)
     {
         if (_closed) return;
         if (_recordings.AnyRecording)
@@ -118,7 +129,7 @@ public partial class MainWindow
             _recordings.StopAllWithNotice();
             return;
         }
-        var ids = (IsHiddenInTray ? _cameras.Select(c => c.Id) : PlanView().Slots.Select(s => s.CameraId)).ToHashSet();
+        var ids = (allCameras || IsHiddenInTray ? _cameras.Select(c => c.Id) : PlanView().Slots.Select(s => s.CameraId)).ToHashSet();
         foreach (var camera in _cameras.Where(c => ids.Contains(c.Id)).ToList()) _recordings.Start(camera);
     }
 }
