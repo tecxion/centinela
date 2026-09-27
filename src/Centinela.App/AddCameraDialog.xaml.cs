@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Centinela.Core;
 using Centinela.Media;
 
@@ -13,7 +14,10 @@ public partial class AddCameraDialog : Window
     // Host/port the override URLs currently point at; moved along when the user edits IP or port.
     string _urlHost;
     int _urlPort;
-    StreamSession? _test;
+    StreamSession? _test;        // substream: decoded, shown in the preview
+    StreamSession? _testMain;    // mainstream: not decoded, only for its info
+    readonly DispatcherTimer _testTimer = new() { Interval = TimeSpan.FromSeconds(10) };
+    string _mainLine = "", _subLine = "";
     WriteableBitmap? _previewBitmap;
     long _previewSequence;
 
@@ -35,6 +39,7 @@ public partial class AddCameraDialog : Window
         UdpBox.IsChecked = _camera.UseUdp;
         BrandBox.SelectedIndex = (int)_camera.Brand;
 
+        _testTimer.Tick += (_, _) => FinishTest();
         CompositionTarget.Rendering += OnRendering;
         Closed += (_, _) =>
         {
@@ -100,21 +105,57 @@ public partial class AddCameraDialog : Window
             return;
         }
         StopTest();
-        var session = new StreamSession(StreamUrlBuilder.Build(_camera, StreamKind.Sub), _camera.UseUdp);
-        session.SetTargetSize(640, 360);
-        session.StateChanged += state => Dispatcher.BeginInvoke(() =>
+        _mainLine = "Principal: conectando…";
+        _subLine = "Secundaria: conectando…";
+        ShowTestLines();
+        TestStatus.Text = "Conectando…";
+        _test = StartTestSession(StreamKind.Sub, decode: true, line => _subLine = line, "Secundaria");
+        _testMain = StartTestSession(StreamKind.Main, decode: false, line => _mainLine = line, "Principal");
+        _testTimer.Start();
+    }
+
+    StreamSession StartTestSession(StreamKind kind, bool decode, Action<string> setLine, string label)
+    {
+        var session = new StreamSession(StreamUrlBuilder.Build(_camera, kind), _camera.UseUdp, decode);
+        if (decode) session.SetTargetSize(640, 360);
+        // Callbacks arrive on the session thread; ignored once the test was replaced, finished or the dialog closed.
+        session.InfoAvailable += info => Dispatcher.BeginInvoke(() =>
         {
-            if (_test != session) return;
-            TestStatus.Text = state switch
-            {
-                SessionState.Connecting => "Conectando…",
-                SessionState.Reconnecting => $"No conecta: {session.LastError}",
-                SessionState.AuthFailed => "Usuario o contraseña incorrectos.",
-                _ => "",
-            };
+            if (!IsCurrentTest(session)) return;
+            setLine($"{label}: {info.Describe()}");
+            if (decode) TestStatus.Text = "";
+            ShowTestLines();
         });
-        _test = session;
+        session.ErrorOccurred += err => Dispatcher.BeginInvoke(() =>
+        {
+            if (!IsCurrentTest(session)) return;
+            // Never err.Detail: only the translated, user-facing text.
+            setLine($"{label}: {ErrorCenter.Translate(_camera, err.Kind).Short}");
+            if (decode) TestStatus.Text = "";
+            ShowTestLines();
+        });
         session.Start();
+        return session;
+    }
+
+    // The timer runs only while a test is in progress: FinishTest keeps _test for the preview, but its results are final.
+    bool IsCurrentTest(StreamSession session) => _testTimer.IsEnabled && (_test == session || _testMain == session);
+
+    void ShowTestLines() => TestResult.Text = $"{_mainLine}\n{_subLine}";
+
+    /// <summary>After 10 s: stop both sessions (the preview keeps its last frame) and mark what never answered.</summary>
+    void FinishTest()
+    {
+        _testTimer.Stop();
+        if (_mainLine.EndsWith("conectando…")) _mainLine = "Principal: sin respuesta en 10 s";
+        if (_subLine.EndsWith("conectando…")) _subLine = "Secundaria: sin respuesta en 10 s";
+        ShowTestLines();
+        if (TestStatus.Text == "Conectando…") TestStatus.Text = "";
+        // Stopping joins the session thread: keep that off the UI thread.
+        foreach (var s in new[] { _test, _testMain })
+            if (s is not null) _ = Task.Run(s.Dispose);
+        _testMain = null;
+        // _test stays referenced so OnRendering keeps showing its last frame; it is already stopping.
     }
 
     void OnRendering(object? sender, EventArgs e) =>
@@ -130,9 +171,11 @@ public partial class AddCameraDialog : Window
 
     void StopTest()
     {
-        // Stopping joins the session thread: keep that off the UI thread.
-        if (_test is { } test) _ = Task.Run(test.Dispose);
-        _test = null;
+        _testTimer.Stop();
+        // Stopping joins the session thread: keep that off the UI thread (a second Dispose is a no-op).
+        foreach (var s in new[] { _test, _testMain })
+            if (s is not null) _ = Task.Run(s.Dispose);
+        _test = _testMain = null;
         _previewSequence = 0;
     }
 

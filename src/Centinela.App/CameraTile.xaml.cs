@@ -44,6 +44,32 @@ public sealed partial class CameraTile : UserControl, IDisposable
             if (!_disposed) Clicked?.Invoke(this);
         };
 
+        var menu = new ContextMenu();
+        MenuItem Item(string header, RoutedEventHandler click)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += click;
+            menu.Items.Add(item);
+            return item;
+        }
+        if (manage) Item("Pantalla completa", (_, _) => FullscreenRequested?.Invoke(this));
+        _snapshotItem = Item("Captura", Snapshot_Click);
+        _recordItem = Item("Grabar", Record_Click);
+        if (manage)
+        {
+            Item("Editar…", Edit_Click);
+            Item("Duplicar…", (_, _) => DuplicateRequested?.Invoke(this));
+        }
+        // Task 9 wires the handler and shows it only while the tile is zoomed.
+        ResetZoomItem = Item("Restablecer zoom", (_, _) => { });
+        ResetZoomItem.Visibility = Visibility.Collapsed;
+        if (manage)
+        {
+            menu.Items.Add(new Separator());
+            Item("Eliminar", Delete_Click);
+        }
+        ContextMenu = menu;
+
         string url;
         try
         {
@@ -54,6 +80,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
             StatusLabel.Text = "Falta la URL RTSP";
             Video.Opacity = 0.4;
             SnapshotButton.IsEnabled = RecordButton.IsEnabled = false;
+            _snapshotItem.IsEnabled = _recordItem.IsEnabled = false;
             return;
         }
         _session = new StreamSession(url, camera.UseUdp);
@@ -71,6 +98,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
     public bool HasStream => _session is not null;
 
     public event Action<CameraTile>? EditRequested;
+    public event Action<CameraTile>? DuplicateRequested;
     public event Action<CameraTile>? DeleteRequested;
     public event Action<CameraTile>? RecordRequested;
     public event Action<string, string?>? Notify;
@@ -100,6 +128,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
     StreamErrorKind? _errorKind;
 
     readonly DispatcherTimer _clickTimer;
+    readonly MenuItem _snapshotItem = null!, _recordItem = null!;
+    /// <summary>"Restablecer zoom" in the context menu: collapsed until zoom support shows it.</summary>
+    internal MenuItem ResetZoomItem { get; private set; } = null!;
 
     [DllImport("user32.dll")]
     static extern uint GetDoubleClickTime();
@@ -246,7 +277,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
     async void Snapshot_Click(object sender, RoutedEventArgs e)
     {
         var path = AppPaths.SnapshotFile(Camera.Name, DateTime.Now);
-        SnapshotButton.IsEnabled = false;
+        SnapshotButton.IsEnabled = _snapshotItem.IsEnabled = false;
         try
         {
             var saved = await SaveMainStreamSnapshotAsync(path);
@@ -260,7 +291,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         }
         finally
         {
-            SnapshotButton.IsEnabled = true;
+            SnapshotButton.IsEnabled = _snapshotItem.IsEnabled = true;
         }
     }
 
@@ -302,6 +333,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
             RecDot.Visibility = Visibility.Collapsed;
             RecordButton.Content = "⏺";
             RecordButton.ToolTip = "Grabar";
+            _recordItem.Header = "Grabar";
             return;
         }
         ShowRecordingDot(paused: status != RecordingStatus.Recording, status switch
@@ -312,6 +344,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         });
         RecordButton.Content = "⏹";
         RecordButton.ToolTip = "Detener grabación";
+        _recordItem.Header = "Detener grabación";
     }
 
     /// <summary>Solid red while recording; hollow while the recording session (re)connects.</summary>

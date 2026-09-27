@@ -107,6 +107,7 @@ public partial class MainWindow
     {
         var tile = new CameraTile(camera, kind);
         tile.EditRequested += EditCamera;
+        tile.DuplicateRequested += DuplicateCamera;
         tile.DeleteRequested += DeleteCamera;
         tile.Notify += Notify;
         tile.FullscreenRequested += ShowFullscreen;

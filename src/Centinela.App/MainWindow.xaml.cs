@@ -211,6 +211,12 @@ public partial class MainWindow : Window
         RebuildView();
     }
 
+    /// <summary>Opens «Añadir cámara» pre-filled with a copy (new Id, "(copia)"); nothing is saved unless the user saves.</summary>
+    void DuplicateCamera(CameraTile tile)
+    {
+        if (_cameras.FirstOrDefault(c => c.Id == tile.Camera.Id) is { } camera) AddCamera(camera.Duplicate());
+    }
+
     void DeleteCamera(CameraTile tile)
     {
         var answer = MessageBox.Show(this, $"¿Eliminar la cámara «{tile.Camera.Name}»?", "Centinela",
