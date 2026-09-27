@@ -85,8 +85,14 @@ public partial class MainWindow : Window
         window.Tile.SetRecordingStatus(_recordings.StatusOf(tile.Camera.Id));
         window.Tile.ShowStats = _settings.ShowStats;
         WireErrors(window.Tile);
+        window.Tile.AudioCapable = true;
+        WireAudio(window.Tile);
         // OnClosed waits for the live session's shutdown like any other.
-        window.Closed += (_, _) => TrackShutdown(window.Tile.ShutdownAsync(), name);
+        window.Closed += (_, _) =>
+        {
+            ReleaseAudio(window.Tile);
+            TrackShutdown(window.Tile.ShutdownAsync(), name);
+        };
         window.Show();
     }
 
@@ -361,6 +367,7 @@ public partial class MainWindow : Window
         {
             // Failures were already reported or cannot be shown any more; exit anyway.
         }
+        _audioOutput?.Dispose();
         _tray.Dispose();
         _errorLog.Dispose();
         base.OnClosed(e);

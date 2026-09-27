@@ -11,3 +11,7 @@ C# bindings for FFmpeg, LGPL-3.0: https://github.com/Ruslan-B/FFmpeg.AutoGen
 
 ## mediamtx (tests only, not distributed)
 MIT License: https://github.com/bluenviron/mediamtx
+
+## NAudio (NAudio.Wasapi, NAudio.Core)
+MIT License — Copyright 2020 Mark Heath — https://github.com/naudio/NAudio
+The full license text is at https://github.com/naudio/NAudio/blob/master/license.txt

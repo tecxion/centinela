@@ -108,6 +108,8 @@ public partial class MainWindow
         var tile = new CameraTile(camera, kind);
         // Main tiles exist only in the featured/dual layouts: those are the big ones that zoom.
         tile.EnableZoom = kind == StreamKind.Main;
+        tile.AudioCapable = kind == StreamKind.Main;
+        WireAudio(tile);
         tile.EditRequested += EditCamera;
         tile.DuplicateRequested += DuplicateCamera;
         tile.DeleteRequested += DeleteCamera;
@@ -165,6 +167,7 @@ public partial class MainWindow
 
     void RemoveAndShutdown(CameraTile tile)
     {
+        ReleaseAudio(tile);
         TileGrid.Children.Remove(tile);
         TrackShutdown(tile.ShutdownAsync(), tile.Camera.Name);
     }

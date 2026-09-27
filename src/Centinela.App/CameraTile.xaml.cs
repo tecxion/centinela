@@ -87,6 +87,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
         _session = new StreamSession(url, camera.UseUdp);
         _session.StateChanged += state => Dispatcher.BeginInvoke(() => ShowState(state));
         _session.ErrorOccurred += error => Dispatcher.BeginInvoke(() => ShowError(error));
+        _session.InfoAvailable += _ => Dispatcher.BeginInvoke(UpdateAudioButton);
+        // A failure reported after the tile was silenced (or removed) is stale: nothing to release or report.
+        _session.AudioFailed += message => Dispatcher.BeginInvoke(() => { if (!_disposed && AudioOn) AudioFailed?.Invoke(this, message); });
         SizeChanged += (_, _) =>
         {
             if (_zoom.IsZoomed) ApplyZoom(); // re-clamps to the new size and updates the decode box
@@ -517,6 +520,34 @@ public sealed partial class CameraTile : UserControl, IDisposable
         StatsLabel.Foreground = s.SinceLastFrame > TimeSpan.FromSeconds(1) ? Brushes.Orange : Brushes.White;
     }
 
+    /// <summary>Set by the owner for big (Main) tiles and fullscreen; the button shows only if the stream has audio.</summary>
+    public bool AudioCapable { get; set; }
+    public bool AudioOn { get; private set; }
+    public event Action<CameraTile>? AudioToggleRequested;
+    /// <summary>Raised on the UI thread when the audio of this tile, while on, cannot be played.</summary>
+    public event Action<CameraTile, string>? AudioFailed;
+
+    void Audio_Click(object sender, RoutedEventArgs e) => AudioToggleRequested?.Invoke(this);
+
+    /// <summary>Plays this tile's audio into <paramref name="sink"/>, or silences it with null.</summary>
+    public void SetAudio(IAudioSink? sink)
+    {
+        AudioOn = sink is not null && !_disposed;
+        _session?.SetAudioSink(AudioOn ? sink : null);
+        AudioButton.Content = AudioOn ? "🔊" : "🔇";
+        AudioButton.ToolTip = AudioOn ? "Silenciar" : "Activar sonido";
+        AudioIndicator.Visibility = AudioOn ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public void DisableAudio(string reason)
+    {
+        AudioButton.IsEnabled = false;
+        AudioButton.ToolTip = reason;
+    }
+
+    void UpdateAudioButton() =>
+        AudioButton.Visibility = AudioCapable && _session?.Info?.AudioCodec is not null ? Visibility.Visible : Visibility.Collapsed;
+
     public void RequestStop() => _session?.RequestStop();
 
     /// <summary>
@@ -527,6 +558,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
     {
         if (_shutdown is not null) return _shutdown;
         _disposed = true;
+        _session?.SetAudioSink(null);
+        AudioOn = false;
         _clickTimer.Stop();
         EndPan();
         _statsTimer?.Stop();
