@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Centinela.Core\Centinela.Core.csproj" />
+    <ProjectReference Include="..\Centinela.Media\Centinela.Media.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Centinela</AssemblyName>
+    <ApplicationIcon>Assets\centinela.ico</ApplicationIcon>
+    <CopyFFmpeg>true</CopyFFmpeg>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\centinela.ico" />
+  </ItemGroup>
+
+</Project>

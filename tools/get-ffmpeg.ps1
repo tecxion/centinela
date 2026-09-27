@@ -3,8 +3,8 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $dest = Join-Path $root 'ffmpeg'
 $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-lgpl-shared-9.0.zip'
-$zip = Join-Path $env:TEMP 'camarawin-ffmpeg.zip'
-$tmp = Join-Path $env:TEMP 'camarawin-ffmpeg'
+$zip = Join-Path $env:TEMP 'centinela-ffmpeg.zip'
+$tmp = Join-Path $env:TEMP 'centinela-ffmpeg'
 
 Invoke-WebRequest $url -OutFile $zip
 if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }

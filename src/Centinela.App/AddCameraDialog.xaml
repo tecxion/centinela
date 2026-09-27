@@ -1,0 +1,61 @@
+<Window x:Class="Centinela.App.AddCameraDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Añadir cámara" Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <StackPanel Margin="16">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+            </Grid.RowDefinitions>
+            <Grid.Resources>
+                <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Margin" Value="0,4"/></Style>
+                <Style TargetType="TextBox"><Setter Property="Margin" Value="0,4"/></Style>
+                <Style TargetType="PasswordBox"><Setter Property="Margin" Value="0,4"/></Style>
+                <Style TargetType="ComboBox"><Setter Property="Margin" Value="0,4"/></Style>
+            </Grid.Resources>
+            <TextBlock Text="Marca"/>
+            <ComboBox x:Name="BrandBox" Grid.Column="1" SelectionChanged="Brand_Changed">
+                <ComboBoxItem Content="Tapo"/>
+                <ComboBoxItem Content="Imou"/>
+                <ComboBoxItem Content="Otra (RTSP)"/>
+            </ComboBox>
+            <TextBlock Grid.Row="1" Text="Nombre"/>
+            <TextBox x:Name="NameBox" Grid.Row="1" Grid.Column="1"/>
+            <TextBlock Grid.Row="2" Text="IP"/>
+            <TextBox x:Name="HostBox" Grid.Row="2" Grid.Column="1"/>
+            <TextBlock Grid.Row="3" Text="Puerto RTSP"/>
+            <TextBox x:Name="PortBox" Grid.Row="3" Grid.Column="1"/>
+            <TextBlock Grid.Row="4" Text="Usuario"/>
+            <TextBox x:Name="UserBox" Grid.Row="4" Grid.Column="1"/>
+            <TextBlock Grid.Row="5" Text="Contraseña"/>
+            <PasswordBox x:Name="PasswordInput" Grid.Row="5" Grid.Column="1"/>
+        </Grid>
+        <Expander x:Name="AdvancedBox" Header="Avanzado" Margin="0,8,0,0">
+            <StackPanel Margin="0,4,0,0">
+                <TextBlock Text="URL principal (opcional salvo en «Otra»)"/>
+                <TextBox x:Name="MainUrlBox" Margin="0,2,0,6"/>
+                <TextBlock Text="URL secundaria (opcional)"/>
+                <TextBox x:Name="SubUrlBox" Margin="0,2,0,6"/>
+                <CheckBox x:Name="UdpBox" Content="Usar UDP (menos retardo, puede mostrar artefactos)"/>
+            </StackPanel>
+        </Expander>
+        <TextBlock x:Name="HintText" Foreground="Gray" TextWrapping="Wrap" Margin="0,8"/>
+        <Border Height="180" Background="Black" Margin="0,4">
+            <Grid>
+                <Image x:Name="Preview" Stretch="Uniform"/>
+                <TextBlock x:Name="TestStatus" Foreground="White" TextWrapping="Wrap"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
+            </Grid>
+        </Border>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Probar" Width="90" Margin="0,0,8,0" Click="Test_Click"/>
+            <Button Content="Guardar" Width="90" Margin="0,0,8,0" IsDefault="True" Click="Save_Click"/>
+            <Button Content="Cancelar" Width="90" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

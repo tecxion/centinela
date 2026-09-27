@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Centinela.App/Centinela.App.csproj" />
+    <Project Path="src/Centinela.Core/Centinela.Core.csproj" />
+    <Project Path="src/Centinela.Media/Centinela.Media.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Centinela.Core.Tests/Centinela.Core.Tests.csproj" />
+    <Project Path="tests/Centinela.Media.Tests/Centinela.Media.Tests.csproj" />
+  </Folder>
+</Solution>

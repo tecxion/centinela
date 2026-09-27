@@ -1,7 +1,7 @@
 # Third-party software
 
 ## FFmpeg
-CamaraWin loads FFmpeg (https://ffmpeg.org) as separate shared libraries (`ffmpeg\*.dll`).
+Centinela loads FFmpeg (https://ffmpeg.org) as separate shared libraries (`ffmpeg\*.dll`).
 The bundled build is the **LGPL v2.1+** variant from https://github.com/BtbN/FFmpeg-Builds.
 FFmpeg's source code is available at https://ffmpeg.org/download.html. You may replace the DLLs
 with your own compatible build (FFmpeg 9.0, avcodec-63).

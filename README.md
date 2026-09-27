@@ -1,4 +1,4 @@
-# CamaraWin
+# Centinela
 
 Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **TP-Link Tapo**,
 **Imou** y cualquier cámara **RTSP** en cuadrícula, sin pasar por la nube.
@@ -9,11 +9,11 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
 - Doble clic: pantalla completa en calidad alta. Arrastrar: reordenar. F11: ventana a pantalla completa.
 - 📷 Capturas PNG a resolución completa · ⏺ Grabación MKV sin recodificar · **⏺ Grabar todas** / ⏹ Detener todas.
 - Errores traducidos al español («Contraseña incorrecta», «Sin conexión · reintentando»…) con avisos emergentes
-  y un **Registro** de errores (botón «Registro»; archivos en `%AppData%\CamaraWin\logs`, se borran a los 14 días).
+  y un **Registro** de errores (botón «Registro»; archivos en `%AppData%\Centinela\logs`, se borran a los 14 días).
 - Menú **Archivo**: importar/exportar la lista de cámaras en JSON, con las contraseñas cifradas con una clave
   opcional (sin clave se exporta sin contraseñas). Al importar se añaden las cámaras nuevas y se actualizan
   las que ya existen (misma IP y puerto). Formato: [`docs/ejemplo-camaras.json`](docs/ejemplo-camaras.json).
-- Copia automática sin contraseñas en `Documentos\CamaraWin\camaras-copia.json` cada vez que cambia la lista
+- Copia automática sin contraseñas en `Documentos\Centinela\camaras-copia.json` cada vez que cambia la lista
   (carpeta configurable en Archivo › Carpeta de copia automática…).
 - **Bandeja del sistema**: la X oculta la ventana y las grabaciones continúan; «Salir» la cierra del todo.
   Una sola instancia: abrirla otra vez muestra la ventana existente. Menú de la bandeja con
@@ -35,20 +35,20 @@ Requisitos: Windows 10/11, .NET SDK 10.
 
 ```powershell
 pwsh -File tools/get-ffmpeg.ps1      # descarga FFmpeg 9.0 LGPL (≈ 80 MB)
-dotnet run --project src/CamaraWin.App
+dotnet run --project src/Centinela.App
 ```
 
 Pruebas:
 
 ```powershell
-dotnet test tests/CamaraWin.Core.Tests
+dotnet test tests/Centinela.Core.Tests
 pwsh -File tools/get-mediamtx.ps1    # servidor RTSP para las pruebas de vídeo
-dotnet test tests/CamaraWin.Media.Tests   # necesita ffmpeg/ffprobe (con libx264) en el PATH
+dotnet test tests/Centinela.Media.Tests   # necesita ffmpeg/ffprobe (con libx264) en el PATH
 ```
 
-Las pruebas de integración de vídeo de `CamaraWin.Media.Tests` necesitan `tools/bin/mediamtx.exe`
+Las pruebas de integración de vídeo de `Centinela.Media.Tests` necesitan `tools/bin/mediamtx.exe`
 **y** `ffmpeg`/`ffprobe` (compilados con libx264) en el PATH.
-El proyecto de la aplicación (`src/CamaraWin.App`) no tiene pruebas automáticas. Para probarla a mano
+El proyecto de la aplicación (`src/Centinela.App`) no tiene pruebas automáticas. Para probarla a mano
 (smoke) sin cámaras reales también hacen falta mediamtx y ffmpeg con libx264; publica un vídeo de prueba con
 `-pix_fmt yuv420p`. Los dos comandos se quedan en marcha, así que usa **dos terminales**:
 
@@ -65,36 +65,48 @@ ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=25 -c:v libx264 -pix_fmt yuv42
 Después, en la aplicación, añade una cámara de marca **Otra (RTSP)** con la URL principal
 `rtsp://127.0.0.1:8554/prueba` (en «Avanzado»).
 
-### CAMARAWIN_DATA_DIR (pruebas sin tocar tu instalación)
+### CENTINELA_DATA_DIR (pruebas sin tocar tu instalación)
 
-Para no tocar tus cámaras reales, define la variable de entorno `CAMARAWIN_DATA_DIR` con otra carpeta
+Para no tocar tus cámaras reales, define la variable de entorno `CENTINELA_DATA_DIR` con otra carpeta
 (en una tercera terminal):
 
 ```powershell
-$env:CAMARAWIN_DATA_DIR = "$env:TEMP\camarawin-prueba"
-dotnet run --project src/CamaraWin.App            # añade "-- --tray" para arrancar oculta en la bandeja
+$env:CENTINELA_DATA_DIR = "$env:TEMP\centinela-prueba"
+dotnet run --project src/Centinela.App            # añade "-- --tray" para arrancar oculta en la bandeja
 ```
 
 Con la variable definida, todo lo que escribe la aplicación queda dentro de esa carpeta:
 
-- cámaras, ajustes y registro (en lugar de `%AppData%\CamaraWin`);
-- `backup\` para la copia automática (en lugar de `Documentos\CamaraWin`);
-- `recordings\` para las grabaciones (en lugar de `Vídeos\CamaraWin`);
-- `snapshots\` para las capturas (en lugar de `Imágenes\CamaraWin`).
+- cámaras, ajustes y registro (en lugar de `%AppData%\Centinela`);
+- `backup\` para la copia automática (en lugar de `Documentos\Centinela`);
+- `recordings\` para las grabaciones (en lugar de `Vídeos\Centinela`);
+- `snapshots\` para las capturas (en lugar de `Imágenes\Centinela`).
 
-Además es una instancia aparte: no despierta ni se confunde con la CamaraWin que tengas abierta, y
+Además es una instancia aparte: no despierta ni se confunde con la Centinela que tengas abierta, y
 «Arrancar con Windows» no aparece en el menú de la bandeja (no se toca el registro de Windows).
 
 ## Datos
 
-- Cámaras: `%AppData%\CamaraWin\cameras.json` (contraseñas cifradas, solo tu usuario de Windows puede leerlas)
-- Registro de errores: `%AppData%\CamaraWin\logs\`
-- Copia automática: `Documentos\CamaraWin\camaras-copia.json` (o la carpeta elegida)
-- Grabaciones: `Vídeos\CamaraWin\<cámara>\`
-- Capturas: `Imágenes\CamaraWin\`
+- Cámaras: `%AppData%\Centinela\cameras.json` (contraseñas cifradas, solo tu usuario de Windows puede leerlas)
+- Registro de errores: `%AppData%\Centinela\logs\`
+- Copia automática: `Documentos\Centinela\camaras-copia.json` (o la carpeta elegida)
+- Grabaciones: `Vídeos\Centinela\<cámara>\`
+- Capturas: `Imágenes\Centinela\`
 
-Con `CAMARAWIN_DATA_DIR` todas estas rutas pasan a esa carpeta (ver
-[CAMARAWIN_DATA_DIR](#camarawin_data_dir-pruebas-sin-tocar-tu-instalación)).
+Con `CENTINELA_DATA_DIR` todas estas rutas pasan a esa carpeta (ver
+[CENTINELA_DATA_DIR](#centinela_data_dir-pruebas-sin-tocar-tu-instalación)).
+
+### Si venías de CamaraWin
+
+Centinela antes se llamaba CamaraWin. Al arrancar por primera vez copia `cameras.json` y `settings.json`
+de `%AppData%\CamaraWin` (la carpeta antigua no se toca), cambia la entrada «Arrancar con Windows» por la
+nueva e importa sin problema las copias JSON hechas con CamaraWin. Las grabaciones y capturas antiguas
+siguen en `Vídeos\CamaraWin` e `Imágenes\CamaraWin`.
+
+## Icono
+
+`src/Centinela.App/Assets/centinela.png` es el original. Tras cambiarlo, regenera el `.ico`
+(16–256 px) con `pwsh tools/make-icon.ps1`.
 
 ## Soporte
 
