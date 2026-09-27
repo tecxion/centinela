@@ -37,6 +37,41 @@ public class AppPathsTests
     }
 
     [Fact]
+    public void Override_redirects_every_user_folder_and_isolates_the_instance()
+    {
+        var original = Environment.GetEnvironmentVariable(AppPaths.DataDirectoryVariable);
+        const string root = @"C:\scratch\camarawin-data";
+        try
+        {
+            Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, null);
+            Assert.False(AppPaths.IsDataDirectoryOverridden);
+            Assert.Equal("", AppPaths.InstanceSuffix);
+            Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "CamaraWin"), AppPaths.RecordingsDirectory);
+            Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "CamaraWin"), AppPaths.SnapshotsDirectory);
+            Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CamaraWin"), AppPaths.DefaultBackupDirectory);
+
+            Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, root);
+            Assert.True(AppPaths.IsDataDirectoryOverridden);
+            Assert.Equal(Path.Combine(root, "recordings"), AppPaths.RecordingsDirectory);
+            Assert.Equal(Path.Combine(root, "snapshots"), AppPaths.SnapshotsDirectory);
+            Assert.Equal(Path.Combine(root, "backup"), AppPaths.DefaultBackupDirectory);
+            Assert.Equal(Path.Combine(root, "logs"), AppPaths.LogsDirectory);
+
+            var suffix = AppPaths.InstanceSuffix;
+            Assert.Matches("^\\.[0-9a-f]{8}$", suffix);
+            // Same folder written differently → same instance; another folder → another instance.
+            Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, root.ToUpperInvariant() + @"\");
+            Assert.Equal(suffix, AppPaths.InstanceSuffix);
+            Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, @"C:\scratch\otra");
+            Assert.NotEqual(suffix, AppPaths.InstanceSuffix);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, original);
+        }
+    }
+
+    [Fact]
     public void RecordingFile_uses_camera_folder_and_timestamp()
     {
         var path = AppPaths.RecordingFile("Jardín", new DateTime(2026, 9, 26, 20, 15, 3));

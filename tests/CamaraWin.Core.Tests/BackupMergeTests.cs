@@ -73,10 +73,35 @@ public class BackupMergeTests
     }
 
     [Fact]
+    public void Reimporting_identical_export_updates_nothing()
+    {
+        var existing = new List<Camera>
+        {
+            new() { Name = "Garaje", Brand = Brand.Tapo, Host = "192.168.1.20", Port = 554, User = "u", Password = "secret", Order = 0 },
+            new() { Name = "Rtsp", Brand = Brand.Custom, MainUrlOverride = "rtsp://h/x", SubUrlOverride = "rtsp://h/y", UseUdp = true, Order = 1 },
+        };
+        // A password-less export: same fields, no passwords, overrides differing only in case.
+        var imported = existing.Select(c => { var copy = c.Clone(); copy.Password = ""; return copy; }).ToList();
+        imported[1].MainUrlOverride = "RTSP://h/x";
+        var r = BackupMerge.Merge(existing, imported);
+        Assert.Equal((0, 0), (r.Added, r.Updated));
+        Assert.Empty(r.UpdatedIds);
+    }
+
+    [Fact]
+    public void Same_password_is_not_a_change_but_a_new_one_is()
+    {
+        var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "p" } };
+        Assert.Equal(0, BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Password = "p" }]).Updated);
+        Assert.Equal(1, BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Password = "q" }]).Updated);
+        Assert.Equal(1, BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Password = "p", UseUdp = true }]).Updated);
+    }
+
+    [Fact]
     public void Existing_camera_matched_twice_counts_once()
     {
         var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "" } };
-        var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554 }, new Camera { Host = "h", Port = 554 }]);
+        var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Name = "A" }, new Camera { Host = "h", Port = 554, Name = "B" }]);
         Assert.Equal((0, 1, 1), (r.Added, r.Updated, r.WithoutPassword));
     }
 }

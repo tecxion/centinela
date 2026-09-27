@@ -1,27 +1,51 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace CamaraWin.Core;
 
 public static class AppPaths
 {
     const string AppFolder = "CamaraWin";
 
-    /// <summary>Overrides <see cref="DataDirectory"/> when set and non-empty (tests and smoke runs).</summary>
+    /// <summary>
+    /// When set and non-empty, every folder the app writes to lives under it and the running instance is
+    /// separate from the user's normal one (tests and smoke runs).
+    /// </summary>
     public const string DataDirectoryVariable = "CAMARAWIN_DATA_DIR";
 
+    static string? Override =>
+        Environment.GetEnvironmentVariable(DataDirectoryVariable) is { Length: > 0 } overridden ? overridden : null;
+
+    public static bool IsDataDirectoryOverridden => Override is not null;
+
     public static string DataDirectory =>
-        Environment.GetEnvironmentVariable(DataDirectoryVariable) is { Length: > 0 } overridden
-            ? overridden
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolder);
+        Override ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolder);
 
-    public static string RecordingsDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), AppFolder);
+    public static string RecordingsDirectory => UserFolder(Environment.SpecialFolder.MyVideos, "recordings");
 
-    public static string SnapshotsDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), AppFolder);
+    public static string SnapshotsDirectory => UserFolder(Environment.SpecialFolder.MyPictures, "snapshots");
 
     public static string LogsDirectory => Path.Combine(DataDirectory, "logs");
 
-    public static string DefaultBackupDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), AppFolder);
+    public static string DefaultBackupDirectory => UserFolder(Environment.SpecialFolder.MyDocuments, "backup");
+
+    /// <summary>
+    /// Empty normally; with the override, "." plus 8 hex digits of the override folder's hash, so a test
+    /// run never talks to (or activates) the user's instance. The same folder always yields the same suffix.
+    /// </summary>
+    public static string InstanceSuffix
+    {
+        get
+        {
+            if (Override is not { } root) return "";
+            var normalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)).ToUpperInvariant();
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+            return "." + Convert.ToHexStringLower(hash.AsSpan(0, 4));
+        }
+    }
+
+    static string UserFolder(Environment.SpecialFolder folder, string overrideName) =>
+        Override is { } root ? Path.Combine(root, overrideName) : Path.Combine(Environment.GetFolderPath(folder), AppFolder);
 
     public static string SanitizeFileName(string name)
     {

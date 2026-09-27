@@ -174,4 +174,65 @@ public class CameraBackupTests
             CameraBackup.Import(node.ToJsonString(), () => throw new InvalidOperationException("must not ask")));
         Assert.Equal("Parámetros de cifrado no soportados.", e.Message);
     }
+
+    [Fact]
+    public void WriteAtomic_replaces_the_file_and_leaves_no_temp()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "camarawin-bk-" + Guid.NewGuid());
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, "export.json");
+            File.WriteAllText(path, "old content that is longer");
+            BackupWriter.WriteAtomic(path, "nuevo ñ");
+            Assert.Equal("nuevo ñ", File.ReadAllText(path));
+            Assert.Equal(new byte[] { (byte)'n' }, File.ReadAllBytes(path)[..1]); // no BOM
+            Assert.Single(Directory.GetFiles(dir));
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void WriteAtomic_failure_keeps_the_old_file_and_cleans_up()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "camarawin-bk-" + Guid.NewGuid());
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, "export.json");
+            File.WriteAllText(path, "old");
+            // An open handle without delete sharing makes the final move fail.
+            using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                Assert.ThrowsAny<Exception>(() => BackupWriter.WriteAtomic(path, "new"));
+            Assert.Equal("old", File.ReadAllText(path));
+            Assert.Single(Directory.GetFiles(dir));
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("""{ "encryption": { "salt": "x" }, "cameras": [] }""", true)]
+    [InlineData("""{ "encryption": null, "cameras": [] }""", false)]
+    [InlineData("""{ "encryption": "yes" }""", false)]
+    [InlineData("""{ "cameras": [] }""", false)]
+    [InlineData("""[1, 2]""", false)]
+    [InlineData("""not json""", false)]
+    [InlineData("", false)]
+    [InlineData("""{ "encryption": {}, "encryption": {} }""", true)]   // duplicate keys must not throw
+    [InlineData("""{ "a": 1, "a": 2 }""", false)]
+    public void IsEncrypted_never_throws(string json, bool expected) =>
+        Assert.Equal(expected, CameraBackup.IsEncrypted(json));
+
+    [Fact]
+    public void IsEncrypted_detects_real_exports()
+    {
+        Assert.True(CameraBackup.IsEncrypted(CameraBackup.Export(Sample(), "clave-larga")));
+        Assert.False(CameraBackup.IsEncrypted(CameraBackup.Export(Sample(), null)));
+    }
 }

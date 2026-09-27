@@ -16,12 +16,22 @@ public sealed class ErrorLogTests : IDisposable
     [Fact]
     public void Keeps_newest_first_and_caps_capacity()
     {
-        using var log = new ErrorLog(_dir);
+        // The capacity is about memory: point the log at a "directory" that is really a file, so the
+        // background writer fails fast on every line and never holds a file open while the class
+        // Dispose deletes the test folder (501 real appends could outlast the 2 s Dispose wait).
+        Directory.CreateDirectory(_dir);
+        var notADirectory = Path.Combine(_dir, "blocker");
+        File.WriteAllText(notADirectory, "");
         var t = new DateTime(2026, 9, 26, 10, 0, 0);
-        for (var i = 0; i < ErrorLog.Capacity + 1; i++) log.Add(Entry(i, t));
-        var snap = log.Snapshot();
-        Assert.Equal(ErrorLog.Capacity, snap.Count);
-        Assert.Equal("Cam500", snap[0].Camera);
+        using (var log = new ErrorLog(notADirectory))
+        {
+            for (var i = 0; i < ErrorLog.Capacity + 1; i++) log.Add(Entry(i, t));
+            var snap = log.Snapshot();
+            Assert.Equal(ErrorLog.Capacity, snap.Count);
+            Assert.Equal("Cam500", snap[0].Camera);
+            Assert.Equal("Cam1", snap[^1].Camera);
+        }
+        Assert.Equal(["blocker"], Directory.GetFileSystemEntries(_dir).Select(Path.GetFileName));
     }
 
     [Fact]

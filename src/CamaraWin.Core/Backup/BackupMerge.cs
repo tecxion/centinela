@@ -27,6 +27,7 @@ public static class BackupMerge
             }
             // A password-less entry must not redirect a stored password to different URLs.
             var keepsStoredPassword = incoming.Password.Length == 0 && match.Password.Length > 0;
+            var before = match.Clone();
             match.Name = incoming.Name;
             match.Brand = incoming.Brand;
             match.Host = incoming.Host;
@@ -38,11 +39,17 @@ public static class BackupMerge
             if (!keepsStoredPassword || SameUrl(match.SubUrlOverride, incoming.SubUrlOverride))
                 match.SubUrlOverride = incoming.SubUrlOverride;
             match.UseUdp = incoming.UseUdp;
-            if (!addedIds.Contains(match.Id)) updatedIds.Add(match.Id);
+            // Only real changes count: an identical re-import must not restart any live view or recording.
+            if (!addedIds.Contains(match.Id) && Differs(before, match)) updatedIds.Add(match.Id);
             touched[match.Id] = match;
         }
         return new MergeResult(result, addedIds.Count, updatedIds.Count, touched.Values.Count(c => c.Password.Length == 0), updatedIds);
     }
+
+    static bool Differs(Camera a, Camera b) =>
+        a.Name != b.Name || a.Brand != b.Brand || a.Host != b.Host || a.Port != b.Port || a.User != b.User
+        || a.Password != b.Password || a.UseUdp != b.UseUdp
+        || !SameUrl(a.MainUrlOverride, b.MainUrlOverride) || !SameUrl(a.SubUrlOverride, b.SubUrlOverride);
 
     static bool SameUrl(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 

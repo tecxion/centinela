@@ -116,6 +116,25 @@ public static class CameraBackup
         return new BackupImport(cameras, key is not null);
     }
 
+    /// <summary>
+    /// Whether the file carries encrypted passwords (an <c>encryption</c> object at the root). Never throws:
+    /// malformed files report false so that <see cref="Import"/> produces its own format error.
+    /// </summary>
+    public static bool IsEncrypted(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("encryption", out var encryption)
+                && encryption.ValueKind == JsonValueKind.Object;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
     static string? Strip(string? url) => url is null ? null : StreamUrlBuilder.StripCredentials(url, out _);
 
     static byte[] DecodeSalt(string? salt)
