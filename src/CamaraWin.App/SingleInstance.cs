@@ -16,7 +16,11 @@ static class SingleInstance
     [DllImport("user32.dll")]
     static extern bool AllowSetForegroundWindow(int processId);
 
-    /// <summary>True for the first instance; a later instance signals the first one and gets false.</summary>
+    /// <summary>
+    /// True for the first instance; a later instance signals the first one and gets false.
+    /// A launch while the first instance is exiting (mutex still held during its exit wait) is absorbed:
+    /// the signal is ignored and nothing opens, so the user simply launches again.
+    /// </summary>
     public static bool TryClaim()
     {
         _mutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);

@@ -11,6 +11,8 @@ sealed class TrayController : IDisposable
     readonly Icon _recording = TrayIcons.Create(recording: true);
     readonly Forms.ToolStripMenuItem _recordAll;
     readonly Forms.ToolStripMenuItem _autoStart;
+    // Set while the check mark is changed from code, so only user clicks raise AutoStartToggled.
+    bool _settingAutoStart;
 
     public TrayController(bool autoStartEnabled)
     {
@@ -19,10 +21,14 @@ sealed class TrayController : IDisposable
         _recordAll = new Forms.ToolStripMenuItem("Grabar todas", null, (_, _) => RecordAllRequested?.Invoke());
         menu.Items.Add(_recordAll);
         _autoStart = new Forms.ToolStripMenuItem("Arrancar con Windows") { CheckOnClick = true, Checked = autoStartEnabled };
-        _autoStart.CheckedChanged += (_, _) => AutoStartToggled?.Invoke(_autoStart.Checked);
+        _autoStart.CheckedChanged += (_, _) =>
+        {
+            if (!_settingAutoStart) AutoStartToggled?.Invoke(_autoStart.Checked);
+        };
         menu.Items.Add(_autoStart);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Salir", null, (_, _) => ExitRequested?.Invoke());
+        menu.Opening += (_, _) => MenuOpening?.Invoke();
         _icon = new Forms.NotifyIcon { Icon = _normal, Text = "CamaraWin", ContextMenuStrip = menu, Visible = true };
         _icon.DoubleClick += (_, _) => OpenRequested?.Invoke();
     }
@@ -31,6 +37,8 @@ sealed class TrayController : IDisposable
     public event Action? ExitRequested;
     public event Action? RecordAllRequested;
     public event Action<bool>? AutoStartToggled;
+    /// <summary>The context menu is about to show (refresh state that may have changed outside the app).</summary>
+    public event Action? MenuOpening;
 
     public void SetRecording(bool any)
     {
@@ -38,7 +46,13 @@ sealed class TrayController : IDisposable
         _recordAll.Text = any ? "Detener todas" : "Grabar todas";
     }
 
-    public void SetAutoStart(bool enabled) => _autoStart.Checked = enabled;
+    /// <summary>Updates the check mark without raising <see cref="AutoStartToggled"/>.</summary>
+    public void SetAutoStart(bool enabled)
+    {
+        _settingAutoStart = true;
+        try { _autoStart.Checked = enabled; }
+        finally { _settingAutoStart = false; }
+    }
 
     public void ShowBalloon(string title, string text) =>
         _icon.ShowBalloonTip(5000, title, text.Length == 0 ? " " : text, Forms.ToolTipIcon.Info);

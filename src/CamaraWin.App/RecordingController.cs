@@ -25,7 +25,10 @@ public sealed class RecordingController(Dispatcher dispatcher)
     public event Action<Guid, RecordingStatus>? StatusChanged;
     public event Action<Camera, StreamError>? ErrorOccurred;
     public event Action<Camera, SessionState>? SessionStateChanged;
+    /// <summary>Progress notices (status bar only).</summary>
     public event Action<string, string?>? Notify;
+    /// <summary>A recording could not start, stopped on its own or could not be saved; shown even while in the tray.</summary>
+    public event Action<string>? Failure;
 
     public bool IsRecording(Guid cameraId) => _active.ContainsKey(cameraId);
     public bool AnyRecording => _active.Count > 0;
@@ -38,7 +41,7 @@ public sealed class RecordingController(Dispatcher dispatcher)
         try { url = StreamUrlBuilder.Build(camera, StreamKind.Main); }
         catch (InvalidOperationException)
         {
-            Notify?.Invoke($"No se puede grabar {camera.Name}: falta la URL RTSP.", null);
+            Failure?.Invoke($"No se puede grabar {camera.Name}: falta la URL RTSP.");
             return;
         }
         var name = camera.Name;
@@ -49,7 +52,7 @@ public sealed class RecordingController(Dispatcher dispatcher)
         {
             if (!IsCurrent(entry)) return;
             _ = Stop(camera.Id);
-            Notify?.Invoke($"Grabación de {name} detenida: {message}", null);
+            Failure?.Invoke($"Grabación de {name} detenida: {message}");
         });
         session.ErrorOccurred += error => dispatcher.BeginInvoke(() =>
         {
@@ -62,7 +65,7 @@ public sealed class RecordingController(Dispatcher dispatcher)
             if (state == SessionState.AuthFailed)
             {
                 _ = Stop(camera.Id);
-                Notify?.Invoke($"No se pudo grabar {name}: contraseña incorrecta.", null);
+                Failure?.Invoke($"No se pudo grabar {name}: contraseña incorrecta.");
                 return;
             }
             var status = state switch
@@ -104,7 +107,7 @@ public sealed class RecordingController(Dispatcher dispatcher)
         Stop(cameraId).ContinueWith(done => dispatcher.BeginInvoke(() =>
         {
             if (done.Exception is { } ex)
-                Notify?.Invoke($"No se pudo cerrar la grabación de {name}: {ex.GetBaseException().Message}", null);
+                Failure?.Invoke($"No se pudo cerrar la grabación de {name}: {ex.GetBaseException().Message}");
             else
                 Notify?.Invoke($"Grabación de {name} guardada en {AppPaths.RecordingsDirectory}", AppPaths.RecordingsDirectory);
         }), TaskScheduler.Default);

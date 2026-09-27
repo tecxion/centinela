@@ -15,12 +15,15 @@ public partial class MainWindow
     void InitTray()
     {
         _autoStart = new AutoStart(new RegistryRunKey(), Environment.ProcessPath!);
-        _tray = new TrayController(_autoStart.IsEnabled);
+        _tray = new TrayController(IsAutoStartEnabled());
         _tray.OpenRequested += ShowFromTray;
-        _tray.ExitRequested += ExitApp;
-        _tray.RecordAllRequested += ToggleRecordAll;
+        // Deferred so the context menu closes before the exit wait or the sessions start.
+        _tray.ExitRequested += () => Dispatcher.BeginInvoke(ExitApp);
+        _tray.RecordAllRequested += () => Dispatcher.BeginInvoke(ToggleRecordAll);
+        _tray.MenuOpening += RefreshAutoStartCheck;
         _tray.AutoStartToggled += enabled =>
         {
+            if (enabled == IsAutoStartEnabled()) return;
             try
             {
                 if (enabled) _autoStart.Enable();
@@ -29,9 +32,10 @@ public partial class MainWindow
             catch (Exception ex)
             {
                 Notify($"No se pudo cambiar el arranque con Windows: {ex.Message}", null);
-                _tray.SetAutoStart(_autoStart.IsEnabled);
+                RefreshAutoStartCheck();
             }
         };
+        _recordings.Failure += NotifyFailure;
         _recordings.StatusChanged += (_, _) =>
         {
             if (_closed) return;
@@ -40,6 +44,23 @@ public partial class MainWindow
         };
         // Logging off closes the window without «Salir»: that must be a real exit, not a hide.
         Application.Current.SessionEnding += (_, _) => _exitRequested = true;
+    }
+
+    bool IsAutoStartEnabled()
+    {
+        try { return _autoStart.IsEnabled; }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>The registry value can change outside the app (Task Manager, another copy of the exe).</summary>
+    void RefreshAutoStartCheck() => _tray.SetAutoStart(IsAutoStartEnabled());
+
+    /// <summary>Failure notices go to the status bar, and to a tray balloon while the window is hidden.</summary>
+    void NotifyFailure(string message)
+    {
+        if (_closed) return;
+        Notify(message, null);
+        if (IsHiddenInTray) _tray.ShowBalloon("CamaraWin", message);
     }
 
     /// <summary>Stops every live view (recordings keep running) and hides the window.</summary>

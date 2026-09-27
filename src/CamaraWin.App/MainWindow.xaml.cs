@@ -44,8 +44,17 @@ public partial class MainWindow : Window
         ShowStatsItem.IsChecked = _settings.ShowStats;
         InitErrors();
         InitTray();
-        if (startHidden) IsHiddenInTray = true;
-        else RebuildView();
+        try
+        {
+            if (startHidden) IsHiddenInTray = true;
+            else RebuildView();
+        }
+        catch
+        {
+            // The window will never show: remove the tray icon so no ghost remains.
+            _tray.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Every tile showing this camera: its grid tiles (and placeholders) plus any open fullscreen view.</summary>
