@@ -62,7 +62,7 @@ public static class InfoDocuments
 
         doc.Blocks.Add(H("Zoom"));
         doc.Blocks.Add(P("En las cámaras grandes y a pantalla completa, la rueda del ratón acerca la imagen (hasta 8×) hacia donde está el cursor. Con zoom, arrastra para moverte por la imagen."));
-        doc.Blocks.Add(P("Pulsa 0 o usa «Restablecer zoom» del clic derecho para volver a verla entera. El zoom no se guarda."));
+        doc.Blocks.Add(P("Pulsa 0 con el puntero sobre la cámara (o usa «Restablecer zoom» del clic derecho) para volver a verla entera. El zoom no se guarda."));
 
         doc.Blocks.Add(H("Sonido"));
         doc.Blocks.Add(P("Si la cámara envía audio, las cámaras grandes y la pantalla completa muestran el botón 🔇. Púlsalo para oírla (🔊). Todas empiezan en silencio y solo suena una a la vez."));
@@ -86,6 +86,7 @@ public static class InfoDocuments
         doc.Blocks.Add(H("Actualizaciones"));
         doc.Blocks.Add(P("Una vez al día, al arrancar, Centinela mira en GitHub si hay una versión nueva y te avisa. Solo envía el número de versión de Centinela."));
         doc.Blocks.Add(P("Nunca descarga nada por su cuenta: «Descargar» abre la página de GitHub. Puedes omitir una versión o desactivar el aviso con «Comprobar al arrancar» (Ayuda › Buscar actualizaciones…)."));
+        doc.Blocks.Add(P("Solo cuentan las versiones publicadas en GitHub (no los borradores ni las versiones preliminares). Con CENTINELA_DATA_DIR (pruebas) no se comprueba al arrancar; Ayuda › Buscar actualizaciones… sigue funcionando."));
 
         doc.Blocks.Add(H("Errores frecuentes"));
         foreach (var kind in Enum.GetValues<StreamErrorKind>())
@@ -115,6 +116,9 @@ public static class InfoDocuments
         doc.Blocks.Add(P("Centinela usa FFmpeg bajo licencia LGPL v2.1+ como bibliotecas separadas (carpeta ffmpeg); puedes sustituirlas por otra compilación compatible."));
         doc.Blocks.Add(Link("https://ffmpeg.org", "https://ffmpeg.org"));
         doc.Blocks.Add(Link("https://github.com/BtbN/FFmpeg-Builds", "https://github.com/BtbN/FFmpeg-Builds"));
+        doc.Blocks.Add(H("NAudio"));
+        doc.Blocks.Add(P("El sonido se reproduce con NAudio (Copyright (c) 2020 Mark Heath), bajo licencia MIT."));
+        doc.Blocks.Add(Link("https://github.com/naudio/NAudio", "https://github.com/naudio/NAudio"));
         return doc;
     }
 

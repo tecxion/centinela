@@ -10,7 +10,11 @@ public enum UpdateStatus { UpToDate, UpdateAvailable, NoReleases, Failed }
 public sealed record UpdateResult(UpdateStatus Status, Version? Latest = null, string? Title = null, string? Notes = null,
     string? Url = null, DateTimeOffset? PublishedAt = null, string? Error = null);
 
-/// <summary>Asks GitHub for the latest published release. Sends only the app version as User-Agent; never throws.</summary>
+/// <summary>
+/// Asks GitHub for the latest published release. Sends only the app version as User-Agent. Network, timeout and
+/// JSON errors come back as <see cref="UpdateStatus.Failed"/>; the caller's own cancellation propagates, and anything
+/// unexpected can still throw, so callers catch.
+/// </summary>
 public sealed class UpdateChecker(HttpClient http, string repository = UpdateChecker.DefaultRepository, TimeSpan? timeout = null)
 {
     public const string DefaultRepository = "tecxion/centinela";

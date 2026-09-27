@@ -150,6 +150,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
 
     static readonly CultureInfo Spanish = CultureInfo.GetCultureInfo("es-ES");
     readonly ZoomState _zoom = new();
+    readonly MatrixTransform _zoomTransform = new();
     // Last mouse position of an ongoing pan (left button held on a zoomed tile).
     Point? _panLast;
 
@@ -180,7 +181,6 @@ public sealed partial class CameraTile : UserControl, IDisposable
         e.Handled = true;
     }
 
-    /// <summary>Shows the zoom state: transform, scaling quality, label, menu item and decode size.</summary>
     /// <summary>
     /// Gives the zoom the host size and the image's letterboxed rectangle inside it (layout offset, which
     /// excludes the render transform), so panning never brings the black bars into view.
@@ -193,6 +193,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         return o;
     }
 
+    /// <summary>Shows the zoom state: transform, scaling quality, label, menu item and decode size.</summary>
     void ApplyZoom()
     {
         var o = SyncZoomView();
@@ -201,7 +202,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
             // The zoom lives in VideoHost coordinates; the Image sits inside it at its letterbox offset o, so
             // host = o + M(local) must equal Scale·(o + local) + Offset, i.e. M's translation is (Scale − 1)·o + Offset.
             var s = _zoom.Scale;
-            Video.RenderTransform = new MatrixTransform(s, 0, 0, s, (s - 1) * o.X + _zoom.OffsetX, (s - 1) * o.Y + _zoom.OffsetY);
+            // One transform per tile, updated in place: panning must not allocate on every mouse move.
+            _zoomTransform.Matrix = new Matrix(s, 0, 0, s, (s - 1) * o.X + _zoom.OffsetX, (s - 1) * o.Y + _zoom.OffsetY);
+            if (!ReferenceEquals(Video.RenderTransform, _zoomTransform)) Video.RenderTransform = _zoomTransform;
         }
         else
         {

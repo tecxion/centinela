@@ -29,8 +29,8 @@
                 <Button Content="➕ Añadir cámara" Click="AddCamera_Click"/>
                 <Button Content="🔍 Buscar en red" Click="Discover_Click"/>
                 <Separator/>
-                <TextBlock Text="Cuadrícula:" VerticalAlignment="Center" Margin="4,0"/>
-                <ComboBox x:Name="GridModeBox" Width="170">
+                <TextBlock Text="Vista:" VerticalAlignment="Center" Margin="4,0"/>
+                <ComboBox x:Name="GridModeBox" MinWidth="240">
                     <ComboBoxItem Content="Auto"/>
                     <ComboBoxItem Content="1"/>
                     <ComboBoxItem Content="4"/>

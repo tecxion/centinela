@@ -91,6 +91,9 @@ public partial class MainWindow
             }
             // A demoted camera must not keep sounding from under the thumbnail that replaces it.
             ReleaseAudio(placeholder);
+            // Nor stay zoomed: it only covers the new tile until that one has a frame.
+            placeholder.ResetZoom();
+            placeholder.EnableZoom = false;
             Cover(placeholder, slot);
             _placeholders[tile] = placeholder;
             tile.FirstFrameShown += RetirePlaceholder;

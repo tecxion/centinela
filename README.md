@@ -14,7 +14,8 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
 - **Probar** (al añadir o editar una cámara): prueba el vídeo principal y el secundario (hasta 10 s) y muestra
   resolución, códec y audio, p. ej. «Principal: 2560×1440 · H.265 · audio AAC», o el error traducido.
 - **Zoom digital** en las cámaras grandes y a pantalla completa: rueda del ratón (1×–8×, hacia el cursor),
-  arrastrar para moverse (sin reordenar mientras hay zoom) y `0` o el menú para volver a 1×. No se guarda.
+  arrastrar para moverse (sin reordenar mientras hay zoom) y `0` (con el puntero sobre la cámara) o el menú
+  para volver a 1×. No se guarda.
 - **Sonido**: botón 🔇/🔊 solo en las cámaras grandes y a pantalla completa, si la cámara envía audio. Todas empiezan
   en silencio y solo suena una a la vez; se calla al ocultar en la bandeja o cerrar la pantalla completa.
   El volumen, en el mezclador de Windows.
@@ -35,7 +36,7 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
 - Actualizaciones: una vez al día, al arrancar, consulta la última versión publicada en GitHub
   (`tecxion/centinela`) y avisa con «Ver»; se puede omitir una versión o desactivar con «Comprobar al arrancar».
   **Nunca descarga nada sola**: «Descargar» abre la página de GitHub. A `api.github.com` solo se envía la versión
-  de la aplicación (en el `User-Agent`).
+  de la aplicación (en el `User-Agent`). Con `CENTINELA_DATA_DIR` no se comprueba al arrancar (sí desde el menú).
 - Contraseñas cifradas con DPAPI de Windows.
 
 ## Preparar las cámaras
@@ -104,7 +105,9 @@ Además es una instancia aparte: no despierta ni se confunde con la Centinela qu
 ## Publicar una versión
 
 1. Cambia `<Version>` en `Directory.Build.props` (p. ej. `1.2.0`).
-2. Crea en GitHub (`tecxion/centinela`) una *release* con la etiqueta `vX.Y.Z` (p. ej. `v1.2.0`).
+2. Crea y **publica** en GitHub (`tecxion/centinela`) una *release* con la etiqueta `vX.Y.Z` o `vX.Y`
+   (2 o 3 números, p. ej. `v1.2.0`). Los borradores y las *pre-releases* no cuentan: la comprobación usa
+   la última *release* publicada.
 
 Las copias instaladas la verán en su siguiente comprobación (o con Ayuda › Buscar actualizaciones…).
 
