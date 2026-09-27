@@ -53,8 +53,14 @@ public sealed unsafe partial class StreamSession : IDisposable
     string? _videoCodecName;
     string? _audioCodecName;
     volatile IAudioSink? _audioSink;
-    volatile AudioPump? _audioPump;  // current connection's pump (created and disposed on the session thread)
+    volatile AudioPump? _audioPump;  // current connection's pump; created lazily and disposed on the session thread
     long _audioFramesDecodedBefore;  // frames of earlier connections
+    AVCodecParameters* _audioParameters; // current connection's audio codecpar (owned by fmt); session thread only
+    volatile string? _audioFailure;  // current connection's audio failure; audio stays off until the next connection
+    object _audioConnection = new(); // identity of the current connection for pump callbacks; guarded by _audioFailureLock
+    readonly object _audioFailureLock = new();
+    long _audioAttachGeneration;     // incremented by every SetAudioSink(non-null)
+    long _audioFailureReported;      // attach generation whose failure was already reported
 
     public StreamSession(string url, bool useUdp = false, bool decode = true)
     {
@@ -84,13 +90,27 @@ public sealed unsafe partial class StreamSession : IDisposable
     /// <summary>Raised on the session thread once per connection when <see cref="Info"/> is known; subscriber exceptions are isolated.</summary>
     public event Action<StreamInfo>? InfoAvailable;
 
-    /// <summary>Attaches (or with null, detaches) the audio output. Any thread; never reconnects.</summary>
-    public void SetAudioSink(IAudioSink? sink) => _audioSink = sink;
+    /// <summary>
+    /// Attaches (or with null, detaches) the audio output. Any thread; never reconnects. The audio decoder only
+    /// starts once an audio packet arrives with a sink attached.
+    /// </summary>
+    public void SetAudioSink(IAudioSink? sink)
+    {
+        if (sink is not null) Interlocked.Increment(ref _audioAttachGeneration);
+        _audioSink = sink;
+    }
 
-    /// <summary>Raised on the audio thread when this connection's audio cannot be decoded; video continues.</summary>
+    /// <summary>
+    /// Raised on the audio or session thread when this connection's audio cannot be decoded; video continues.
+    /// Raised at most once per <see cref="SetAudioSink"/> attach: attaching again to a connection whose audio
+    /// already failed raises it again when the next audio packet arrives.
+    /// </summary>
     public event Action<string>? AudioFailed;
 
     internal long AudioFramesDecoded => Interlocked.Read(ref _audioFramesDecodedBefore) + (_audioPump?.FramesDecoded ?? 0);
+
+    /// <summary>True while the current connection has an audio pump (thread + decoder).</summary>
+    internal bool HasAudioPump => _audioPump is not null;
 
     public StreamStats Stats
     {
@@ -252,7 +272,7 @@ public sealed unsafe partial class StreamSession : IDisposable
             // Remux sessions ran avformat_find_stream_info, so the size is known now; decode sessions wait for a frame.
             if (!_decode && stream->codecpar->width > 0) PublishInfo(stream->codecpar->width, stream->codecpar->height);
             if (_decode) dec = OpenDecoder(codec, stream->codecpar, hwDevice);
-            if (_decode && _audioIndex >= 0) StartAudioPump(fmt->streams[_audioIndex]->codecpar);
+            if (_decode && _audioIndex >= 0) _audioParameters = fmt->streams[_audioIndex]->codecpar;
 
             while (!_stopping)
             {
@@ -265,8 +285,8 @@ public sealed unsafe partial class StreamSession : IDisposable
                     if (dec is null) MarkPlaying(ref reachedPlaying);
                     else DecodePacket(dec, pkt, frame, sw, ref reachedPlaying);
                 }
-                else if (pkt->stream_index == _audioIndex && _audioPump is { } pump && _audioSink is not null)
-                    pump.Enqueue(pkt);
+                else if (pkt->stream_index == _audioIndex && _audioParameters is not null && _audioSink is not null)
+                    OnAudioPacket(pkt);
                 ffmpeg.av_packet_unref(pkt);
             }
         }
@@ -283,31 +303,65 @@ public sealed unsafe partial class StreamSession : IDisposable
         }
     }
 
-    void StartAudioPump(AVCodecParameters* parameters)
+    /// <summary>Session thread; only called with a sink attached. Starts the pump on the first packet.</summary>
+    void OnAudioPacket(AVPacket* pkt)
     {
-        try
+        if (_audioFailure is not null)
         {
-            _audioPump = new AudioPump(parameters, () => _audioSink, RaiseAudioFailed);
+            ReportAudioFailure(); // no-op unless the sink was attached again since the last report
+            return;
         }
-        catch (Exception ex)
+        if (_audioPump is null)
         {
-            // Audio must never take the video down: report and play without it.
-            RaiseAudioFailed(CredentialSanitizer.Sanitize(ex.Message));
+            try
+            {
+                // The token ties a late failure callback to this connection only.
+                var connection = _audioConnection;
+                _audioPump = new AudioPump(_audioParameters, () => _audioSink, message => OnAudioPumpFailed(connection, message));
+            }
+            catch (Exception ex)
+            {
+                // Audio must never take the video down: report and play without it.
+                OnAudioPumpFailed(_audioConnection, CredentialSanitizer.Sanitize(ex.Message));
+                return;
+            }
         }
+        _audioPump.Enqueue(pkt);
+    }
+
+    /// <summary>Audio or session thread.</summary>
+    void OnAudioPumpFailed(object connection, string message)
+    {
+        lock (_audioFailureLock)
+        {
+            if (!ReferenceEquals(connection, _audioConnection)) return; // that connection is gone
+            _audioFailure = message;
+        }
+        ReportAudioFailure();
+    }
+
+    /// <summary>Raises <see cref="AudioFailed"/> at most once per attach generation. Any thread.</summary>
+    void ReportAudioFailure()
+    {
+        if (_audioFailure is not { } message) return;
+        var generation = Interlocked.Read(ref _audioAttachGeneration);
+        if (Interlocked.Exchange(ref _audioFailureReported, generation) == generation) return;
+        try { AudioFailed?.Invoke(message); }
+        catch (Exception) { /* isolated */ }
     }
 
     void StopAudioPump()
     {
+        _audioParameters = null; // owned by fmt, which is about to close
+        lock (_audioFailureLock)
+        {
+            _audioConnection = new object();
+            _audioFailure = null;
+        }
         if (_audioPump is not { } pump) return;
         pump.Dispose();
         Interlocked.Add(ref _audioFramesDecodedBefore, pump.FramesDecoded);
         _audioPump = null;
-    }
-
-    void RaiseAudioFailed(string message)
-    {
-        try { AudioFailed?.Invoke(message); }
-        catch (Exception) { /* isolated */ }
     }
 
     AVCodecContext* OpenDecoder(AVCodec* codec, AVCodecParameters* parameters, AVBufferRef* hwDevice)

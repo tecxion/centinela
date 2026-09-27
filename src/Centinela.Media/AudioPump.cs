@@ -14,7 +14,7 @@ sealed unsafe class AudioPump : IDisposable
     readonly Action<string> _failed;
     readonly Queue<nint> _queue = new();
     readonly object _lock = new();
-    readonly SemaphoreSlim _signal = new(0);
+    readonly AutoResetEvent _signal = new(false); // Set is idempotent: one pending wake-up at most
     readonly Thread _thread;
     AVCodecParameters* _parameters;
     long _framesDecoded;
@@ -56,7 +56,7 @@ sealed unsafe class AudioPump : IDisposable
             }
             _queue.Enqueue((nint)clone);
         }
-        _signal.Release();
+        _signal.Set();
     }
 
     void Run()
@@ -78,7 +78,7 @@ sealed unsafe class AudioPump : IDisposable
 
             while (!_stopping)
             {
-                _signal.Wait(200);
+                _signal.WaitOne(200);
                 while (!_stopping && TryDequeue(out var packet))
                 {
                     try
@@ -189,7 +189,7 @@ sealed unsafe class AudioPump : IDisposable
     {
         if (_stopping) return;
         _stopping = true;
-        _signal.Release();
+        _signal.Set();
         var joined = _thread.Join(TimeSpan.FromSeconds(2));
         DrainQueue();
         // A pump thread still running may be reading the parameters: leak them rather than free them under it.

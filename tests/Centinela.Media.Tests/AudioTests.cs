@@ -44,6 +44,7 @@ public sealed class AudioTests(RtspTestServer server)
         Assert.True(TestUtil.WaitFor(() => session.State == SessionState.Playing, TimeSpan.FromSeconds(10)));
         Thread.Sleep(1500);
         Assert.Equal(0, session.AudioFramesDecoded);
+        Assert.False(session.HasAudioPump, "no pump (thread, decoder) until audio is requested");
     }
 
     [SkippableFact]
@@ -72,5 +73,8 @@ public sealed class AudioTests(RtspTestServer server)
         session.SetAudioSink(new CollectingSink());
         session.Start();
         Assert.True(TestUtil.WaitFor(() => session.State == SessionState.Playing, TimeSpan.FromSeconds(10)));
+        Thread.Sleep(500);
+        Assert.False(session.HasAudioPump);
+        Assert.Equal(0, session.AudioFramesDecoded);
     }
 }
