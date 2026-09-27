@@ -12,16 +12,27 @@ public partial class MainWindow
     // Old-stream tiles kept visible over a new tile until the new one shows its first frame.
     readonly Dictionary<CameraTile, CameraTile> _placeholders = [];   // new tile → placeholder
 
-    const int FeaturedIndex = 5;
+    // Combo indexes 0..4 are the grid modes; the rest are these layouts, in combo order.
+    static readonly LayoutMode[] LayoutModes = [LayoutMode.Featured, LayoutMode.FeaturedLeft, LayoutMode.Dual];
     // A placeholder never outlives this, even if the new stream neither paints nor reports a failure.
     static readonly TimeSpan PlaceholderTimeout = TimeSpan.FromSeconds(5);
 
-    ViewPlan PlanView() =>
-        ViewPlanner.Plan(_cameras, _settings.LayoutMode, _settings.GridMode, _settings.FeaturedCameraId);
+    int ComboIndexForSettings() =>
+        _settings.LayoutMode == LayoutMode.Grid
+            ? Math.Max(0, Array.IndexOf(GridModes, _settings.GridMode))
+            : GridModes.Length + Array.IndexOf(LayoutModes, _settings.LayoutMode);
 
-    /// <summary>The camera shown large in featured mode (null in grid mode or without cameras).</summary>
-    Guid? FeaturedCameraId() =>
-        _settings.LayoutMode == LayoutMode.Featured && PlanView().Slots is [var first, ..] ? first.CameraId : null;
+    ViewPlan PlanView() =>
+        ViewPlanner.Plan(_cameras, _settings.LayoutMode, _settings.GridMode, _settings.FeaturedCameraId, _settings.DualCameraIds);
+
+    bool IsFeaturedLayout => _settings.LayoutMode is LayoutMode.Featured or LayoutMode.FeaturedLeft;
+
+    /// <summary>The cameras shown big (Main) in the current layout, in plan order (dual: left, right).</summary>
+    IReadOnlyList<Guid> BigCameraIds() =>
+        PlanView().Slots.Where(s => s.Kind == StreamKind.Main).Select(s => s.CameraId).ToList();
+
+    /// <summary>The camera shown large in a featured layout (null otherwise or without cameras).</summary>
+    Guid? FeaturedCameraId() => IsFeaturedLayout && BigCameraIds() is [var first, ..] ? first : null;
 
     void RebuildView()
     {
@@ -157,9 +168,26 @@ public partial class MainWindow
 
     void FeatureCamera(CameraTile tile)
     {
-        if (_settings.LayoutMode != LayoutMode.Featured || tile.Camera.Id == FeaturedCameraId()) return;
-        _settings.FeaturedCameraId = tile.Camera.Id;
+        if (IsFeaturedLayout)
+        {
+            if (tile.Camera.Id == FeaturedCameraId()) return;
+            _settings.FeaturedCameraId = tile.Camera.Id;
+        }
+        else if (_settings.LayoutMode == LayoutMode.Dual)
+        {
+            var current = new DualState(BigCameraIds(), _settings.DualNextReplace);
+            var next = DualSelection.Click(current, tile.Camera.Id);
+            if (ReferenceEquals(next, current)) return;
+            StoreDual(next);
+        }
+        else return;
         SaveSettingsQuietly();
         RebuildView();
+    }
+
+    void StoreDual(DualState state)
+    {
+        _settings.DualCameraIds = [.. state.Ids];
+        _settings.DualNextReplace = state.NextReplace;
     }
 }

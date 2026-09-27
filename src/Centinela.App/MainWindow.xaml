@@ -32,7 +32,9 @@
                     <ComboBoxItem Content="4"/>
                     <ComboBoxItem Content="9"/>
                     <ComboBoxItem Content="16"/>
-                    <ComboBoxItem Content="Principal + miniaturas"/>
+                    <ComboBoxItem Content="Principal + miniaturas (derecha)"/>
+                    <ComboBoxItem Content="Principal + miniaturas (izquierda)"/>
+                    <ComboBoxItem Content="Dos principales + miniaturas"/>
                 </ComboBox>
                 <Separator/>
                 <Button Content="📁 Grabaciones" Click="OpenRecordings_Click"/>

@@ -31,9 +31,7 @@ public partial class MainWindow : Window
         for (var i = 0; i < _cameras.Count; i++) _cameras[i].Order = i;
 
         RestoreWindowPlacement();
-        GridModeBox.SelectedIndex = _settings.LayoutMode == LayoutMode.Featured
-            ? FeaturedIndex
-            : Math.Max(0, Array.IndexOf(GridModes, _settings.GridMode));
+        GridModeBox.SelectedIndex = ComboIndexForSettings();
         GridModeBox.SelectionChanged += GridMode_Changed;
         _recordings = new RecordingController(Dispatcher);
         _recordings.Notify += Notify;
@@ -95,10 +93,18 @@ public partial class MainWindow : Window
         var a = _cameras.FirstOrDefault(c => c.Id == source);
         var b = _cameras.FirstOrDefault(c => c.Id == target);
         if (a is null || b is null) return;
-        if (_settings.LayoutMode == LayoutMode.Featured && target == FeaturedCameraId())
+        if (IsFeaturedLayout && target == FeaturedCameraId())
         {
             // Dropping a thumbnail onto the featured tile features the dragged camera.
             _settings.FeaturedCameraId = source;
+            SaveSettingsQuietly();
+            RebuildView();
+            return;
+        }
+        if (_settings.LayoutMode == LayoutMode.Dual && BigCameraIds() is var bigs && bigs.Contains(target))
+        {
+            // Dropping onto a big camera puts the dragged camera there (swapping when both are big).
+            StoreDual(DualSelection.Drop(new DualState(bigs, _settings.DualNextReplace), source, bigs.ToList().IndexOf(target)));
             SaveSettingsQuietly();
             RebuildView();
             return;
@@ -118,11 +124,12 @@ public partial class MainWindow : Window
 
     void GridMode_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (GridModeBox.SelectedIndex == FeaturedIndex) _settings.LayoutMode = LayoutMode.Featured;
+        var index = GridModeBox.SelectedIndex;
+        if (index >= GridModes.Length) _settings.LayoutMode = LayoutModes[index - GridModes.Length];
         else
         {
             _settings.LayoutMode = LayoutMode.Grid;
-            _settings.GridMode = GridModes[GridModeBox.SelectedIndex];
+            _settings.GridMode = GridModes[index];
         }
         SaveSettingsQuietly();
         RebuildView();
@@ -218,6 +225,7 @@ public partial class MainWindow : Window
             _settings.FeaturedCameraId = null;
             SaveSettingsQuietly();
         }
+        if (_settings.DualCameraIds.Remove(tile.Camera.Id)) SaveSettingsQuietly();
         RebuildView();
     }
 
