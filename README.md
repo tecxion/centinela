@@ -5,8 +5,19 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
 
 - Objetivo (no medido): imagen en menos de 1 s y ~100–300 ms de retardo en red local (FFmpeg sin búfer + GPU).
 - Añadir cámaras a mano o **buscarlas en la red** (ONVIF).
-- Vistas: cuadrícula (Auto, 1, 4, 9, 16) o **Principal + miniaturas** (clic en una miniatura para cambiar la principal).
+- Vistas: cuadrícula (Auto, 1, 4, 9, 16), **Principal + miniaturas** a la derecha o a la izquierda (clic en una
+  miniatura para cambiar la principal) o **Dos principales + miniaturas**: clic en una miniatura → sustituye a la
+  grande que lleva más tiempo sin cambiar; arrastrarla sobre una grande → la pone ahí. Se recuerda la elección.
 - Doble clic: pantalla completa en calidad alta. Arrastrar: reordenar. F11: ventana a pantalla completa.
+- **Clic derecho** en una cámara: Pantalla completa, Captura, Grabar/Detener grabación, Editar…, **Duplicar…**
+  (copia con «(copia)» en el nombre), Restablecer zoom y Eliminar.
+- **Probar** (al añadir o editar una cámara): prueba el vídeo principal y el secundario (hasta 10 s) y muestra
+  resolución, códec y audio, p. ej. «Principal: 2560×1440 · H.265 · audio AAC», o el error traducido.
+- **Zoom digital** en las cámaras grandes y a pantalla completa: rueda del ratón (1×–8×, hacia el cursor),
+  arrastrar para moverse (sin reordenar mientras hay zoom) y `0` o el menú para volver a 1×. No se guarda.
+- **Sonido**: botón 🔇/🔊 solo en las cámaras grandes y a pantalla completa, si la cámara envía audio. Todas empiezan
+  en silencio y solo suena una a la vez; se calla al ocultar en la bandeja o cerrar la pantalla completa.
+  El volumen, en el mezclador de Windows.
 - 📷 Capturas PNG a resolución completa · ⏺ Grabación MKV sin recodificar · **⏺ Grabar todas** / ⏹ Detener todas.
 - Errores traducidos al español («Contraseña incorrecta», «Sin conexión · reintentando»…) con avisos emergentes
   y un **Registro** de errores (botón «Registro»; archivos en `%AppData%\Centinela\logs`, se borran a los 14 días).
@@ -20,6 +31,11 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
   **Arrancar con Windows** (se inicia oculta en la bandeja con el argumento `--tray`).
 - Ver › **Mostrar estadísticas**: `fps · ms · GPU/CPU` en cada cámara. Los ms son lo que tarda el equipo en
   preparar cada imagen, **no** el retardo real cámara → pantalla (no se puede medir).
+- Menú **Ayuda**: Manual, Licencia, Soporte, **Buscar actualizaciones…** y Acerca de Centinela.
+- Actualizaciones: una vez al día, al arrancar, consulta la última versión publicada en GitHub
+  (`tecxion/centinela`) y avisa con «Ver»; se puede omitir una versión o desactivar con «Comprobar al arrancar».
+  **Nunca descarga nada sola**: «Descargar» abre la página de GitHub. A `api.github.com` solo se envía la versión
+  de la aplicación (en el `User-Agent`).
 - Contraseñas cifradas con DPAPI de Windows.
 
 ## Preparar las cámaras
@@ -85,6 +101,13 @@ Con la variable definida, todo lo que escribe la aplicación queda dentro de esa
 Además es una instancia aparte: no despierta ni se confunde con la Centinela que tengas abierta, y
 «Arrancar con Windows» no aparece en el menú de la bandeja (no se toca el registro de Windows).
 
+## Publicar una versión
+
+1. Cambia `<Version>` en `Directory.Build.props` (p. ej. `1.2.0`).
+2. Crea en GitHub (`tecxion/centinela`) una *release* con la etiqueta `vX.Y.Z` (p. ej. `v1.2.0`).
+
+Las copias instaladas la verán en su siguiente comprobación (o con Ayuda › Buscar actualizaciones…).
+
 ## Datos
 
 - Cámaras: `%AppData%\Centinela\cameras.json` (contraseñas cifradas, solo tu usuario de Windows puede leerlas)
@@ -110,7 +133,7 @@ siguen en `Vídeos\CamaraWin` e `Imágenes\CamaraWin`.
 
 ## Soporte
 
-https://www.tecxart.es · [tecxart@gmail.com](mailto:tecxart@gmail.com) · también en la aplicación: Archivo › Soporte.
+https://www.tecxart.es · [tecxart@gmail.com](mailto:tecxart@gmail.com) · también en la aplicación: Ayuda › Soporte.
 
 ## Licencia
 
