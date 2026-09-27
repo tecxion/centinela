@@ -11,7 +11,7 @@ public partial class AboutWindow : Window
     {
         InitializeComponent();
         VersionText.Text = $"Centinela {AppInfo.Version}";
-        RepoText.Text = AppInfo.RepositoryUrl.Replace("https://", "");
+        RepoText.Text = "github.com/" + AppInfo.Repository;
         RepoLink.NavigateUri = new Uri(AppInfo.RepositoryUrl);
         SupportLink.NavigateUri = new Uri(InfoDocuments.WebsiteUri);
     }

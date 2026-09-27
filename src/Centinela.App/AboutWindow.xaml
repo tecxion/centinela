@@ -4,7 +4,7 @@
         Title="Acerca de Centinela" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <StackPanel Margin="24" MinWidth="320">
-        <Image Source="/Assets/centinela.png" Width="96" Height="96" HorizontalAlignment="Center"
+        <Image Source="/Assets/centinela.png" Width="48" Height="48" HorizontalAlignment="Center"
                RenderOptions.BitmapScalingMode="HighQuality"/>
         <TextBlock x:Name="VersionText" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0"/>
         <TextBlock Text="Visor de cámaras IP" HorizontalAlignment="Center" Foreground="Gray"/>
