@@ -17,14 +17,14 @@ public sealed class ErrorCenter(ErrorLog log)
         log.Add(new ErrorLogEntry(DateTime.Now, camera.Name, text.Short, text.Title, error.Detail));
         Unread++;
         UnreadChanged?.Invoke(Unread);
-        if (_policy.ShouldNotify(camera.Id, error.Kind)) ToastRequested?.Invoke(new Toast(text.Title, text.Advice, false));
+        if (_policy.ShouldNotify(camera.Id, error.Kind)) ToastRequested?.Invoke(new Toast(text.Title, text.Advice, ToastStyle.Error));
     }
 
     public void Playing(Camera camera)
     {
         if (!_policy.OnPlaying(camera.Id)) return;
         log.Add(new ErrorLogEntry(DateTime.Now, camera.Name, "Recuperada", $"{camera.Name}: conexión recuperada", ""));
-        ToastRequested?.Invoke(new Toast($"✓ {camera.Name}: conexión recuperada", "", true));
+        ToastRequested?.Invoke(new Toast($"✓ {camera.Name}: conexión recuperada", "", ToastStyle.Recovery));
     }
 
     public void Forget(Guid cameraId) => _policy.Forget(cameraId);

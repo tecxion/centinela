@@ -42,6 +42,7 @@ public partial class MainWindow : Window
         ShowStatsItem.IsChecked = _settings.ShowStats;
         InitErrors();
         InitTray();
+        InitUpdates();
         try
         {
             if (startHidden) IsHiddenInTray = true;
