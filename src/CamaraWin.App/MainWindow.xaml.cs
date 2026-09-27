@@ -19,6 +19,8 @@ public partial class MainWindow : Window
     string? _statusRevealPath;
     static readonly GridMode[] GridModes = [GridMode.Auto, GridMode.One, GridMode.Four, GridMode.Nine, GridMode.Sixteen];
     WindowState _stateBeforeFullscreen;
+    // Set once the window has closed: background work finishing later must not rebuild the view.
+    bool _closed;
 
     public MainWindow()
     {
@@ -112,12 +114,12 @@ public partial class MainWindow : Window
         {
             WindowStyle = WindowStyle.SingleBorderWindow;
             WindowState = _stateBeforeFullscreen;
-            TopBar.Visibility = BottomBar.Visibility = Visibility.Visible;
+            MainMenu.Visibility = TopBar.Visibility = BottomBar.Visibility = Visibility.Visible;
         }
         else
         {
             _stateBeforeFullscreen = WindowState;
-            TopBar.Visibility = BottomBar.Visibility = Visibility.Collapsed;
+            MainMenu.Visibility = TopBar.Visibility = BottomBar.Visibility = Visibility.Collapsed;
             WindowStyle = WindowStyle.None;
             WindowState = WindowState.Normal; // re-maximizing after the style change covers the taskbar
             WindowState = WindowState.Maximized;
@@ -236,7 +238,9 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Notify($"No se pudieron guardar las cámaras: {ex.Message}", null);
+            return;
         }
+        ScheduleAutomaticBackup();
     }
 
     void SaveSettingsQuietly()
@@ -268,10 +272,12 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _closed = true;
         // Tiles and recordings shut down in parallel; one bounded wait so recordings get their trailer.
         var shutdowns = _tiles.Values.Concat(_placeholders.Values).Select(tile => tile.ShutdownAsync())
             .Concat(_pendingShutdowns)
             .Append(_recordings.ShutdownAsync())
+            .Append(AutomaticBackupAsync())
             .ToArray();
         _tiles.Clear();
         _placeholders.Clear();

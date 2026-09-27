@@ -4,6 +4,19 @@
         xmlns:local="clr-namespace:CamaraWin.App"
         Title="CamaraWin" Width="1280" Height="800" Background="#111" KeyDown="Window_KeyDown">
     <DockPanel>
+        <Menu x:Name="MainMenu" DockPanel.Dock="Top">
+            <MenuItem Header="_Archivo">
+                <MenuItem Header="_Importar JSON…" Click="Import_Click"/>
+                <MenuItem Header="_Exportar JSON…" Click="Export_Click"/>
+                <MenuItem Header="_Carpeta de copia automática…" Click="BackupFolder_Click"/>
+                <Separator/>
+                <MenuItem Header="_Manual (README)" Click="Manual_Click"/>
+                <MenuItem Header="_Licencia" Click="License_Click"/>
+                <MenuItem Header="_Soporte" Click="Support_Click"/>
+                <Separator/>
+                <MenuItem Header="_Salir" Click="Exit_Click"/>
+            </MenuItem>
+        </Menu>
         <ToolBarTray x:Name="TopBar" DockPanel.Dock="Top">
             <ToolBar x:Name="MainToolBar">
                 <Button Content="➕ Añadir cámara" Click="AddCamera_Click"/>

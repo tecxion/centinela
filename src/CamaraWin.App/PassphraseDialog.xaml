@@ -1,0 +1,19 @@
+<Window x:Class="CamaraWin.App.PassphraseDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Clave de la copia" Width="360" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
+    <StackPanel Margin="16">
+        <TextBlock Text="Clave"/>
+        <PasswordBox x:Name="First" Margin="0,4,0,8"/>
+        <StackPanel x:Name="ConfirmPanel">
+            <TextBlock Text="Repite la clave"/>
+            <PasswordBox x:Name="Second" Margin="0,4,0,8"/>
+        </StackPanel>
+        <TextBlock x:Name="Error" Foreground="Red" TextWrapping="Wrap"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Aceptar" IsDefault="True" Width="90" Margin="0,0,8,0" Click="Ok_Click"/>
+            <Button Content="Cancelar" IsCancel="True" Width="90"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -1,0 +1,6 @@
+<Window x:Class="CamaraWin.App.InfoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="640" Height="640" WindowStartupLocation="CenterOwner">
+    <FlowDocumentScrollViewer x:Name="Viewer" VerticalScrollBarVisibility="Auto"/>
+</Window>
