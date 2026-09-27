@@ -10,14 +10,17 @@
                 <MenuItem Header="_Exportar JSON…" Click="Export_Click"/>
                 <MenuItem Header="_Carpeta de copia automática…" Click="BackupFolder_Click"/>
                 <Separator/>
-                <MenuItem Header="_Manual (README)" Click="Manual_Click"/>
-                <MenuItem Header="_Licencia" Click="License_Click"/>
-                <MenuItem Header="_Soporte" Click="Support_Click"/>
-                <Separator/>
                 <MenuItem Header="_Salir" Click="Exit_Click"/>
             </MenuItem>
             <MenuItem Header="_Ver">
                 <MenuItem x:Name="ShowStatsItem" Header="Mostrar _estadísticas" IsCheckable="True" Click="ShowStats_Click"/>
+            </MenuItem>
+            <MenuItem x:Name="HelpMenu" Header="A_yuda">
+                <MenuItem Header="_Manual" Click="Manual_Click"/>
+                <MenuItem Header="_Licencia" Click="License_Click"/>
+                <MenuItem Header="_Soporte" Click="Support_Click"/>
+                <Separator/>
+                <MenuItem Header="_Acerca de Centinela" Click="About_Click"/>
             </MenuItem>
         </Menu>
         <ToolBarTray x:Name="TopBar" DockPanel.Dock="Top">

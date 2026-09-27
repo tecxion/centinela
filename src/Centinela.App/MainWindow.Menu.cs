@@ -5,7 +5,7 @@ using Microsoft.Win32;
 
 namespace Centinela.App;
 
-/// <summary>The Archivo menu: JSON import/export, the automatic copy and the info windows.</summary>
+/// <summary>The Archivo and Ayuda menus: JSON import/export, the automatic copy, the info windows and Acerca de.</summary>
 public partial class MainWindow
 {
     // Import/export derive keys with PBKDF2 off the UI thread; one operation at a time.
@@ -203,5 +203,6 @@ public partial class MainWindow
     void Manual_Click(object sender, RoutedEventArgs e) => new InfoWindow("Manual de Centinela", InfoDocuments.Manual()) { Owner = this }.Show();
     void License_Click(object sender, RoutedEventArgs e) => new InfoWindow("Licencia", InfoDocuments.License()) { Owner = this }.Show();
     void Support_Click(object sender, RoutedEventArgs e) => new InfoWindow("Soporte", InfoDocuments.Support()) { Owner = this }.Show();
+    void About_Click(object sender, RoutedEventArgs e) => new AboutWindow { Owner = this }.ShowDialog();
     void Exit_Click(object sender, RoutedEventArgs e) => ExitApp();
 }

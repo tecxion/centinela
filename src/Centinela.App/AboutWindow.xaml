@@ -1,0 +1,20 @@
+<Window x:Class="Centinela.App.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Acerca de Centinela" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="24" MinWidth="320">
+        <Image Source="/Assets/centinela.png" Width="96" Height="96" HorizontalAlignment="Center"
+               RenderOptions.BitmapScalingMode="HighQuality"/>
+        <TextBlock x:Name="VersionText" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0"/>
+        <TextBlock Text="Visor de cámaras IP" HorizontalAlignment="Center" Foreground="Gray"/>
+        <TextBlock Text="Licencia MIT" HorizontalAlignment="Center" Margin="0,12,0,0"/>
+        <TextBlock HorizontalAlignment="Center" Margin="0,4,0,0">
+            <Hyperlink x:Name="RepoLink" Click="Link_Click"><Run x:Name="RepoText"/></Hyperlink>
+        </TextBlock>
+        <TextBlock HorizontalAlignment="Center" Margin="0,4,0,0">
+            <Hyperlink x:Name="SupportLink" Click="Link_Click"><Run Text="Soporte: www.tecxart.es"/></Hyperlink>
+        </TextBlock>
+        <Button Content="Cerrar" Width="90" Margin="0,16,0,0" HorizontalAlignment="Center" IsCancel="True" IsDefault="True"/>
+    </StackPanel>
+</Window>
