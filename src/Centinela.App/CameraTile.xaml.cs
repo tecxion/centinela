@@ -524,6 +524,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
     public bool AudioCapable { get; set; }
     public bool AudioOn { get; private set; }
     public event Action<CameraTile>? AudioToggleRequested;
+    /// <summary>Raised on the UI thread when a new connection has no audio track while this tile's audio is on.</summary>
+    public event Action<CameraTile>? AudioLost;
     /// <summary>Raised on the UI thread when the audio of this tile, while on, cannot be played.</summary>
     public event Action<CameraTile, string>? AudioFailed;
 
@@ -535,7 +537,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
         AudioOn = sink is not null && !_disposed;
         _session?.SetAudioSink(AudioOn ? sink : null);
         AudioButton.Content = AudioOn ? "🔊" : "🔇";
-        AudioButton.ToolTip = AudioOn ? "Silenciar" : "Activar sonido";
+        // A disabled button keeps the tooltip that explains why.
+        if (AudioButton.IsEnabled) AudioButton.ToolTip = AudioOn ? "Silenciar" : "Activar sonido";
         AudioIndicator.Visibility = AudioOn ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -545,8 +548,14 @@ public sealed partial class CameraTile : UserControl, IDisposable
         AudioButton.ToolTip = reason;
     }
 
-    void UpdateAudioButton() =>
-        AudioButton.Visibility = AudioCapable && _session?.Info?.AudioCodec is not null ? Visibility.Visible : Visibility.Collapsed;
+    void UpdateAudioButton()
+    {
+        if (_disposed) return;
+        var hasAudio = _session?.Info?.AudioCodec is not null;
+        AudioButton.Visibility = AudioCapable && hasAudio ? Visibility.Visible : Visibility.Collapsed;
+        // Reconnected to a stream without audio: nothing will sound, so the owner returns the tile to muted.
+        if (AudioOn && !hasAudio) AudioLost?.Invoke(this);
+    }
 
     public void RequestStop() => _session?.RequestStop();
 

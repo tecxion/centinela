@@ -31,7 +31,8 @@
             </Border>
             <StackPanel x:Name="Actions" Orientation="Horizontal" Margin="4"
                         HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
-                <Button x:Name="AudioButton" Content="🔇" ToolTip="Activar sonido" Style="{StaticResource TileButton}" Click="Audio_Click" Visibility="Collapsed"/>
+                <Button x:Name="AudioButton" Content="🔇" ToolTip="Activar sonido" Style="{StaticResource TileButton}" Click="Audio_Click" Visibility="Collapsed"
+                        ToolTipService.ShowOnDisabled="True"/>
                 <Button x:Name="SnapshotButton" Content="📷" ToolTip="Captura" Style="{StaticResource TileButton}" Click="Snapshot_Click"/>
                 <Button x:Name="RecordButton" Content="⏺" ToolTip="Grabar" Style="{StaticResource TileButton}" Click="Record_Click"/>
                 <Button x:Name="EditButton" Content="✎" ToolTip="Editar" Style="{StaticResource TileButton}" Click="Edit_Click"/>

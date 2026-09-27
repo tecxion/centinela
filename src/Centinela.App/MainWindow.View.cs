@@ -89,6 +89,8 @@ public partial class MainWindow
                 RemoveAndShutdown(placeholder);
                 return;
             }
+            // A demoted camera must not keep sounding from under the thumbnail that replaces it.
+            ReleaseAudio(placeholder);
             Cover(placeholder, slot);
             _placeholders[tile] = placeholder;
             tile.FirstFrameShown += RetirePlaceholder;
