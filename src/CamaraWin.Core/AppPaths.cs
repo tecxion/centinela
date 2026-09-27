@@ -4,8 +4,13 @@ public static class AppPaths
 {
     const string AppFolder = "CamaraWin";
 
+    /// <summary>Overrides <see cref="DataDirectory"/> when set and non-empty (tests and smoke runs).</summary>
+    public const string DataDirectoryVariable = "CAMARAWIN_DATA_DIR";
+
     public static string DataDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolder);
+        Environment.GetEnvironmentVariable(DataDirectoryVariable) is { Length: > 0 } overridden
+            ? overridden
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolder);
 
     public static string RecordingsDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), AppFolder);

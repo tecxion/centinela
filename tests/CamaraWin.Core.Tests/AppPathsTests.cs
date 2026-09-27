@@ -13,6 +13,30 @@ public class AppPathsTests
         Assert.Equal(expected, AppPaths.SanitizeFileName(input));
 
     [Fact]
+    public void DataDirectory_honors_override_variable_when_set()
+    {
+        var original = Environment.GetEnvironmentVariable(AppPaths.DataDirectoryVariable);
+        var defaultPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CamaraWin");
+        try
+        {
+            Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, @"C:\scratch\camarawin-data");
+            Assert.Equal(@"C:\scratch\camarawin-data", AppPaths.DataDirectory);
+            Assert.Equal(Path.Combine(@"C:\scratch\camarawin-data", "cameras.json"), CameraStore.DefaultPath);
+
+            Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, "");
+            Assert.Equal(defaultPath, AppPaths.DataDirectory);
+
+            Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, null);
+            Assert.Equal(defaultPath, AppPaths.DataDirectory);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, original);
+        }
+    }
+
+    [Fact]
     public void RecordingFile_uses_camera_folder_and_timestamp()
     {
         var path = AppPaths.RecordingFile("Jardín", new DateTime(2026, 9, 26, 20, 15, 3));

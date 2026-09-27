@@ -1,9 +1,11 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using CamaraWin.Core;
 using CamaraWin.Media;
 
@@ -29,7 +31,18 @@ public sealed partial class CameraTile : UserControl, IDisposable
         NameLabel.Text = camera.Name;
         EditButton.Visibility = DeleteButton.Visibility = manage ? Visibility.Visible : Visibility.Collapsed;
         MouseEnter += (_, _) => Actions.Visibility = Visibility.Visible;
-        MouseLeave += (_, _) => Actions.Visibility = Visibility.Collapsed;
+        MouseLeave += (_, _) =>
+        {
+            Actions.Visibility = Visibility.Collapsed;
+            // A press that is released outside the tile is not a click.
+            _dragStart = null;
+        };
+        _clickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(GetDoubleClickTime()) };
+        _clickTimer.Tick += (_, _) =>
+        {
+            _clickTimer.Stop();
+            if (!_disposed) Clicked?.Invoke(this);
+        };
 
         string url;
         try
@@ -53,6 +66,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
 
     public Camera Camera { get; }
     public StreamKind Kind { get; }
+    /// <summary>False when the camera has no usable URL, so the tile will never show video.</summary>
+    public bool HasStream => _session is not null;
 
     public event Action<CameraTile>? EditRequested;
     public event Action<CameraTile>? DeleteRequested;
@@ -68,14 +83,25 @@ public sealed partial class CameraTile : UserControl, IDisposable
     public event Action<Guid, Guid>? SwapRequested;
     /// <summary>Raised once, on the UI thread, after the first video frame has been painted.</summary>
     public event Action<CameraTile>? FirstFrameShown;
-    /// <summary>A single left click that did not start a drag.</summary>
+    /// <summary>
+    /// A single left click that did not start a drag, raised once the double-click time has passed
+    /// without a second press (so a double-click never also counts as a click).
+    /// </summary>
     public event Action<CameraTile>? Clicked;
+    /// <summary>Raised on the UI thread each time the stream reports reconnecting or failed authentication.</summary>
+    public event Action<CameraTile>? StreamFailed;
+
+    readonly DispatcherTimer _clickTimer;
+
+    [DllImport("user32.dll")]
+    static extern uint GetDoubleClickTime();
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
         if (e.ClickCount == 2)
         {
+            _clickTimer.Stop();
             _dragStart = null;
             FullscreenRequested?.Invoke(this);
             e.Handled = true;
@@ -90,7 +116,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
         // _dragStart is cleared when a drag starts or on double-click, so reaching here with it set means a plain click.
         if (_dragStart is null) return;
         _dragStart = null;
-        Clicked?.Invoke(this);
+        _clickTimer.Stop();
+        _clickTimer.Start();
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -101,6 +128,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance
             && Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance) return;
         _dragStart = null;
+        _clickTimer.Stop();
         DragDrop.DoDragDrop(this, new DataObject(DragFormat, Camera.Id.ToString()), DragDropEffects.Move);
     }
 
@@ -169,6 +197,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
             _ => "",
         };
         Video.Opacity = state == SessionState.Playing ? 1 : 0.4;
+        if (state is SessionState.Reconnecting or SessionState.AuthFailed) StreamFailed?.Invoke(this);
     }
 
     void Edit_Click(object sender, RoutedEventArgs e) => EditRequested?.Invoke(this);
@@ -267,6 +296,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
     {
         if (_shutdown is not null) return _shutdown;
         _disposed = true;
+        _clickTimer.Stop();
         CompositionTarget.Rendering -= OnRendering;
         var session = _session;
         session?.RequestStop();

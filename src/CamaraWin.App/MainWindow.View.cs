@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using CamaraWin.Core;
 
 namespace CamaraWin.App;
@@ -12,6 +13,8 @@ public partial class MainWindow
     readonly Dictionary<CameraTile, CameraTile> _placeholders = [];   // new tile → placeholder
 
     const int FeaturedIndex = 5;
+    // A placeholder never outlives this, even if the new stream neither paints nor reports a failure.
+    static readonly TimeSpan PlaceholderTimeout = TimeSpan.FromSeconds(5);
 
     ViewPlan PlanView() =>
         ViewPlanner.Plan(_cameras, _settings.LayoutMode, _settings.GridMode, _settings.FeaturedCameraId);
@@ -43,6 +46,22 @@ public partial class MainWindow
             if (_placeholders.TryGetValue(existing, out var covering)) Cover(covering, slot);
             return;
         }
+        var otherKey = (slot.CameraId, slot.Kind == StreamKind.Main ? StreamKind.Sub : StreamKind.Main);
+        var otherWanted = wanted.Contains(otherKey);
+
+        // Swapped back before the other stream painted: the tile still on screen is this very stream,
+        // so bring it back instead of opening a second connection to the camera.
+        if (!otherWanted && _tiles.TryGetValue(otherKey, out var unpainted)
+            && _placeholders.TryGetValue(unpainted, out var previous) && previous.Kind == slot.Kind)
+        {
+            _placeholders.Remove(unpainted);
+            _tiles.Remove(otherKey);
+            RemoveAndShutdown(unpainted);
+            _tiles[key] = previous;
+            Position(previous, slot);
+            return;
+        }
+
         var camera = _cameras.First(c => c.Id == slot.CameraId);
         var tile = CreateTile(camera, slot.Kind);
         _tiles[key] = tile;
@@ -51,19 +70,25 @@ public partial class MainWindow
 
         // Same camera already on screen with the other stream (e.g. just promoted/demoted): keep showing
         // it on top of the new tile until the new stream has a frame, so the swap never flashes black.
-        var otherKey = (slot.CameraId, slot.Kind == StreamKind.Main ? StreamKind.Sub : StreamKind.Main);
-        if (!wanted.Contains(otherKey) && _tiles.Remove(otherKey, out var placeholder))
+        // It gives way as soon as the new stream fails or the timeout passes, so it never hides the new tile for good.
+        if (!otherWanted && _tiles.Remove(otherKey, out var placeholder))
         {
-            // Swapped back before the other stream painted: keep the older tile, which is the one on screen.
-            if (_placeholders.Remove(placeholder, out var older))
+            if (!tile.HasStream)
             {
-                placeholder.FirstFrameShown -= RetirePlaceholder;
                 RemoveAndShutdown(placeholder);
-                placeholder = older;
+                return;
             }
             Cover(placeholder, slot);
             _placeholders[tile] = placeholder;
             tile.FirstFrameShown += RetirePlaceholder;
+            tile.StreamFailed += RetirePlaceholder;
+            var timeout = new DispatcherTimer { Interval = PlaceholderTimeout };
+            timeout.Tick += (_, _) =>
+            {
+                timeout.Stop();
+                RetirePlaceholder(tile);
+            };
+            timeout.Start();
         }
     }
 
@@ -84,6 +109,7 @@ public partial class MainWindow
     void RetirePlaceholder(CameraTile tile)
     {
         tile.FirstFrameShown -= RetirePlaceholder;
+        tile.StreamFailed -= RetirePlaceholder;
         if (_placeholders.Remove(tile, out var placeholder)) RemoveAndShutdown(placeholder);
     }
 
@@ -123,7 +149,7 @@ public partial class MainWindow
 
     void FeatureCamera(CameraTile tile)
     {
-        if (_settings.LayoutMode != LayoutMode.Featured || tile.Kind == StreamKind.Main) return;
+        if (_settings.LayoutMode != LayoutMode.Featured || tile.Camera.Id == FeaturedCameraId()) return;
         _settings.FeaturedCameraId = tile.Camera.Id;
         SaveSettingsQuietly();
         RebuildView();
