@@ -8,7 +8,10 @@ namespace Centinela.Media.Tests.Rtsp;
 [CollectionDefinition("rtsp")]
 public sealed class RtspCollection : ICollectionFixture<RtspTestServer>;
 
-/// <summary>mediamtx on :18554 with two looping 640x360 H.264 test streams: "open" (anonymous) and "secure" (viewer / p@ss#w/rd).</summary>
+/// <summary>
+/// mediamtx on :18554 with looping 640x360 H.264 test streams: "open" (anonymous), "secure" (viewer / p@ss#w/rd)
+/// and "av" (anonymous, H.264 plus a 48 kHz AAC sine).
+/// </summary>
 public sealed class RtspTestServer : IDisposable
 {
     public const int Port = 18554;
@@ -42,6 +45,8 @@ public sealed class RtspTestServer : IDisposable
                 path: open
               - action: read
                 path: missing
+              - action: read
+                path: av
           - user: {{SecureUser}}
             pass: "sha256:{{Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(SecurePassword)))}}"
             ips: []
@@ -89,6 +94,11 @@ public sealed class RtspTestServer : IDisposable
                 "-hide_banner -loglevel error -re -f lavfi -i testsrc2=size=640x360:rate=25 " +
                 "-c:v libx264 -preset ultrafast -tune zerolatency -g 25 -pix_fmt yuv420p " +
                 $"-f rtsp -rtsp_transport tcp rtsp://127.0.0.1:{Port}/{path}"));
+        _processes.Add(Launch(_ffmpegExe!,
+            "-hide_banner -loglevel error -re -f lavfi -i testsrc2=size=640x360:rate=25 " +
+            "-re -f lavfi -i sine=frequency=440:sample_rate=48000 " +
+            "-c:v libx264 -preset ultrafast -tune zerolatency -g 25 -pix_fmt yuv420p -c:a aac -b:a 64k " +
+            $"-f rtsp -rtsp_transport tcp rtsp://127.0.0.1:{Port}/av"));
         Thread.Sleep(2000);
     }
 

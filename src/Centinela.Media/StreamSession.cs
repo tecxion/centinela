@@ -47,6 +47,11 @@ public sealed unsafe partial class StreamSession : IDisposable
     double _fps;
     double _latencyEma = -1;
     long _packetTimestamp;          // when the packet being decoded was read
+    volatile StreamInfo? _info;     // null until known for the current connection
+    bool _infoPublished;            // session thread only
+    int _audioIndex = -1;           // current connection's audio stream, -1 = none
+    string? _videoCodecName;
+    string? _audioCodecName;
 
     public StreamSession(string url, bool useUdp = false, bool decode = true)
     {
@@ -71,6 +76,10 @@ public sealed unsafe partial class StreamSession : IDisposable
     public event Action<SessionState>? StateChanged;
     /// <summary>Raised on the session thread for every failed attempt or stall; subscriber exceptions are isolated.</summary>
     public event Action<StreamError>? ErrorOccurred;
+    /// <summary>Resolution and codecs of the current connection; null until known.</summary>
+    public StreamInfo? Info => _info;
+    /// <summary>Raised on the session thread once per connection when <see cref="Info"/> is known; subscriber exceptions are isolated.</summary>
+    public event Action<StreamInfo>? InfoAvailable;
 
     public StreamStats Stats
     {
@@ -186,6 +195,11 @@ public sealed unsafe partial class StreamSession : IDisposable
         _statsWindowStart = 0;
         _latencyEma = -1;
         _fps = 0;
+        _info = null;
+        _infoPublished = false;
+        _audioIndex = -1;
+        _videoCodecName = null;
+        _audioCodecName = null;
         var logSink = (Action<string>)OnFFmpegLog; // identity for Unregister: fmt's address may be reused by another session
         FFmpegLog.Register(fmt, logSink);
         AVCodecContext* dec = null;
@@ -220,6 +234,12 @@ public sealed unsafe partial class StreamSession : IDisposable
                     : ffmpeg.av_find_best_stream(fmt, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, null, 0),
                 "find video");
             var stream = fmt->streams[videoIndex];
+            var audio = ffmpeg.av_find_best_stream(fmt, AVMediaType.AVMEDIA_TYPE_AUDIO, -1, videoIndex, null, 0);
+            _audioIndex = audio >= 0 ? audio : -1;
+            _videoCodecName = ffmpeg.avcodec_get_name(stream->codecpar->codec_id);
+            _audioCodecName = _audioIndex >= 0 ? ffmpeg.avcodec_get_name(fmt->streams[_audioIndex]->codecpar->codec_id) : null;
+            // Remux sessions ran avformat_find_stream_info, so the size is known now; decode sessions wait for a frame.
+            if (!_decode && stream->codecpar->width > 0) PublishInfo(stream->codecpar->width, stream->codecpar->height);
             if (_decode) dec = OpenDecoder(codec, stream->codecpar, hwDevice);
 
             while (!_stopping)
@@ -328,6 +348,7 @@ public sealed unsafe partial class StreamSession : IDisposable
             src = sw;
         }
         KeepForSnapshot(src);
+        if (!_infoPublished) PublishInfo(src->width, src->height);
 
         var (width, height) = FrameGeometry.FitSize(src->width, src->height, _targetWidth, _targetHeight);
         var target = Mailbox.Rent(width, height);
@@ -396,6 +417,15 @@ public sealed unsafe partial class StreamSession : IDisposable
     {
         _lastError = error;
         try { ErrorOccurred?.Invoke(error); }
+        catch (Exception) { /* isolated like StateChanged */ }
+    }
+
+    void PublishInfo(int width, int height)
+    {
+        _infoPublished = true;
+        var info = new StreamInfo(width, height, _videoCodecName ?? "?", _audioCodecName);
+        _info = info;
+        try { InfoAvailable?.Invoke(info); }
         catch (Exception) { /* isolated like StateChanged */ }
     }
 
