@@ -12,12 +12,13 @@ public partial class FullscreenWindow : Window
     {
         InitializeComponent();
         Title = camera.Name;
-        _tile = new CameraTile(camera, StreamKind.Main, manage: false);
+        _tile = new CameraTile(camera, StreamKind.Main, manage: false) { EnableZoom = true };
         _tile.FullscreenRequested += _ => Close();
         Content = _tile;
         KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape) Close();
+            else if (e.Key is Key.D0 or Key.NumPad0) _tile.ResetZoom();
         };
         // Non-blocking: the live session stops in the background.
         Closed += (_, _) => _tile.Dispose();

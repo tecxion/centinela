@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Centinela.Core;
 
 namespace Centinela.App;
@@ -140,6 +141,17 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.F11) ToggleFullscreen();
         else if (e.Key == Key.Escape && WindowStyle == WindowStyle.None) ToggleFullscreen();
+        else if (e.Key is Key.D0 or Key.NumPad0 && TileUnderMouse() is { } tile) tile.ResetZoom();
+    }
+
+    /// <summary>The camera tile under the mouse pointer, if any.</summary>
+    static CameraTile? TileUnderMouse()
+    {
+        // DirectlyOver can be a non-visual content element (e.g. a Run): walk those with the logical tree.
+        for (var node = Mouse.DirectlyOver as DependencyObject; node is not null;
+             node = node is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node))
+            if (node is CameraTile tile) return tile;
+        return null;
     }
 
     void ToggleFullscreen()

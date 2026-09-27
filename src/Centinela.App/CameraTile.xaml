@@ -4,7 +4,9 @@
              Background="Black" AllowDrop="True">
     <Border x:Name="Frame" BorderBrush="#2A2A2A" BorderThickness="1">
         <Grid>
-            <Image x:Name="Video" Stretch="Uniform" RenderOptions.BitmapScalingMode="Linear"/>
+            <Grid x:Name="VideoHost" ClipToBounds="True">
+                <Image x:Name="Video" Stretch="Uniform" RenderOptions.BitmapScalingMode="Linear"/>
+            </Grid>
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock x:Name="StatusLabel" Foreground="#DDD" FontSize="14" TextAlignment="Center"
                            TextWrapping="Wrap" HorizontalAlignment="Center"/>
@@ -21,6 +23,10 @@
             <Border x:Name="StatsBorder" Background="#80000000" Padding="6,1" CornerRadius="0,4,0,0"
                     HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed">
                 <TextBlock x:Name="StatsLabel" Foreground="White" FontSize="11" FontFamily="Consolas"/>
+            </Border>
+            <Border x:Name="ZoomBorder" Background="#80000000" Padding="6,1" CornerRadius="4,0,0,0"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Visibility="Collapsed">
+                <TextBlock x:Name="ZoomLabel" Foreground="White" FontSize="11"/>
             </Border>
             <StackPanel x:Name="Actions" Orientation="Horizontal" Margin="4"
                         HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">

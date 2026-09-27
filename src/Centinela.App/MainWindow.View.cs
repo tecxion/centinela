@@ -106,6 +106,8 @@ public partial class MainWindow
     CameraTile CreateTile(Camera camera, StreamKind kind)
     {
         var tile = new CameraTile(camera, kind);
+        // Main tiles exist only in the featured/dual layouts: those are the big ones that zoom.
+        tile.EnableZoom = kind == StreamKind.Main;
         tile.EditRequested += EditCamera;
         tile.DuplicateRequested += DuplicateCamera;
         tile.DeleteRequested += DeleteCamera;

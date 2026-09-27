@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -60,8 +61,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
             Item("Editar…", Edit_Click);
             Item("Duplicar…", (_, _) => DuplicateRequested?.Invoke(this));
         }
-        // Task 9 wires the handler and shows it only while the tile is zoomed.
-        ResetZoomItem = Item("Restablecer zoom", (_, _) => { });
+        // Shown only while the tile is zoomed.
+        ResetZoomItem = Item("Restablecer zoom", (_, _) => ResetZoom());
         ResetZoomItem.Visibility = Visibility.Collapsed;
         if (manage)
         {
@@ -86,7 +87,16 @@ public sealed partial class CameraTile : UserControl, IDisposable
         _session = new StreamSession(url, camera.UseUdp);
         _session.StateChanged += state => Dispatcher.BeginInvoke(() => ShowState(state));
         _session.ErrorOccurred += error => Dispatcher.BeginInvoke(() => ShowError(error));
-        SizeChanged += (_, _) => UpdateTargetSize();
+        SizeChanged += (_, _) =>
+        {
+            if (_zoom.IsZoomed) ApplyZoom(); // re-clamps to the new size and updates the decode box
+            else UpdateTargetSize();
+        };
+        // The letterbox offset of the image changes with the frame's aspect ratio.
+        Video.SizeChanged += (_, _) =>
+        {
+            if (_zoom.IsZoomed) ApplyZoom();
+        };
         CompositionTarget.Rendering += OnRendering;
         ShowState(SessionState.Connecting);
         _session.Start();
@@ -135,6 +145,71 @@ public sealed partial class CameraTile : UserControl, IDisposable
     [DllImport("user32.dll")]
     static extern uint GetDoubleClickTime();
 
+    static readonly CultureInfo Spanish = CultureInfo.GetCultureInfo("es-ES");
+    readonly ZoomState _zoom = new();
+    // Last mouse position of an ongoing pan (left button held on a zoomed tile).
+    Point? _panLast;
+
+    /// <summary>Wheel zoom and drag-to-pan; set by the owner (big tiles of the featured/dual views and fullscreen).</summary>
+    public bool EnableZoom { get; set; }
+
+    /// <summary>Back to the whole image.</summary>
+    public void ResetZoom()
+    {
+        _zoom.Reset();
+        ApplyZoom();
+    }
+
+    protected override void OnMouseWheel(MouseWheelEventArgs e)
+    {
+        if (!EnableZoom || _session is null || _disposed)
+        {
+            base.OnMouseWheel(e);
+            return;
+        }
+        _zoom.Resize(VideoHost.ActualWidth, VideoHost.ActualHeight);
+        var p = e.GetPosition(VideoHost);
+        _zoom.WheelAt(p.X, p.Y, e.Delta / 120.0);
+        ApplyZoom();
+        e.Handled = true;
+    }
+
+    /// <summary>Shows the zoom state: transform, scaling quality, label, menu item and decode size.</summary>
+    void ApplyZoom()
+    {
+        _zoom.Resize(VideoHost.ActualWidth, VideoHost.ActualHeight);
+        if (_zoom.IsZoomed)
+        {
+            // The zoom lives in VideoHost coordinates; the Image sits inside it at its letterbox offset o, so
+            // host = o + M(local) must equal Scale·(o + local) + Offset, i.e. M's translation is (Scale − 1)·o + Offset.
+            var o = VisualTreeHelper.GetOffset(Video);
+            var s = _zoom.Scale;
+            Video.RenderTransform = new MatrixTransform(s, 0, 0, s, (s - 1) * o.X + _zoom.OffsetX, (s - 1) * o.Y + _zoom.OffsetY);
+        }
+        else
+        {
+            Video.RenderTransform = Transform.Identity;
+        }
+        RenderOptions.SetBitmapScalingMode(Video, _zoom.IsZoomed ? BitmapScalingMode.HighQuality : BitmapScalingMode.Linear);
+        ZoomBorder.Visibility = _zoom.IsZoomed ? Visibility.Visible : Visibility.Collapsed;
+        ZoomLabel.Text = string.Format(Spanish, "{0:0.#}×", _zoom.Scale);
+        ResetZoomItem.Visibility = _zoom.IsZoomed ? Visibility.Visible : Visibility.Collapsed;
+        UpdateTargetSize();
+    }
+
+    void EndPan()
+    {
+        if (_panLast is null) return;
+        _panLast = null;
+        if (IsMouseCaptured) ReleaseMouseCapture();
+    }
+
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        _panLast = null;
+    }
+
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
@@ -142,16 +217,23 @@ public sealed partial class CameraTile : UserControl, IDisposable
         {
             _clickTimer.Stop();
             _dragStart = null;
+            EndPan();
             FullscreenRequested?.Invoke(this);
             e.Handled = true;
             return;
         }
         _dragStart = e.GetPosition(this);
+        if (_zoom.IsZoomed)
+        {
+            _panLast = _dragStart;
+            CaptureMouse();
+        }
     }
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
+        EndPan();
         // _dragStart is cleared when a drag starts or on double-click, so reaching here with it set means a plain click.
         if (_dragStart is null) return;
         _dragStart = null;
@@ -162,6 +244,27 @@ public sealed partial class CameraTile : UserControl, IDisposable
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        if (_panLast is { } last)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                EndPan();
+                return;
+            }
+            var p = e.GetPosition(this);
+            _zoom.Pan(p.X - last.X, p.Y - last.Y);
+            _panLast = p;
+            ApplyZoom();
+            // A pan is not a click; zoomed tiles never start a reorder drag.
+            if (_dragStart is { } origin
+                && (Math.Abs(p.X - origin.X) >= SystemParameters.MinimumHorizontalDragDistance
+                    || Math.Abs(p.Y - origin.Y) >= SystemParameters.MinimumVerticalDragDistance))
+            {
+                _dragStart = null;
+                _clickTimer.Stop();
+            }
+            return;
+        }
         if (!_manage || _dragStart is not { } start || e.LeftButton != MouseButtonState.Pressed) return;
         var delta = e.GetPosition(this) - start;
         if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance
@@ -220,8 +323,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
 
     void UpdateTargetSize()
     {
+        // Zoomed images are decoded larger (FrameGeometry never upscales beyond the native size).
         var dpi = VisualTreeHelper.GetDpi(this);
-        _session?.SetTargetSize((int)(ActualWidth * dpi.DpiScaleX), (int)(ActualHeight * dpi.DpiScaleY));
+        _session?.SetTargetSize((int)(ActualWidth * dpi.DpiScaleX * _zoom.Scale), (int)(ActualHeight * dpi.DpiScaleY * _zoom.Scale));
     }
 
     void ShowError(StreamError error)
@@ -410,6 +514,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         if (_shutdown is not null) return _shutdown;
         _disposed = true;
         _clickTimer.Stop();
+        EndPan();
         _statsTimer?.Stop();
         CompositionTarget.Rendering -= OnRendering;
         var session = _session;
