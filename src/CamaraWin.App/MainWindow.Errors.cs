@@ -34,8 +34,13 @@ public partial class MainWindow
         tile.PlayingReached += t => _errors.Playing(t.Camera);
     }
 
-    /// <summary>In-window toast; Task 10 routes this to the tray balloon while the window is hidden.</summary>
-    void ShowToast(Toast toast) => Toasts.Show(toast);
+    /// <summary>In-window toast, or the tray balloon while the window is hidden.</summary>
+    void ShowToast(Toast toast)
+    {
+        if (_closed) return;
+        if (IsHiddenInTray) _tray.ShowBalloon(toast.Title, toast.Message);
+        else Toasts.Show(toast);
+    }
 
     void OpenLog_Click(object sender, RoutedEventArgs e) => OpenLog();
 

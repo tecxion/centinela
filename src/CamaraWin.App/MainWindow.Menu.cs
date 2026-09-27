@@ -208,6 +208,4 @@ public partial class MainWindow
     void License_Click(object sender, RoutedEventArgs e) => new InfoWindow("Licencia", InfoDocuments.License()) { Owner = this }.Show();
     void Support_Click(object sender, RoutedEventArgs e) => new InfoWindow("Soporte", InfoDocuments.Support()) { Owner = this }.Show();
     void Exit_Click(object sender, RoutedEventArgs e) => ExitApp();
-
-    void ExitApp() => Close();
 }

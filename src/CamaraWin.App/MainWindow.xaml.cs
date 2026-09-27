@@ -22,7 +22,8 @@ public partial class MainWindow : Window
     // Set once the window has closed: background work finishing later must not rebuild the view.
     bool _closed;
 
-    public MainWindow()
+    /// <param name="startHidden">Start in the tray (<c>--tray</c>): no window and no live views until opened.</param>
+    public MainWindow(bool startHidden = false)
     {
         InitializeComponent();
         _settings = _settingsStore.Load();
@@ -41,7 +42,9 @@ public partial class MainWindow : Window
             foreach (var tile in TilesOf(id)) tile.SetRecordingStatus(status);
         };
         InitErrors();
-        RebuildView();
+        InitTray();
+        if (startHidden) IsHiddenInTray = true;
+        else RebuildView();
     }
 
     /// <summary>Every tile showing this camera: its grid tiles (and placeholders) plus any open fullscreen view.</summary>
@@ -255,8 +258,10 @@ public partial class MainWindow : Window
         }
     }
 
-    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    /// <summary>Leaves F11 fullscreen and saves the window's bounds; does nothing while the window is hidden.</summary>
+    void SaveWindowPlacement()
     {
+        if (!IsVisible) return;
         if (WindowStyle == WindowStyle.None) ToggleFullscreen();
         var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         _settings.Left = bounds.Left;
@@ -264,9 +269,21 @@ public partial class MainWindow : Window
         _settings.Width = bounds.Width;
         _settings.Height = bounds.Height;
         _settings.Maximized = WindowState == WindowState.Maximized;
+        SaveSettingsQuietly();
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (!_exitRequested)
+        {
+            // The X hides to the tray; recordings keep running.
+            e.Cancel = true;
+            HideToTray();
+            return;
+        }
+        SaveWindowPlacement();
         // Close fullscreen views now so their shutdowns are tracked before OnClosed waits.
         foreach (var owned in OwnedWindows.Cast<Window>().ToList()) owned.Close();
-        SaveSettingsQuietly();
         base.OnClosing(e);
     }
 
@@ -289,7 +306,10 @@ public partial class MainWindow : Window
         {
             // Failures were already reported or cannot be shown any more; exit anyway.
         }
+        _tray.Dispose();
         _errorLog.Dispose();
         base.OnClosed(e);
+        // ShutdownMode is OnExplicitShutdown: closing the window alone would leave the process running.
+        Application.Current.Shutdown();
     }
 }
