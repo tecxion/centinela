@@ -81,4 +81,47 @@ public sealed class SettingsStoreTests : IDisposable
         File.WriteAllText(FilePath, """{ "layoutMode": 7 }""");
         Assert.Equal(LayoutMode.Grid, new SettingsStore(FilePath).Load().LayoutMode);
     }
+
+    [Fact]
+    public void New_settings_have_v12_defaults()
+    {
+        var s = new SettingsStore(Path.Combine(_dir, "none.json")).Load();
+        Assert.True(s.CheckUpdatesOnStartup);
+        Assert.Null(s.LastUpdateCheck);
+        Assert.Null(s.SkippedVersion);
+        Assert.Empty(s.DualCameraIds);
+        Assert.Equal(0, s.DualNextReplace);
+    }
+
+    [Fact]
+    public void Out_of_range_dual_values_are_repaired_on_load()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "s.json");
+        File.WriteAllText(path, """{ "layoutMode": "Dual", "dualCameraIds": null, "dualNextReplace": 7 }""");
+        var s = new SettingsStore(path).Load();
+        Assert.Equal(LayoutMode.Dual, s.LayoutMode);
+        Assert.NotNull(s.DualCameraIds);
+        Assert.Equal(0, s.DualNextReplace);
+    }
+
+    [Fact]
+    public void Update_and_dual_settings_round_trip()
+    {
+        var path = Path.Combine(_dir, "rt.json");
+        var id = Guid.NewGuid();
+        var when = new DateTimeOffset(2026, 9, 27, 10, 0, 0, TimeSpan.FromHours(2));
+        new SettingsStore(path).Save(new AppSettings
+        {
+            LayoutMode = LayoutMode.FeaturedLeft, DualCameraIds = [id], DualNextReplace = 1,
+            CheckUpdatesOnStartup = false, LastUpdateCheck = when, SkippedVersion = "1.3.0",
+        });
+        var s = new SettingsStore(path).Load();
+        Assert.Equal(LayoutMode.FeaturedLeft, s.LayoutMode);
+        Assert.Equal([id], s.DualCameraIds);
+        Assert.Equal(1, s.DualNextReplace);
+        Assert.False(s.CheckUpdatesOnStartup);
+        Assert.Equal(when, s.LastUpdateCheck);
+        Assert.Equal("1.3.0", s.SkippedVersion);
+    }
 }

@@ -20,4 +20,13 @@ public sealed class Camera
     public int Order { get; set; }
 
     public Camera Clone() => (Camera)MemberwiseClone();
+
+    /// <summary>A copy to add as a new camera: new Id, name with " (copia)", same address and credentials.</summary>
+    public Camera Duplicate()
+    {
+        var copy = Clone();
+        copy.Id = Guid.NewGuid();
+        copy.Name = $"{Name} (copia)";
+        return copy;
+    }
 }

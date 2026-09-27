@@ -5,7 +5,8 @@ namespace Centinela.Core;
 
 public enum GridMode { Auto = 0, One = 1, Four = 4, Nine = 9, Sixteen = 16 }
 
-public enum LayoutMode { Grid, Featured }
+/// <summary>Stored by name in settings.json; Featured keeps its v1.1 meaning (thumbnails on the right).</summary>
+public enum LayoutMode { Grid = 0, Featured = 1, FeaturedLeft = 2, Dual = 3 }
 
 public sealed class AppSettings
 {
@@ -20,6 +21,13 @@ public sealed class AppSettings
     public bool ShowStats { get; set; }
     public string? BackupFolder { get; set; }
     public bool TrayHintShown { get; set; }
+    /// <summary>The two big cameras of the Dual layout, left then right (may be stale; the planner validates).</summary>
+    public List<Guid> DualCameraIds { get; set; } = [];
+    /// <summary>Which big camera (0 left, 1 right) a click on a thumbnail replaces next.</summary>
+    public int DualNextReplace { get; set; }
+    public bool CheckUpdatesOnStartup { get; set; } = true;
+    public DateTimeOffset? LastUpdateCheck { get; set; }
+    public string? SkippedVersion { get; set; }
 }
 
 public sealed class SettingsStore(string filePath)
@@ -48,6 +56,8 @@ public sealed class SettingsStore(string filePath)
         }
         if (!Enum.IsDefined(settings.GridMode)) settings.GridMode = GridMode.Auto;
         if (!Enum.IsDefined(settings.LayoutMode)) settings.LayoutMode = LayoutMode.Grid;
+        settings.DualCameraIds ??= [];
+        if (settings.DualNextReplace is not (0 or 1)) settings.DualNextReplace = 0;
         return settings;
     }
 
