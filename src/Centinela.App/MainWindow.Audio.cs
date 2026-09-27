@@ -7,7 +7,8 @@ public partial class MainWindow
 {
     const string NoAudioOutput = "No hay salida de audio";
     readonly AudioCoordinator<CameraTile> _audio = new();
-    // Created on the first 🔊 click; dropped when the device fails so the next click opens the current device.
+    // Opened on a 🔊 click; closed when nothing plays (so an idle app holds no audio stream) or when the device
+    // fails, so the next click opens the current device.
     AudioOutput? _audioOutput;
 
     void WireAudio(CameraTile tile)
@@ -49,13 +50,24 @@ public partial class MainWindow
     void ReleaseAudio(CameraTile tile)
     {
         tile.SetAudio(null);
-        if (_audio.Deactivate(tile)) _audioOutput?.Clear();
+        if (_audio.Deactivate(tile)) CloseAudioOutput();
+    }
+
+    /// <summary>
+    /// Closes the device stream once nothing plays. A pump may still be finishing a Write after SetAudio(null):
+    /// that only fills the buffer of the closed output, and its Failed event is ignored (no longer _audioOutput).
+    /// </summary>
+    void CloseAudioOutput()
+    {
+        var output = _audioOutput;
+        _audioOutput = null;
+        output?.Dispose();
     }
 
     /// <summary>The device went away: silence the playing camera, report it, and reopen a device on the next click.</summary>
     void OnAudioOutputFailed(AudioOutput output, string message)
     {
-        if (!ReferenceEquals(output, _audioOutput)) return; // already replaced or disposed
+        if (_closed || !ReferenceEquals(output, _audioOutput)) return; // already replaced or disposed
         _audioOutput = null;
         var playing = _audio.Active;
         if (playing is not null)

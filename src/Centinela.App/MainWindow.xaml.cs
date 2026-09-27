@@ -368,6 +368,7 @@ public partial class MainWindow : Window
             // Failures were already reported or cannot be shown any more; exit anyway.
         }
         _audioOutput?.Dispose();
+        _audioOutput = null;
         _tray.Dispose();
         _errorLog.Dispose();
         base.OnClosed(e);

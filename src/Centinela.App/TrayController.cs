@@ -13,6 +13,8 @@ sealed class TrayController : IDisposable
     readonly Forms.ToolStripMenuItem _autoStart;
     // Set while the check mark is changed from code, so only user clicks raise AutoStartToggled.
     bool _settingAutoStart;
+    // What a click on the latest balloon does (each ShowBalloon replaces it); null opens the window.
+    Action? _balloonClick;
 
     /// <param name="autoStartAvailable">False hides «Arrancar con Windows» (test runs must not touch the Run key).</param>
     public TrayController(bool autoStartEnabled, bool autoStartAvailable = true)
@@ -35,6 +37,13 @@ sealed class TrayController : IDisposable
         menu.Opening += (_, _) => MenuOpening?.Invoke();
         _icon = new Forms.NotifyIcon { Icon = _normal, Text = "Centinela", ContextMenuStrip = menu, Visible = true };
         _icon.DoubleClick += (_, _) => OpenRequested?.Invoke();
+        _icon.BalloonTipClicked += (_, _) =>
+        {
+            var click = _balloonClick;
+            _balloonClick = null;
+            if (click is not null) click();
+            else OpenRequested?.Invoke();
+        };
     }
 
     public event Action? OpenRequested;
@@ -58,8 +67,12 @@ sealed class TrayController : IDisposable
         finally { _settingAutoStart = false; }
     }
 
-    public void ShowBalloon(string title, string text) =>
+    /// <summary>A click on the balloon runs <paramref name="onClick"/>, or raises <see cref="OpenRequested"/> without one.</summary>
+    public void ShowBalloon(string title, string text, Action? onClick = null)
+    {
+        _balloonClick = onClick;
         _icon.ShowBalloonTip(5000, title, text.Length == 0 ? " " : text, Forms.ToolTipIcon.Info);
+    }
 
     public void Dispose()
     {

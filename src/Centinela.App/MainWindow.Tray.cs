@@ -89,6 +89,7 @@ public partial class MainWindow
         foreach (var key in _tiles.Keys.ToList()) DisposeTile(key);
         foreach (var placeholder in _placeholders.Values.ToList()) RemoveAndShutdown(placeholder);
         _placeholders.Clear();
+        CloseAudioOutput(); // every tile is gone; an idle app in the tray holds no audio stream
         Hide();
         IsHiddenInTray = true;
         if (!_settings.TrayHintShown)
@@ -107,6 +108,7 @@ public partial class MainWindow
             IsHiddenInTray = false;
             Show();
             RebuildView();
+            ShowPendingUpdate();
         }
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
