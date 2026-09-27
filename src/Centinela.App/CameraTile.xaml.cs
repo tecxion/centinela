@@ -153,6 +153,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
     /// <summary>Wheel zoom and drag-to-pan; set by the owner (big tiles of the featured/dual views and fullscreen).</summary>
     public bool EnableZoom { get; set; }
 
+    /// <summary>True while the image is zoomed in.</summary>
+    public bool IsZoomed => _zoom.IsZoomed;
+
     /// <summary>Back to the whole image.</summary>
     public void ResetZoom()
     {
@@ -167,7 +170,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
             base.OnMouseWheel(e);
             return;
         }
-        _zoom.Resize(VideoHost.ActualWidth, VideoHost.ActualHeight);
+        SyncZoomView();
         var p = e.GetPosition(VideoHost);
         _zoom.WheelAt(p.X, p.Y, e.Delta / 120.0);
         ApplyZoom();
@@ -175,14 +178,25 @@ public sealed partial class CameraTile : UserControl, IDisposable
     }
 
     /// <summary>Shows the zoom state: transform, scaling quality, label, menu item and decode size.</summary>
+    /// <summary>
+    /// Gives the zoom the host size and the image's letterboxed rectangle inside it (layout offset, which
+    /// excludes the render transform), so panning never brings the black bars into view.
+    /// </summary>
+    Vector SyncZoomView()
+    {
+        var o = VisualTreeHelper.GetOffset(Video);
+        _zoom.Resize(VideoHost.ActualWidth, VideoHost.ActualHeight);
+        _zoom.SetContent(o.X, o.Y, Video.ActualWidth, Video.ActualHeight);
+        return o;
+    }
+
     void ApplyZoom()
     {
-        _zoom.Resize(VideoHost.ActualWidth, VideoHost.ActualHeight);
+        var o = SyncZoomView();
         if (_zoom.IsZoomed)
         {
             // The zoom lives in VideoHost coordinates; the Image sits inside it at its letterbox offset o, so
             // host = o + M(local) must equal Scale·(o + local) + Offset, i.e. M's translation is (Scale − 1)·o + Offset.
-            var o = VisualTreeHelper.GetOffset(Video);
             var s = _zoom.Scale;
             Video.RenderTransform = new MatrixTransform(s, 0, 0, s, (s - 1) * o.X + _zoom.OffsetX, (s - 1) * o.Y + _zoom.OffsetY);
         }

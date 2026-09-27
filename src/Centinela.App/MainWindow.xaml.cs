@@ -141,7 +141,11 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.F11) ToggleFullscreen();
         else if (e.Key == Key.Escape && WindowStyle == WindowStyle.None) ToggleFullscreen();
-        else if (e.Key is Key.D0 or Key.NumPad0 && TileUnderMouse() is { } tile) tile.ResetZoom();
+        else if (e.Key is Key.D0 or Key.NumPad0 && TileUnderMouse() is { IsZoomed: true } tile)
+        {
+            tile.ResetZoom();
+            e.Handled = true;
+        }
     }
 
     /// <summary>The camera tile under the mouse pointer, if any.</summary>
