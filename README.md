@@ -50,20 +50,40 @@ Las pruebas de integración de vídeo de `CamaraWin.Media.Tests` necesitan `tool
 **y** `ffmpeg`/`ffprobe` (compilados con libx264) en el PATH.
 El proyecto de la aplicación (`src/CamaraWin.App`) no tiene pruebas automáticas. Para probarla a mano
 (smoke) sin cámaras reales también hacen falta mediamtx y ffmpeg con libx264; publica un vídeo de prueba con
-`-pix_fmt yuv420p`, por ejemplo:
+`-pix_fmt yuv420p`. Los dos comandos se quedan en marcha, así que usa **dos terminales**:
 
 ```powershell
+# Terminal 1: servidor RTSP
 tools/bin/mediamtx.exe
+```
+
+```powershell
+# Terminal 2: vídeo de prueba
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=25 -c:v libx264 -pix_fmt yuv420p -tune zerolatency -f rtsp rtsp://127.0.0.1:8554/prueba
 ```
 
-Para no tocar tus cámaras reales, define la variable de entorno `CAMARAWIN_DATA_DIR` con otra carpeta:
-sustituye a `%AppData%\CamaraWin` (cámaras, ajustes y registro).
+Después, en la aplicación, añade una cámara de marca **Otra (RTSP)** con la URL principal
+`rtsp://127.0.0.1:8554/prueba` (en «Avanzado»).
+
+### CAMARAWIN_DATA_DIR (pruebas sin tocar tu instalación)
+
+Para no tocar tus cámaras reales, define la variable de entorno `CAMARAWIN_DATA_DIR` con otra carpeta
+(en una tercera terminal):
 
 ```powershell
 $env:CAMARAWIN_DATA_DIR = "$env:TEMP\camarawin-prueba"
 dotnet run --project src/CamaraWin.App            # añade "-- --tray" para arrancar oculta en la bandeja
 ```
+
+Con la variable definida, todo lo que escribe la aplicación queda dentro de esa carpeta:
+
+- cámaras, ajustes y registro (en lugar de `%AppData%\CamaraWin`);
+- `backup\` para la copia automática (en lugar de `Documentos\CamaraWin`);
+- `recordings\` para las grabaciones (en lugar de `Vídeos\CamaraWin`);
+- `snapshots\` para las capturas (en lugar de `Imágenes\CamaraWin`).
+
+Además es una instancia aparte: no despierta ni se confunde con la CamaraWin que tengas abierta, y
+«Arrancar con Windows» no aparece en el menú de la bandeja (no se toca el registro de Windows).
 
 ## Datos
 
@@ -73,11 +93,12 @@ dotnet run --project src/CamaraWin.App            # añade "-- --tray" para arra
 - Grabaciones: `Vídeos\CamaraWin\<cámara>\`
 - Capturas: `Imágenes\CamaraWin\`
 
-`CAMARAWIN_DATA_DIR` cambia la carpeta `%AppData%\CamaraWin` (cámaras, ajustes y registro); útil para pruebas.
+Con `CAMARAWIN_DATA_DIR` todas estas rutas pasan a esa carpeta (ver
+[CAMARAWIN_DATA_DIR](#camarawin_data_dir-pruebas-sin-tocar-tu-instalación)).
 
 ## Soporte
 
-https://www.tecxart.es · [tecxart@gmail.com](mailto:tecxart@gmail.com)
+https://www.tecxart.es · [tecxart@gmail.com](mailto:tecxart@gmail.com) · también en la aplicación: Archivo › Soporte.
 
 ## Licencia
 
