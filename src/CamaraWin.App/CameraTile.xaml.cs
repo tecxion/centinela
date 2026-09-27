@@ -18,6 +18,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
     WriteableBitmap? _bitmap;
     long _frameSequence;
     bool _disposed;
+    bool _firstFrameRaised;
 
     public CameraTile(Camera camera, StreamKind kind, bool manage = true)
     {
@@ -65,6 +66,10 @@ public sealed partial class CameraTile : UserControl, IDisposable
 
     public event Action<CameraTile>? FullscreenRequested;
     public event Action<Guid, Guid>? SwapRequested;
+    /// <summary>Raised once, on the UI thread, after the first video frame has been painted.</summary>
+    public event Action<CameraTile>? FirstFrameShown;
+    /// <summary>A single left click that did not start a drag.</summary>
+    public event Action<CameraTile>? Clicked;
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
@@ -77,6 +82,15 @@ public sealed partial class CameraTile : UserControl, IDisposable
             return;
         }
         _dragStart = e.GetPosition(this);
+    }
+
+    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonUp(e);
+        // _dragStart is cleared when a drag starts or on double-click, so reaching here with it set means a plain click.
+        if (_dragStart is null) return;
+        _dragStart = null;
+        Clicked?.Invoke(this);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -116,8 +130,11 @@ public sealed partial class CameraTile : UserControl, IDisposable
             SwapRequested?.Invoke(source, Camera.Id);
     }
 
-    void OnRendering(object? sender, EventArgs e) =>
-        _session?.Mailbox.TryRead(ref _frameSequence, frame =>
+    void OnRendering(object? sender, EventArgs e)
+    {
+        if (_session is null) return;
+        var painted = false;
+        _session.Mailbox.TryRead(ref _frameSequence, frame =>
         {
             if (_bitmap is null || _bitmap.PixelWidth != frame.Width || _bitmap.PixelHeight != frame.Height)
             {
@@ -125,7 +142,14 @@ public sealed partial class CameraTile : UserControl, IDisposable
                 Video.Source = _bitmap;
             }
             _bitmap.WritePixels(new Int32Rect(0, 0, frame.Width, frame.Height), frame.Data, frame.Stride, 0);
+            painted = true;
         });
+        if (painted && !_firstFrameRaised)
+        {
+            _firstFrameRaised = true;
+            FirstFrameShown?.Invoke(this);
+        }
+    }
 
     void UpdateTargetSize()
     {

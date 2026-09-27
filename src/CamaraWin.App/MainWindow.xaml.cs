@@ -13,7 +13,6 @@ public partial class MainWindow : Window
     readonly SettingsStore _settingsStore = new(SettingsStore.DefaultPath);
     readonly AppSettings _settings;
     readonly List<Camera> _cameras;
-    readonly Dictionary<Guid, CameraTile> _tiles = [];
     readonly RecordingController _recordings;
     // Shutdowns of tiles removed from the grid; OnClosed waits for them too (UI thread only).
     readonly List<Task> _pendingShutdowns = [];
@@ -29,7 +28,9 @@ public partial class MainWindow : Window
         for (var i = 0; i < _cameras.Count; i++) _cameras[i].Order = i;
 
         RestoreWindowPlacement();
-        GridModeBox.SelectedIndex = Math.Max(0, Array.IndexOf(GridModes, _settings.GridMode));
+        GridModeBox.SelectedIndex = _settings.LayoutMode == LayoutMode.Featured
+            ? FeaturedIndex
+            : Math.Max(0, Array.IndexOf(GridModes, _settings.GridMode));
         GridModeBox.SelectionChanged += GridMode_Changed;
         _recordings = new RecordingController(Dispatcher);
         _recordings.Notify += Notify;
@@ -37,49 +38,14 @@ public partial class MainWindow : Window
         {
             foreach (var tile in TilesOf(id)) tile.SetRecordingStatus(status);
         };
-        RebuildGrid();
+        RebuildView();
     }
 
-    void RebuildGrid()
-    {
-        var ordered = _cameras.OrderBy(c => c.Order).ToList();
-        var visible = ordered.Take(GridLayout.VisibleCount(ordered.Count, _settings.GridMode)).ToList();
-        var size = GridLayout.Compute(visible.Count, _settings.GridMode);
-
-        foreach (var id in _tiles.Keys.Except(visible.Select(c => c.Id)).ToList()) DisposeTile(id);
-
-        TileGrid.Children.Clear();
-        TileGrid.Rows = size.Rows;
-        TileGrid.Columns = size.Columns;
-        foreach (var camera in visible)
-        {
-            if (!_tiles.TryGetValue(camera.Id, out var tile))
-            {
-                tile = CreateTile(camera);
-                _tiles[camera.Id] = tile;
-            }
-            TileGrid.Children.Add(tile);
-        }
-        EmptyState.Visibility = _cameras.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    CameraTile CreateTile(Camera camera)
-    {
-        var tile = new CameraTile(camera, StreamKind.Sub);
-        tile.EditRequested += EditCamera;
-        tile.DeleteRequested += DeleteCamera;
-        tile.Notify += Notify;
-        tile.FullscreenRequested += ShowFullscreen;
-        tile.SwapRequested += SwapCameras;
-        tile.RecordRequested += t => ToggleRecording(t.Camera);
-        tile.SetRecordingStatus(_recordings.StatusOf(camera.Id));
-        return tile;
-    }
-
-    /// <summary>Every tile showing this camera: its grid tile plus any open fullscreen view.</summary>
+    /// <summary>Every tile showing this camera: its grid tiles (and placeholders) plus any open fullscreen view.</summary>
     IEnumerable<CameraTile> TilesOf(Guid id)
     {
-        if (_tiles.TryGetValue(id, out var tile)) yield return tile;
+        foreach (var tile in _tiles.Values.Concat(_placeholders.Values))
+            if (tile.Camera.Id == id) yield return tile;
         foreach (var window in OwnedWindows.OfType<FullscreenWindow>())
             if (window.Tile.Camera.Id == id) yield return window.Tile;
     }
@@ -107,15 +73,29 @@ public partial class MainWindow : Window
         var a = _cameras.FirstOrDefault(c => c.Id == source);
         var b = _cameras.FirstOrDefault(c => c.Id == target);
         if (a is null || b is null) return;
+        if (_settings.LayoutMode == LayoutMode.Featured && target == FeaturedCameraId())
+        {
+            // Dropping a thumbnail onto the featured tile features the dragged camera.
+            _settings.FeaturedCameraId = source;
+            SaveSettingsQuietly();
+            RebuildView();
+            return;
+        }
         (a.Order, b.Order) = (b.Order, a.Order);
         SaveCameras();
-        RebuildGrid();
+        RebuildView();
     }
 
     void GridMode_Changed(object sender, SelectionChangedEventArgs e)
     {
-        _settings.GridMode = GridModes[GridModeBox.SelectedIndex];
-        RebuildGrid();
+        if (GridModeBox.SelectedIndex == FeaturedIndex) _settings.LayoutMode = LayoutMode.Featured;
+        else
+        {
+            _settings.LayoutMode = LayoutMode.Grid;
+            _settings.GridMode = GridModes[GridModeBox.SelectedIndex];
+        }
+        SaveSettingsQuietly();
+        RebuildView();
     }
 
     void Window_KeyDown(object sender, KeyEventArgs e)
@@ -169,7 +149,7 @@ public partial class MainWindow : Window
         camera.Order = _cameras.Count == 0 ? 0 : _cameras.Max(c => c.Order) + 1;
         _cameras.Add(camera);
         SaveCameras();
-        RebuildGrid();
+        RebuildView();
     }
 
     void Discover_Click(object sender, RoutedEventArgs e)
@@ -186,9 +166,9 @@ public partial class MainWindow : Window
         // The URL may change: never keep recording from the old one.
         if (_recordings.IsRecording(updated.Id)) _recordings.StopWithNotice(updated.Id);
         _cameras[_cameras.FindIndex(c => c.Id == updated.Id)] = updated;
-        DisposeTile(updated.Id);
+        DisposeTilesOf(updated.Id);
         SaveCameras();
-        RebuildGrid();
+        RebuildView();
     }
 
     void DeleteCamera(CameraTile tile)
@@ -198,9 +178,14 @@ public partial class MainWindow : Window
         if (answer != MessageBoxResult.Yes) return;
         if (_recordings.IsRecording(tile.Camera.Id)) _recordings.StopWithNotice(tile.Camera.Id);
         _cameras.RemoveAll(c => c.Id == tile.Camera.Id);
-        DisposeTile(tile.Camera.Id);
+        DisposeTilesOf(tile.Camera.Id);
         SaveCameras();
-        RebuildGrid();
+        if (_settings.FeaturedCameraId == tile.Camera.Id)
+        {
+            _settings.FeaturedCameraId = null;
+            SaveSettingsQuietly();
+        }
+        RebuildView();
     }
 
     internal void Notify(string message, string? revealPath)
@@ -220,14 +205,6 @@ public partial class MainWindow : Window
     {
         Directory.CreateDirectory(AppPaths.RecordingsDirectory);
         Process.Start("explorer.exe", $"\"{AppPaths.RecordingsDirectory}\"");
-    }
-
-    /// <summary>Removes the tile at once; its live session stops in the background (recordings are unaffected).</summary>
-    void DisposeTile(Guid id)
-    {
-        if (!_tiles.Remove(id, out var tile)) return;
-        TileGrid.Children.Remove(tile);
-        TrackShutdown(tile.ShutdownAsync(), tile.Camera.Name);
     }
 
     /// <summary>
@@ -257,6 +234,18 @@ public partial class MainWindow : Window
         }
     }
 
+    void SaveSettingsQuietly()
+    {
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception)
+        {
+            // Losing a preference (window placement, layout) must never interrupt the user or block closing.
+        }
+    }
+
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         if (WindowStyle == WindowStyle.None) ToggleFullscreen();
@@ -268,25 +257,19 @@ public partial class MainWindow : Window
         _settings.Maximized = WindowState == WindowState.Maximized;
         // Close fullscreen views now so their shutdowns are tracked before OnClosed waits.
         foreach (var owned in OwnedWindows.Cast<Window>().ToList()) owned.Close();
-        try
-        {
-            _settingsStore.Save(_settings);
-        }
-        catch (Exception)
-        {
-            // Losing the window placement must not block closing (the tiles still need to shut down).
-        }
+        SaveSettingsQuietly();
         base.OnClosing(e);
     }
 
     protected override void OnClosed(EventArgs e)
     {
         // Tiles and recordings shut down in parallel; one bounded wait so recordings get their trailer.
-        var shutdowns = _tiles.Values.Select(tile => tile.ShutdownAsync())
+        var shutdowns = _tiles.Values.Concat(_placeholders.Values).Select(tile => tile.ShutdownAsync())
             .Concat(_pendingShutdowns)
             .Append(_recordings.ShutdownAsync())
             .ToArray();
         _tiles.Clear();
+        _placeholders.Clear();
         try
         {
             Task.WaitAll(shutdowns, TimeSpan.FromSeconds(8));
