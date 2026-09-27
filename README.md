@@ -3,10 +3,23 @@
 Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **TP-Link Tapo**,
 **Imou** y cualquier cámara **RTSP** en cuadrícula, sin pasar por la nube.
 
-- Imagen en menos de 1 s y ~100–300 ms de retardo en red local (FFmpeg sin búfer + GPU).
+- Objetivo (no medido): imagen en menos de 1 s y ~100–300 ms de retardo en red local (FFmpeg sin búfer + GPU).
 - Añadir cámaras a mano o **buscarlas en la red** (ONVIF).
-- Doble clic: pantalla completa en calidad alta. Arrastrar: reordenar.
-- 📷 Capturas PNG a resolución completa · ⏺ Grabación MKV sin recodificar.
+- Vistas: cuadrícula (Auto, 1, 4, 9, 16) o **Principal + miniaturas** (clic en una miniatura para cambiar la principal).
+- Doble clic: pantalla completa en calidad alta. Arrastrar: reordenar. F11: ventana a pantalla completa.
+- 📷 Capturas PNG a resolución completa · ⏺ Grabación MKV sin recodificar · **⏺ Grabar todas** / ⏹ Detener todas.
+- Errores traducidos al español («Contraseña incorrecta», «Sin conexión · reintentando»…) con avisos emergentes
+  y un **Registro** de errores (botón «Registro»; archivos en `%AppData%\CamaraWin\logs`, se borran a los 14 días).
+- Menú **Archivo**: importar/exportar la lista de cámaras en JSON, con las contraseñas cifradas con una clave
+  opcional (sin clave se exporta sin contraseñas). Al importar se añaden las cámaras nuevas y se actualizan
+  las que ya existen (misma IP y puerto). Formato: [`docs/ejemplo-camaras.json`](docs/ejemplo-camaras.json).
+- Copia automática sin contraseñas en `Documentos\CamaraWin\camaras-copia.json` cada vez que cambia la lista
+  (carpeta configurable en Archivo › Carpeta de copia automática…).
+- **Bandeja del sistema**: la X oculta la ventana y las grabaciones continúan; «Salir» la cierra del todo.
+  Una sola instancia: abrirla otra vez muestra la ventana existente. Menú de la bandeja con
+  **Arrancar con Windows** (se inicia oculta en la bandeja con el argumento `--tray`).
+- Ver › **Mostrar estadísticas**: `fps · ms · GPU/CPU` en cada cámara. Los ms son lo que tarda el equipo en
+  preparar cada imagen, **no** el retardo real cámara → pantalla (no se puede medir).
 - Contraseñas cifradas con DPAPI de Windows.
 
 ## Preparar las cámaras
@@ -35,13 +48,36 @@ dotnet test tests/CamaraWin.Media.Tests   # necesita ffmpeg/ffprobe (con libx264
 
 Las pruebas de integración de vídeo de `CamaraWin.Media.Tests` necesitan `tools/bin/mediamtx.exe`
 **y** `ffmpeg`/`ffprobe` (compilados con libx264) en el PATH.
-El proyecto de la aplicación (`src/CamaraWin.App`) no tiene pruebas automáticas.
+El proyecto de la aplicación (`src/CamaraWin.App`) no tiene pruebas automáticas. Para probarla a mano
+(smoke) sin cámaras reales también hacen falta mediamtx y ffmpeg con libx264; publica un vídeo de prueba con
+`-pix_fmt yuv420p`, por ejemplo:
+
+```powershell
+tools/bin/mediamtx.exe
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=25 -c:v libx264 -pix_fmt yuv420p -tune zerolatency -f rtsp rtsp://127.0.0.1:8554/prueba
+```
+
+Para no tocar tus cámaras reales, define la variable de entorno `CAMARAWIN_DATA_DIR` con otra carpeta:
+sustituye a `%AppData%\CamaraWin` (cámaras, ajustes y registro).
+
+```powershell
+$env:CAMARAWIN_DATA_DIR = "$env:TEMP\camarawin-prueba"
+dotnet run --project src/CamaraWin.App            # añade "-- --tray" para arrancar oculta en la bandeja
+```
 
 ## Datos
 
 - Cámaras: `%AppData%\CamaraWin\cameras.json` (contraseñas cifradas, solo tu usuario de Windows puede leerlas)
+- Registro de errores: `%AppData%\CamaraWin\logs\`
+- Copia automática: `Documentos\CamaraWin\camaras-copia.json` (o la carpeta elegida)
 - Grabaciones: `Vídeos\CamaraWin\<cámara>\`
 - Capturas: `Imágenes\CamaraWin\`
+
+`CAMARAWIN_DATA_DIR` cambia la carpeta `%AppData%\CamaraWin` (cámaras, ajustes y registro); útil para pruebas.
+
+## Soporte
+
+https://www.tecxart.es · [tecxart@gmail.com](mailto:tecxart@gmail.com)
 
 ## Licencia
 
