@@ -52,6 +52,9 @@ public sealed unsafe partial class StreamSession : IDisposable
     int _audioIndex = -1;           // current connection's audio stream, -1 = none
     string? _videoCodecName;
     string? _audioCodecName;
+    volatile IAudioSink? _audioSink;
+    volatile AudioPump? _audioPump;  // current connection's pump (created and disposed on the session thread)
+    long _audioFramesDecodedBefore;  // frames of earlier connections
 
     public StreamSession(string url, bool useUdp = false, bool decode = true)
     {
@@ -80,6 +83,14 @@ public sealed unsafe partial class StreamSession : IDisposable
     public StreamInfo? Info => _info;
     /// <summary>Raised on the session thread once per connection when <see cref="Info"/> is known; subscriber exceptions are isolated.</summary>
     public event Action<StreamInfo>? InfoAvailable;
+
+    /// <summary>Attaches (or with null, detaches) the audio output. Any thread; never reconnects.</summary>
+    public void SetAudioSink(IAudioSink? sink) => _audioSink = sink;
+
+    /// <summary>Raised on the audio thread when this connection's audio cannot be decoded; video continues.</summary>
+    public event Action<string>? AudioFailed;
+
+    internal long AudioFramesDecoded => Interlocked.Read(ref _audioFramesDecodedBefore) + (_audioPump?.FramesDecoded ?? 0);
 
     public StreamStats Stats
     {
@@ -241,6 +252,7 @@ public sealed unsafe partial class StreamSession : IDisposable
             // Remux sessions ran avformat_find_stream_info, so the size is known now; decode sessions wait for a frame.
             if (!_decode && stream->codecpar->width > 0) PublishInfo(stream->codecpar->width, stream->codecpar->height);
             if (_decode) dec = OpenDecoder(codec, stream->codecpar, hwDevice);
+            if (_decode && _audioIndex >= 0) StartAudioPump(fmt->streams[_audioIndex]->codecpar);
 
             while (!_stopping)
             {
@@ -253,12 +265,15 @@ public sealed unsafe partial class StreamSession : IDisposable
                     if (dec is null) MarkPlaying(ref reachedPlaying);
                     else DecodePacket(dec, pkt, frame, sw, ref reachedPlaying);
                 }
+                else if (pkt->stream_index == _audioIndex && _audioPump is { } pump && _audioSink is not null)
+                    pump.Enqueue(pkt);
                 ffmpeg.av_packet_unref(pkt);
             }
         }
         finally
         {
             FFmpegLog.Unregister((void*)logContext, logSink);
+            StopAudioPump();
             OnConnectionClosed();
             ffmpeg.av_frame_free(&sw);
             ffmpeg.av_frame_free(&frame);
@@ -266,6 +281,33 @@ public sealed unsafe partial class StreamSession : IDisposable
             ffmpeg.avcodec_free_context(&dec);
             ffmpeg.avformat_close_input(&fmt);
         }
+    }
+
+    void StartAudioPump(AVCodecParameters* parameters)
+    {
+        try
+        {
+            _audioPump = new AudioPump(parameters, () => _audioSink, RaiseAudioFailed);
+        }
+        catch (Exception ex)
+        {
+            // Audio must never take the video down: report and play without it.
+            RaiseAudioFailed(CredentialSanitizer.Sanitize(ex.Message));
+        }
+    }
+
+    void StopAudioPump()
+    {
+        if (_audioPump is not { } pump) return;
+        pump.Dispose();
+        Interlocked.Add(ref _audioFramesDecodedBefore, pump.FramesDecoded);
+        _audioPump = null;
+    }
+
+    void RaiseAudioFailed(string message)
+    {
+        try { AudioFailed?.Invoke(message); }
+        catch (Exception) { /* isolated */ }
     }
 
     AVCodecContext* OpenDecoder(AVCodec* codec, AVCodecParameters* parameters, AVBufferRef* hwDevice)
