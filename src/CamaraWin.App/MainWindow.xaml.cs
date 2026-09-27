@@ -38,6 +38,7 @@ public partial class MainWindow : Window
         {
             foreach (var tile in TilesOf(id)) tile.SetRecordingStatus(status);
         };
+        InitErrors();
         RebuildView();
     }
 
@@ -63,6 +64,7 @@ public partial class MainWindow : Window
         window.Tile.RecordRequested += t => ToggleRecording(t.Camera);
         window.Tile.Notify += Notify;
         window.Tile.SetRecordingStatus(_recordings.StatusOf(tile.Camera.Id));
+        WireErrors(window.Tile);
         // OnClosed waits for the live session's shutdown like any other.
         window.Closed += (_, _) => TrackShutdown(window.Tile.ShutdownAsync(), name);
         window.Show();
@@ -166,6 +168,8 @@ public partial class MainWindow : Window
         // The URL may change: never keep recording from the old one.
         if (_recordings.IsRecording(updated.Id)) _recordings.StopWithNotice(updated.Id);
         _cameras[_cameras.FindIndex(c => c.Id == updated.Id)] = updated;
+        // New settings (often a corrected password) deserve fresh notices.
+        _errors.Forget(updated.Id);
         DisposeTilesOf(updated.Id);
         SaveCameras();
         RebuildView();
@@ -178,6 +182,7 @@ public partial class MainWindow : Window
         if (answer != MessageBoxResult.Yes) return;
         if (_recordings.IsRecording(tile.Camera.Id)) _recordings.StopWithNotice(tile.Camera.Id);
         _cameras.RemoveAll(c => c.Id == tile.Camera.Id);
+        _errors.Forget(tile.Camera.Id);
         DisposeTilesOf(tile.Camera.Id);
         SaveCameras();
         if (_settings.FeaturedCameraId == tile.Camera.Id)
@@ -278,6 +283,7 @@ public partial class MainWindow : Window
         {
             // Failures were already reported or cannot be shown any more; exit anyway.
         }
+        _errorLog.Dispose();
         base.OnClosed(e);
     }
 }

@@ -58,6 +58,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         }
         _session = new StreamSession(url, camera.UseUdp);
         _session.StateChanged += state => Dispatcher.BeginInvoke(() => ShowState(state));
+        _session.ErrorOccurred += error => Dispatcher.BeginInvoke(() => ShowError(error));
         SizeChanged += (_, _) => UpdateTargetSize();
         CompositionTarget.Rendering += OnRendering;
         ShowState(SessionState.Connecting);
@@ -90,6 +91,13 @@ public sealed partial class CameraTile : UserControl, IDisposable
     public event Action<CameraTile>? Clicked;
     /// <summary>Raised on the UI thread each time the stream reports reconnecting or failed authentication.</summary>
     public event Action<CameraTile>? StreamFailed;
+    /// <summary>Raised on the UI thread for every connection error of the live stream (Detail already sanitized).</summary>
+    public event Action<CameraTile, StreamError>? ErrorReported;
+    /// <summary>Raised on the UI thread each time the live stream reaches Playing.</summary>
+    public event Action<CameraTile>? PlayingReached;
+
+    // The last error's kind until the stream plays again; its translation stays on screen while retrying.
+    StreamErrorKind? _errorKind;
 
     readonly DispatcherTimer _clickTimer;
 
@@ -185,19 +193,50 @@ public sealed partial class CameraTile : UserControl, IDisposable
         _session?.SetTargetSize((int)(ActualWidth * dpi.DpiScaleX), (int)(ActualHeight * dpi.DpiScaleY));
     }
 
+    void ShowError(StreamError error)
+    {
+        if (_disposed) return;
+        _errorKind = error.Kind;
+        var text = ErrorCenter.Translate(Camera, error.Kind);
+        StatusLabel.Text = error.Kind == StreamErrorKind.AuthFailed ? text.Short : $"{text.Short} · reintentando";
+        FixButton.Visibility = error.Kind == StreamErrorKind.AuthFailed && _manage ? Visibility.Visible : Visibility.Collapsed;
+        ErrorReported?.Invoke(this, error);
+    }
+
     void ShowState(SessionState state)
     {
         if (_disposed) return;
-        StatusLabel.Text = state switch
+        switch (state)
         {
-            SessionState.Connecting => "Conectando…",
-            SessionState.Reconnecting => "Reconectando…",
-            SessionState.AuthFailed => "Credenciales incorrectas",
-            SessionState.Stopped => "Detenida",
-            _ => "",
-        };
+            case SessionState.Connecting or SessionState.Reconnecting when _errorKind is not null:
+                break; // keep the translated error while retrying
+            case SessionState.Connecting:
+                StatusLabel.Text = "Conectando…";
+                break;
+            case SessionState.Reconnecting:
+                StatusLabel.Text = "Reconectando…";
+                break;
+            case SessionState.AuthFailed:
+                // The session reports the error just before this state, so the label is normally set already.
+                _errorKind = StreamErrorKind.AuthFailed;
+                StatusLabel.Text = ErrorCenter.Translate(Camera, StreamErrorKind.AuthFailed).Short;
+                FixButton.Visibility = _manage ? Visibility.Visible : Visibility.Collapsed;
+                break;
+            case SessionState.Stopped:
+                StatusLabel.Text = "Detenida";
+                break;
+            default:
+                StatusLabel.Text = "";
+                break;
+        }
         Video.Opacity = state == SessionState.Playing ? 1 : 0.4;
         if (state is SessionState.Reconnecting or SessionState.AuthFailed) StreamFailed?.Invoke(this);
+        if (state == SessionState.Playing)
+        {
+            _errorKind = null;
+            FixButton.Visibility = Visibility.Collapsed;
+            PlayingReached?.Invoke(this);
+        }
     }
 
     void Edit_Click(object sender, RoutedEventArgs e) => EditRequested?.Invoke(this);

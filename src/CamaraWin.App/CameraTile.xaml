@@ -5,8 +5,12 @@
     <Border x:Name="Frame" BorderBrush="#2A2A2A" BorderThickness="1">
         <Grid>
             <Image x:Name="Video" Stretch="Uniform" RenderOptions.BitmapScalingMode="Linear"/>
-            <TextBlock x:Name="StatusLabel" Foreground="#DDD" FontSize="14" TextAlignment="Center"
-                       TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock x:Name="StatusLabel" Foreground="#DDD" FontSize="14" TextAlignment="Center"
+                           TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                <Button x:Name="FixButton" Content="Editar" Padding="12,4" Margin="0,48,0,0" HorizontalAlignment="Center"
+                        Visibility="Collapsed" Click="Edit_Click"/>
+            </StackPanel>
             <Border Background="#80000000" Padding="6,2" CornerRadius="0,0,4,0"
                     HorizontalAlignment="Left" VerticalAlignment="Top">
                 <StackPanel Orientation="Horizontal">

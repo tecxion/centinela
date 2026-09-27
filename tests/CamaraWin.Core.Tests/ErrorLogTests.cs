@@ -61,4 +61,38 @@ public sealed class ErrorLogTests : IDisposable
         log.Clear();
         Assert.Empty(log.Snapshot());
     }
+    [Fact]
+    public void Add_after_Dispose_does_not_throw()
+    {
+        var log = new ErrorLog(_dir);
+        log.Dispose();
+        log.Add(Entry(1, DateTime.Now));
+        log.Dispose();
+        Assert.Single(log.Snapshot());
+    }
+
+    [Fact]
+    public void Clear_keeps_the_file()
+    {
+        var t = new DateTime(2026, 9, 26, 10, 0, 0);
+        using (var log = new ErrorLog(_dir))
+        {
+            log.Add(Entry(1, t));
+            log.Clear();
+        }
+        Assert.Contains("detail 1", File.ReadAllText(ErrorLog.FileFor(_dir, t)));
+    }
+
+    [Fact]
+    public void Writer_survives_unexpected_exceptions()
+    {
+        var t = new DateTime(2026, 9, 26, 10, 0, 0);
+        using (var log = new ErrorLog(_dir))
+        {
+            // A null field makes formatting throw NullReferenceException, which is not an IO error.
+            log.Add(new ErrorLogEntry(t, "Broken", "k", "t", null!));
+            log.Add(Entry(2, t));
+        }
+        Assert.Contains("detail 2", File.ReadAllText(ErrorLog.FileFor(_dir, t)));
+    }
 }

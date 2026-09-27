@@ -33,7 +33,9 @@ public sealed class ErrorLog : IDisposable
             _entries.AddFirst(entry);
             while (_entries.Count > Capacity) _entries.RemoveLast();
         }
-        if (!_pending.IsAddingCompleted) _pending.TryAdd(entry);
+        // After Dispose the entry stays in memory only; CompleteAdding may race with this call.
+        try { _pending.TryAdd(entry); }
+        catch (InvalidOperationException) { }
         EntryAdded?.Invoke(entry);
     }
 
@@ -75,7 +77,8 @@ public sealed class ErrorLog : IDisposable
     public void Dispose()
     {
         _pending.CompleteAdding();
-        _writer.Wait(TimeSpan.FromSeconds(2));
+        try { _writer.Wait(TimeSpan.FromSeconds(2)); }
+        catch (Exception) { /* the log must never block or break shutdown */ }
     }
 
     void WriteLoop()
@@ -87,8 +90,10 @@ public sealed class ErrorLog : IDisposable
                 Directory.CreateDirectory(_directory);
                 File.AppendAllText(FileFor(_directory, entry.Time), FormatLine(entry) + Environment.NewLine, Encoding.UTF8);
             }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
+            catch (Exception)
+            {
+                // Losing one line is better than losing the writer: keep draining.
+            }
         }
     }
 
