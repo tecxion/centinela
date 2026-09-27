@@ -18,6 +18,10 @@
                     <TextBlock x:Name="NameLabel" Foreground="White"/>
                 </StackPanel>
             </Border>
+            <Border x:Name="StatsBorder" Background="#80000000" Padding="6,1" CornerRadius="0,4,0,0"
+                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed">
+                <TextBlock x:Name="StatsLabel" Foreground="White" FontSize="11" FontFamily="Consolas"/>
+            </Border>
             <StackPanel x:Name="Actions" Orientation="Horizontal" Margin="4"
                         HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
                 <Button x:Name="SnapshotButton" Content="📷" ToolTip="Captura" Style="{StaticResource TileButton}" Click="Snapshot_Click"/>

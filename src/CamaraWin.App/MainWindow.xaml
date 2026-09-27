@@ -16,6 +16,9 @@
                 <Separator/>
                 <MenuItem Header="_Salir" Click="Exit_Click"/>
             </MenuItem>
+            <MenuItem Header="_Ver">
+                <MenuItem x:Name="ShowStatsItem" Header="Mostrar _estadísticas" IsCheckable="True" Click="ShowStats_Click"/>
+            </MenuItem>
         </Menu>
         <ToolBarTray x:Name="TopBar" DockPanel.Dock="Top">
             <ToolBar x:Name="MainToolBar">
@@ -33,6 +36,7 @@
                 </ComboBox>
                 <Separator/>
                 <Button Content="📁 Grabaciones" Click="OpenRecordings_Click"/>
+                <Button x:Name="RecordAllButton" Content="⏺ Grabar todas" Click="RecordAll_Click"/>
             </ToolBar>
         </ToolBarTray>
         <StatusBar x:Name="BottomBar" DockPanel.Dock="Bottom">

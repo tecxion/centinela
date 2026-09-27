@@ -325,6 +325,47 @@ public sealed partial class CameraTile : UserControl, IDisposable
         RecDot.ToolTip = tooltip;
     }
 
+    DispatcherTimer? _statsTimer;
+
+    /// <summary>Shows the live stream's fps, latency and decoder in the bottom-left corner (refreshed twice a second).</summary>
+    public bool ShowStats
+    {
+        get => _statsTimer is not null;
+        set
+        {
+            if (value == ShowStats || _session is null || _disposed) return;
+            if (value)
+            {
+                _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+                _statsTimer.Tick += (_, _) => RefreshStats();
+                _statsTimer.Start();
+                StatsBorder.Visibility = Visibility.Visible;
+                RefreshStats();
+            }
+            else
+            {
+                _statsTimer!.Stop();
+                _statsTimer = null;
+                StatsBorder.Visibility = Visibility.Collapsed;
+            }
+        }
+    }
+
+    void RefreshStats()
+    {
+        if (_session is null || _disposed) return;
+        if (_session.State != SessionState.Playing)
+        {
+            // Latency and decoder describe the last stream that played; not meaningful until it plays again.
+            StatsLabel.Text = "— fps";
+            StatsLabel.Foreground = Brushes.Orange;
+            return;
+        }
+        var s = _session.Stats;
+        StatsLabel.Text = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")}";
+        StatsLabel.Foreground = s.SinceLastFrame > TimeSpan.FromSeconds(1) ? Brushes.Orange : Brushes.White;
+    }
+
     public void RequestStop() => _session?.RequestStop();
 
     /// <summary>
@@ -336,6 +377,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         if (_shutdown is not null) return _shutdown;
         _disposed = true;
         _clickTimer.Stop();
+        _statsTimer?.Stop();
         CompositionTarget.Rendering -= OnRendering;
         var session = _session;
         session?.RequestStop();

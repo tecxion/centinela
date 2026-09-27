@@ -41,6 +41,7 @@ public partial class MainWindow : Window
         {
             foreach (var tile in TilesOf(id)) tile.SetRecordingStatus(status);
         };
+        ShowStatsItem.IsChecked = _settings.ShowStats;
         InitErrors();
         InitTray();
         if (startHidden) IsHiddenInTray = true;
@@ -69,6 +70,7 @@ public partial class MainWindow : Window
         window.Tile.RecordRequested += t => ToggleRecording(t.Camera);
         window.Tile.Notify += Notify;
         window.Tile.SetRecordingStatus(_recordings.StatusOf(tile.Camera.Id));
+        window.Tile.ShowStats = _settings.ShowStats;
         WireErrors(window.Tile);
         // OnClosed waits for the live session's shutdown like any other.
         window.Closed += (_, _) => TrackShutdown(window.Tile.ShutdownAsync(), name);
@@ -91,6 +93,14 @@ public partial class MainWindow : Window
         (a.Order, b.Order) = (b.Order, a.Order);
         SaveCameras();
         RebuildView();
+    }
+
+    void ShowStats_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.ShowStats = ShowStatsItem.IsChecked;
+        SaveSettingsQuietly();
+        foreach (var tile in _tiles.Values.Concat(_placeholders.Values)) tile.ShowStats = _settings.ShowStats;
+        foreach (var window in OwnedWindows.OfType<FullscreenWindow>()) window.Tile.ShowStats = _settings.ShowStats;
     }
 
     void GridMode_Changed(object sender, SelectionChangedEventArgs e)

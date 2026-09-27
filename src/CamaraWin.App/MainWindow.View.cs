@@ -103,6 +103,7 @@ public partial class MainWindow
         tile.RecordRequested += t => ToggleRecording(t.Camera);
         tile.Clicked += FeatureCamera;
         tile.SetRecordingStatus(_recordings.StatusOf(camera.Id));
+        tile.ShowStats = _settings.ShowStats;
         WireErrors(tile);
         return tile;
     }

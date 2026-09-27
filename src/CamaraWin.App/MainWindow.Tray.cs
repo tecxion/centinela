@@ -34,7 +34,9 @@ public partial class MainWindow
         };
         _recordings.StatusChanged += (_, _) =>
         {
-            if (!_closed) _tray.SetRecording(_recordings.AnyRecording);
+            if (_closed) return;
+            _tray.SetRecording(_recordings.AnyRecording);
+            RecordAllButton.Content = _recordings.AnyRecording ? "⏹ Detener todas" : "⏺ Grabar todas";
         };
         // Logging off closes the window without «Salir»: that must be a real exit, not a hide.
         Application.Current.SessionEnding += (_, _) => _exitRequested = true;
@@ -81,6 +83,21 @@ public partial class MainWindow
         Close();
     }
 
-    // Task 11
-    void ToggleRecordAll() { }
+    void RecordAll_Click(object sender, RoutedEventArgs e) => ToggleRecordAll();
+
+    /// <summary>
+    /// Stops every recording if any is running; otherwise records the cameras on screen
+    /// (every camera while the window is in the tray).
+    /// </summary>
+    void ToggleRecordAll()
+    {
+        if (_closed) return;
+        if (_recordings.AnyRecording)
+        {
+            _recordings.StopAllWithNotice();
+            return;
+        }
+        var ids = (IsHiddenInTray ? _cameras.Select(c => c.Id) : PlanView().Slots.Select(s => s.CameraId)).ToHashSet();
+        foreach (var camera in _cameras.Where(c => ids.Contains(c.Id)).ToList()) _recordings.Start(camera);
+    }
 }
