@@ -77,6 +77,22 @@ public static class InfoDocuments
         doc.Blocks.Add(P("La X de la ventana la oculta en la bandeja del sistema (junto al reloj) y las grabaciones continúan. «Salir» cierra Centinela del todo."));
         doc.Blocks.Add(P("Con «Arrancar con Windows», Centinela se abre al iniciar sesión en el equipo."));
 
+        doc.Blocks.Add(H("Detección de movimiento"));
+        doc.Blocks.Add(P("Cada cámara puede vigilar si hay movimiento. Viene apagada: actívala con el botón 👁 de la cámara, con «Detección de movimiento» del clic derecho o en Ver › Opciones de avisos…. Un 👁 tachado junto al nombre indica que está apagada."));
+        doc.Blocks.Add(P("Mientras hay movimiento, la cámara lleva un marco rojo (en las miniaturas, en las grandes y a pantalla completa) que se quita 3 segundos después de que pare."));
+        doc.Blocks.Add(P("Sigue vigilando con Centinela oculta en la bandeja. Si la ventana está minimizada o en la bandeja, sale un aviso junto al reloj; haz clic en él para abrir la ventana. Como mucho sale un aviso por cámara cada tiempo de espera."));
+        doc.Blocks.Add(P("Cada cámara vigilada usa una conexión en calidad baja (la misma de la miniatura si se ve)."));
+
+        doc.Blocks.Add(H("Registro de movimiento"));
+        doc.Blocks.Add(P("El botón «Movimiento» de la barra de estado muestra cuántos avisos no has visto y abre el registro: hora de inicio, cámara, duración y cambio máximo. Desde ahí puedes copiar las líneas, abrir la carpeta o vaciarlo."));
+        doc.Blocks.Add(P(@"Cada movimiento se anota cuando termina (o al salir de Centinela). Los archivos (movimiento-AAAA-MM-DD.log, en %AppData%\Centinela\logs) se borran a los 14 días."));
+
+        doc.Blocks.Add(H("Opciones de avisos"));
+        doc.Blocks.Add(P("Ver › Opciones de avisos… tiene una tabla con cada cámara: detección, sensibilidad (Baja, Media o Alta), tiempo de espera entre avisos (30 s, 1 min, 5 min o 15 min), avisos de conexión y avisos de movimiento."));
+        doc.Blocks.Add(P("También puedes activar sonidos de Windows al perder la conexión y con movimiento (solo cuando sale el aviso)."));
+        doc.Blocks.Add(P("En las horas de silencio (por ejemplo, de 23:00 a 07:00, pueden pasar de medianoche) no hay avisos ni sonidos, pero el registro y el marco rojo siguen funcionando."));
+        doc.Blocks.Add(P("Estas opciones se guardan con las cámaras y van en la copia JSON. Las copias antiguas se importan con la detección apagada."));
+
         doc.Blocks.Add(H("Copias de seguridad"));
         doc.Blocks.Add(P("Archivo › Exportar JSON guarda la lista de cámaras. Puedes exportarla sin contraseñas o con ellas, cifradas con una clave que eliges tú (al menos 8 caracteres)."));
         doc.Blocks.Add(P("Guarda la clave en un lugar seguro: sin ella no se pueden recuperar las contraseñas."));

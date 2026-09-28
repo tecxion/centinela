@@ -22,6 +22,21 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
 - 📷 Capturas PNG a resolución completa · ⏺ Grabación MKV sin recodificar · **⏺ Grabar todas** / ⏹ Detener todas.
 - Errores traducidos al español («Contraseña incorrecta», «Sin conexión · reintentando»…) con avisos emergentes
   y un **Registro** de errores (botón «Registro»; archivos en `%AppData%\Centinela\logs`, se borran a los 14 días).
+- **Detección de movimiento** por cámara (desactivada de serie): botón 👁 de la cámara, clic derecho ›
+  «Detección de movimiento» o Ver › Opciones de avisos…. Un 👁 tachado junto al nombre indica que está apagada.
+  Sigue funcionando con la ventana en la bandeja. Mientras hay movimiento la cámara lleva un **marco rojo**
+  (miniaturas, grandes y pantalla completa) que se quita 3 s después de que pare.
+- Aviso junto al reloj «Detección de movimiento: «Nombre»» **solo** con la ventana minimizada o en la bandeja
+  (clic → abre la ventana). Como mucho un aviso por cámara cada tiempo de espera (30 s, 1 min —de serie—, 5 o
+  15 min). Sensibilidad Baja, Media o Alta.
+- Botón **Movimiento** en la barra de estado (con el número de eventos sin ver): registro con inicio, cámara,
+  duración y cambio máximo; Copiar, Abrir carpeta y Vaciar. Cada evento se anota al terminar (o al salir).
+- Consumo: cada cámara vigilada usa una conexión en calidad baja (la misma de la miniatura si está visible).
+- Ver › **Opciones de avisos…**: tabla por cámara (Detección, Sensibilidad, Espera, Avisos de conexión, Avisos de
+  movimiento), sonidos de Windows (al perder la conexión; con movimiento, solo cuando sale el aviso) y
+  **horas de silencio** HH:mm–HH:mm (pueden cruzar la medianoche): sin avisos ni sonidos, pero el registro y el
+  marco rojo siguen. Los avisos de conexión también respetan «Avisos de conexión». Estas opciones van en
+  `cameras.json` y en la copia JSON; las copias antiguas se importan con la detección apagada.
 - Menú **Archivo**: importar/exportar la lista de cámaras en JSON, con las contraseñas cifradas con una clave
   opcional (sin clave se exporta sin contraseñas). Al importar se añaden las cámaras nuevas y se actualizan
   las que ya existen (misma IP y puerto). Formato: [`docs/ejemplo-camaras.json`](docs/ejemplo-camaras.json).
@@ -94,7 +109,7 @@ dotnet run --project src/Centinela.App            # añade "-- --tray" para arra
 
 Con la variable definida, todo lo que escribe la aplicación queda dentro de esa carpeta:
 
-- cámaras, ajustes y registro (en lugar de `%AppData%\Centinela`);
+- cámaras, ajustes y registros de errores y de movimiento (en lugar de `%AppData%\Centinela`);
 - `backup\` para la copia automática (en lugar de `Documentos\Centinela`);
 - `recordings\` para las grabaciones (en lugar de `Vídeos\Centinela`);
 - `snapshots\` para las capturas (en lugar de `Imágenes\Centinela`).
@@ -104,7 +119,7 @@ Además es una instancia aparte: no despierta ni se confunde con la Centinela qu
 
 ## Publicar una versión
 
-1. Cambia `<Version>` en `Directory.Build.props` (p. ej. `1.2.0`).
+1. Cambia `<Version>` en `Directory.Build.props` (p. ej. `1.3.0`).
 2. Crea y **publica** en GitHub (`tecxion/centinela`) una *release* con la etiqueta `vX.Y.Z` o `vX.Y`
    (2 o 3 números, p. ej. `v1.2.0`). Los borradores y las *pre-releases* no cuentan: la comprobación usa
    la última *release* publicada.
@@ -113,8 +128,9 @@ Las copias instaladas la verán en su siguiente comprobación (o con Ayuda › B
 
 ## Datos
 
-- Cámaras: `%AppData%\Centinela\cameras.json` (contraseñas cifradas, solo tu usuario de Windows puede leerlas)
-- Registro de errores: `%AppData%\Centinela\logs\`
+- Cámaras y opciones de avisos: `%AppData%\Centinela\cameras.json` (contraseñas cifradas, solo tu usuario de Windows puede leerlas)
+- Registro de errores: `%AppData%\Centinela\logs\centinela-AAAA-MM-DD.log`
+- Registro de movimiento: `%AppData%\Centinela\logs\movimiento-AAAA-MM-DD.log` (los registros se borran a los 14 días)
 - Copia automática: `Documentos\Centinela\camaras-copia.json` (o la carpeta elegida)
 - Grabaciones: `Vídeos\Centinela\<cámara>\`
 - Capturas: `Imágenes\Centinela\`
