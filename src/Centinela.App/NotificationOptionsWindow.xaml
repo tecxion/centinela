@@ -25,7 +25,7 @@
             <TextBlock TextWrapping="Wrap" Foreground="Gray" Margin="0,8,0,0"
                        Text="La detección mantiene abierta la conexión de baja calidad de cada cámara vigilada, también con la app en la bandeja."/>
         </StackPanel>
-        <DataGrid x:Name="Grid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+        <DataGrid x:Name="CameraOptionsGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                   CanUserSortColumns="False" CanUserReorderColumns="False" SelectionMode="Single"
                   HeadersVisibility="Column" GridLinesVisibility="Horizontal">
             <DataGrid.Columns>

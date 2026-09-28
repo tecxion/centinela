@@ -38,7 +38,10 @@ public sealed class MotionLog : IDisposable
         LogText.Stamp(e.Start),
         LogText.Clean(e.Camera),
         FormatDuration(e.Duration),
-        (e.Peak * 100).ToString("0.0", CultureInfo.InvariantCulture) + " %");
+        (ClampPeak(e.Peak) * 100).ToString("0.0", CultureInfo.InvariantCulture) + " %");
+
+    /// <summary>A fraction of the image: kept within [0, 1]; NaN counts as 0.</summary>
+    static double ClampPeak(double peak) => double.IsNaN(peak) ? 0 : Math.Clamp(peak, 0, 1);
 
     public static int PurgeOlderThan(string directory, DateTime now, int days = 14) =>
         DailyLog<MotionLogEntry>.PurgeOlderThan(directory, Prefix, now, days);

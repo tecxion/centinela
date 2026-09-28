@@ -52,8 +52,10 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // The window will never show: remove the tray icon so no ghost remains, and stop detecting.
+            // The window will never show: remove the tray icon so no ghost remains, stop detecting and stop the
+            // shared sessions (detection's and any tile's) so no decoder keeps running.
             _motion.Dispose();
+            _streams.Dispose();
             _motionLog.Dispose();
             _tray.Dispose();
             throw;

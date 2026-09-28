@@ -15,7 +15,7 @@
             <Button Content="Vaciar" Padding="10,4" Click="Clear_Click"
                     ToolTip="Vacía la lista; los archivos de registro se conservan"/>
         </StackPanel>
-        <DataGrid x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True"
+        <DataGrid x:Name="EntriesGrid" AutoGenerateColumns="False" IsReadOnly="True"
                   HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Extended">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Hora" Binding="{Binding Start, StringFormat='dd/MM HH:mm:ss'}" Width="Auto"/>

@@ -20,6 +20,15 @@ public sealed class MotionLogTests : IDisposable
             MotionLog.FormatLine(new MotionLogEntry(new DateTime(2026, 9, 28, 10, 0, 5), "A", new TimeSpan(1, 2, 3), 0.6)));
     }
 
+    [Theory]
+    [InlineData(double.NaN, "0.0 %")]
+    [InlineData(-0.2, "0.0 %")]
+    [InlineData(1.7, "100.0 %")]
+    [InlineData(double.PositiveInfinity, "100.0 %")]
+    public void Format_line_clamps_the_peak(double peak, string expected) =>
+        Assert.EndsWith("	" + expected,
+            MotionLog.FormatLine(new MotionLogEntry(new DateTime(2026, 9, 28, 10, 0, 5), "A", TimeSpan.FromSeconds(7), peak)));
+
     [Fact]
     public void Writes_daily_file_with_its_own_prefix_and_keeps_newest_first()
     {

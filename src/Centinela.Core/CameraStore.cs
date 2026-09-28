@@ -121,6 +121,7 @@ public sealed class CameraStore(string filePath)
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = "";
+        [JsonConverter(typeof(LenientBrandConverter))]
         public Brand Brand { get; set; }
         public string Host { get; set; } = "";
         public int Port { get; set; } = 554;
@@ -131,6 +132,7 @@ public sealed class CameraStore(string filePath)
         public bool UseUdp { get; set; }
         public int Order { get; set; }
         public bool MotionEnabled { get; set; }
+        [JsonConverter(typeof(LenientSensitivityConverter))]
         public MotionSensitivity MotionSensitivity { get; set; } = MotionSensitivity.Medium;
         public int MotionCooldownSeconds { get; set; } = 60;
         public bool ConnectionAlerts { get; set; } = true;

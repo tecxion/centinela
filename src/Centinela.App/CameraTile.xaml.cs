@@ -400,6 +400,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
 
     void UpdateTargetSize()
     {
+        // Not laid out yet (or collapsed): a 0×0 request would mean "native size" and enlarge a shared session's
+        // decode for every lease; keep the last size until there is a real one.
+        if (ActualWidth < 1 || ActualHeight < 1) return;
         // Zoomed images are decoded larger (FrameGeometry never upscales beyond the native size).
         var dpi = VisualTreeHelper.GetDpi(this);
         var width = (int)(ActualWidth * dpi.DpiScaleX * _zoom.Scale);

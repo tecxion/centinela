@@ -205,4 +205,18 @@ public sealed class CameraStoreTests : IDisposable
             (cams[0].MotionEnabled, cams[0].MotionSensitivity, cams[0].MotionCooldownSeconds, cams[0].ConnectionAlerts, cams[0].MotionAlerts));
         Assert.Equal((MotionSensitivity.Medium, 60), (cams[1].MotionSensitivity, cams[1].MotionCooldownSeconds));
     }
+
+    [Fact]
+    public void Unknown_enum_names_fall_back_instead_of_quarantining_the_file()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "unknown.json");
+        File.WriteAllText(path, """
+            [ { "id": "6f1c6a36-4a6e-4a53-9a0f-1d0e0b0a0c03", "name": "Nueva", "brand": "Marciana", "host": "h", "port": 554,
+                "user": "u", "order": 0, "motionEnabled": true, "motionSensitivity": "Extreme" } ]
+            """);
+        var c = Assert.Single(new CameraStore(path).Load());
+        Assert.Equal((Brand.Custom, MotionSensitivity.Medium, true), (c.Brand, c.MotionSensitivity, c.MotionEnabled));
+        Assert.Empty(Directory.GetFiles(_dir, "unknown.json.bad-*"));
+    }
 }

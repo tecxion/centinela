@@ -44,7 +44,7 @@ public partial class NotificationOptionsWindow : Window
         InitializeComponent();
         _normalBorder = QuietFromBox.BorderBrush;
         Rows = [.. cameras.OrderBy(c => c.Order).Select(c => new NotificationOptionsRow(c))];
-        Grid.ItemsSource = Rows;
+        CameraOptionsGrid.ItemsSource = Rows;
         SoundLostBox.IsChecked = settings.SoundOnConnectionLost;
         SoundMotionBox.IsChecked = settings.SoundOnMotion;
         QuietBox.IsChecked = settings.QuietHoursEnabled;
@@ -79,7 +79,7 @@ public partial class NotificationOptionsWindow : Window
     void Ok_Click(object sender, RoutedEventArgs e)
     {
         // Commit a cell still being edited before the caller reads the rows.
-        Grid.CommitEdit(DataGridEditingUnit.Row, true);
+        CameraOptionsGrid.CommitEdit(DataGridEditingUnit.Row, true);
         var fromValid = Mark(QuietFromBox);
         var toValid = Mark(QuietToBox);
         if (!fromValid || !toValid)

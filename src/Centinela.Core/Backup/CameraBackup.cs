@@ -236,36 +236,4 @@ public static class CameraBackup
         public bool ConnectionAlerts { get; set; } = true;
         public bool MotionAlerts { get; set; } = true;
     }
-
-    /// <summary>Unknown brand names or numbers map to <see cref="Brand.Custom"/> instead of failing the whole file.</summary>
-    sealed class LenientBrandConverter : JsonConverter<Brand>
-    {
-        public override Brand Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
-            reader.TokenType switch
-            {
-                JsonTokenType.String => Enum.TryParse<Brand>(reader.GetString(), ignoreCase: true, out var b) && Enum.IsDefined(b) ? b : Brand.Custom,
-                JsonTokenType.Number => reader.TryGetInt32(out var n) && Enum.IsDefined((Brand)n) ? (Brand)n : Brand.Custom,
-                JsonTokenType.Null => Brand.Custom,
-                _ => throw new JsonException("Invalid brand."),
-            };
-
-        public override void Write(Utf8JsonWriter writer, Brand value, JsonSerializerOptions options) =>
-            writer.WriteStringValue(value.ToString());
-    }
-
-    /// <summary>Unknown sensitivity names or numbers map to <see cref="MotionSensitivity.Medium"/> instead of failing the whole file.</summary>
-    sealed class LenientSensitivityConverter : JsonConverter<MotionSensitivity>
-    {
-        public override MotionSensitivity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
-            reader.TokenType switch
-            {
-                JsonTokenType.String => Enum.TryParse<MotionSensitivity>(reader.GetString(), ignoreCase: true, out var s) && Enum.IsDefined(s) ? s : MotionSensitivity.Medium,
-                JsonTokenType.Number => reader.TryGetInt32(out var n) && Enum.IsDefined((MotionSensitivity)n) ? (MotionSensitivity)n : MotionSensitivity.Medium,
-                JsonTokenType.Null => MotionSensitivity.Medium,
-                _ => throw new JsonException("Invalid motion sensitivity."),
-            };
-
-        public override void Write(Utf8JsonWriter writer, MotionSensitivity value, JsonSerializerOptions options) =>
-            writer.WriteStringValue(value.ToString());
-    }
 }

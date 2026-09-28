@@ -19,7 +19,7 @@ public partial class MotionLogWindow : Window
         InitializeComponent();
         _log = log;
         _rows = new ObservableCollection<MotionLogEntry>(log.Snapshot());
-        Grid.ItemsSource = _rows;
+        EntriesGrid.ItemsSource = _rows;
         log.EntryAdded += OnEntryAdded;
         Closed += (_, _) => log.EntryAdded -= OnEntryAdded;
     }
@@ -29,7 +29,7 @@ public partial class MotionLogWindow : Window
 
     void Copy_Click(object sender, RoutedEventArgs e)
     {
-        var rows = Grid.SelectedItems.Count > 0 ? Grid.SelectedItems.Cast<MotionLogEntry>() : _rows;
+        var rows = EntriesGrid.SelectedItems.Count > 0 ? EntriesGrid.SelectedItems.Cast<MotionLogEntry>() : _rows;
         var text = string.Join(Environment.NewLine, rows.Select(MotionLog.FormatLine));
         if (text.Length == 0) return;
         try { Clipboard.SetText(text); }
