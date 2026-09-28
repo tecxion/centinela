@@ -4,21 +4,28 @@ using Centinela.Core;
 
 namespace Centinela.App;
 
-/// <summary>Motion detection: red frame on every view of the camera, the 👁 toggle and the tray notice.</summary>
+/// <summary>Motion detection: red frame on every view of the camera, the 👁 toggle, the tray notice and the motion log.</summary>
 public partial class MainWindow
 {
     MotionService _motion = null!;
+    MotionLog _motionLog = null!;
+    MotionLogWindow? _motionLogWindow;
+    int _unreadMotion;
 
     /// <summary>Runs in the constructor, also when starting hidden: detection works with the window in the tray.</summary>
     void InitMotion()
     {
         // Detection decodes the shared substream at 320×180 (more when a thumbnail asks for it).
+        try { MotionLog.PurgeOlderThan(AppPaths.LogsDirectory, DateTime.Now); }
+        catch (Exception) { /* old logs are only a nuisance; never block startup */ }
+        _motionLog = new MotionLog(AppPaths.LogsDirectory);
         _motion = new MotionService(c => AcquireSub(c, 320, 180), Dispatcher);
         _motion.MotionChanged += (id, active) =>
         {
             foreach (var tile in TilesOf(id)) tile.SetMotionActive(active);
         };
         _motion.MotionStarted += OnMotionStarted;
+        _motion.MotionEnded += OnMotionEnded;
         _motion.DetectorFailed += (camera, message) =>
             _errorLog.Add(new ErrorLogEntry(DateTime.Now, camera.Name, "Movimiento",
                 $"{camera.Name}: la detección de movimiento se ha desactivado", message));
@@ -35,6 +42,35 @@ public partial class MainWindow
         if (decision.Show)
             _tray.ShowBalloon($"Detección de movimiento: «{camera.Name}»", DateTime.Now.ToString("HH:mm:ss"), ShowFromTray);
         if (decision.PlaySound) SystemSounds.Asterisk.Play();
+    }
+
+    /// <summary>
+    /// Logs a finished event, also while closing: <see cref="MotionService.ShutdownAsync"/> ends the active ones
+    /// before <see cref="OnClosed"/> disposes the log.
+    /// </summary>
+    void OnMotionEnded(Camera camera, MotionEvent motionEvent)
+    {
+        _motionLog.Add(new MotionLogEntry(motionEvent.Start.LocalDateTime, camera.Name,
+            motionEvent.End - motionEvent.Start, motionEvent.Peak));
+        SetUnreadMotion(_unreadMotion + 1);
+    }
+
+    void SetUnreadMotion(int count)
+    {
+        _unreadMotion = count;
+        MotionLogButton.Content = count == 0 ? "Movimiento" : $"Movimiento ({count})";
+    }
+
+    void OpenMotionLog_Click(object sender, RoutedEventArgs e)
+    {
+        SetUnreadMotion(0);
+        if (_motionLogWindow is { IsLoaded: true })
+        {
+            _motionLogWindow.Activate();
+            return;
+        }
+        _motionLogWindow = new MotionLogWindow(_motionLog) { Owner = this };
+        _motionLogWindow.Show();
     }
 
     /// <summary>Shows a new tile's motion state (red frame, 👁) and wires its toggle.</summary>

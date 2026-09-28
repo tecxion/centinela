@@ -54,6 +54,7 @@ public partial class MainWindow : Window
         {
             // The window will never show: remove the tray icon so no ghost remains, and stop detecting.
             _motion.Dispose();
+            _motionLog.Dispose();
             _tray.Dispose();
             throw;
         }
@@ -384,6 +385,8 @@ public partial class MainWindow : Window
         _audioOutput = null;
         _tray.Dispose();
         _errorLog.Dispose();
+        // After _motion.ShutdownAsync above, which logged the events still active.
+        _motionLog.Dispose();
         base.OnClosed(e);
         // ShutdownMode is OnExplicitShutdown: closing the window alone would leave the process running.
         Application.Current.Shutdown();

@@ -47,7 +47,11 @@
         </ToolBarTray>
         <StatusBar x:Name="BottomBar" DockPanel.Dock="Bottom">
             <StatusBarItem DockPanel.Dock="Right" HorizontalAlignment="Right">
-                <Button x:Name="LogButton" Content="Registro" Padding="8,0" ToolTip="Registro de errores" Click="OpenLog_Click"/>
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="MotionLogButton" Content="Movimiento" Padding="8,0" Margin="0,0,6,0"
+                            ToolTip="Registro de movimiento" Click="OpenMotionLog_Click"/>
+                    <Button x:Name="LogButton" Content="Registro" Padding="8,0" ToolTip="Registro de errores" Click="OpenLog_Click"/>
+                </StackPanel>
             </StatusBarItem>
             <StatusBarItem>
                 <TextBlock x:Name="StatusText" Cursor="Hand" MouseLeftButtonUp="StatusText_Click"/>

@@ -45,8 +45,8 @@ public sealed class MotionLog : IDisposable
 
     public void Dispose() => _log.Dispose();
 
-    /// <summary><c>m:ss</c> under an hour (<c>0:07</c>, <c>12:30</c>), <c>h:mm:ss</c> from an hour (<c>1:02:03</c>).</summary>
-    static string FormatDuration(TimeSpan duration)
+    /// <summary>Duration as in <see cref="FormatLine"/>: <c>m:ss</c> under an hour (<c>0:07</c>, <c>12:30</c>), <c>h:mm:ss</c> from an hour (<c>1:02:03</c>).</summary>
+    public static string FormatDuration(TimeSpan duration)
     {
         if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
         var hours = (long)duration.TotalHours;
