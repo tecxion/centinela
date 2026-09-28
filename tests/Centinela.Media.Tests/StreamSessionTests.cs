@@ -168,4 +168,34 @@ public sealed class StreamSessionTests(RtspTestServer server, ITestOutputHelper 
         Assert.InRange(stats.LatencyMs, 0.01, 1000);
         Assert.True(stats.SinceLastFrame < TimeSpan.FromSeconds(1));
     }
+
+    [SkippableFact]
+    public void A_steady_local_stream_is_not_smoothed()
+    {
+        using var session = Open(server.Url("open"));
+        session.Start();
+        Assert.True(TestUtil.WaitFor(() => session.State == SessionState.Playing, Ten), session.LastError);
+        Thread.Sleep(3000);
+        Assert.Equal(0, session.SmoothingSeconds);
+        Assert.Equal(0, session.Stats.SmoothingSeconds);
+    }
+
+    [SkippableFact]
+    public void A_smoothed_stream_plays_at_its_own_pace_behind_the_delay()
+    {
+        using var session = Open(server.Url("open"));
+        double? reported = null;
+        session.SmoothingChanged += s => reported = s;
+        session.ForceSmoothing(0.5);
+        session.Start();
+        Assert.True(TestUtil.WaitFor(() => session.State == SessionState.Playing, Ten), session.LastError);
+        Thread.Sleep(2500);
+        var stats = session.Stats;
+        output.WriteLine($"fps={stats.Fps:0.0} latency={stats.LatencyMs:0.0}ms smoothing={stats.SmoothingSeconds}s");
+        Assert.InRange(stats.Fps, 20, 30);
+        // Every frame waits about the smoothing delay between arrival and display.
+        Assert.InRange(stats.LatencyMs, 300, 1500);
+        Assert.Equal(0.5, stats.SmoothingSeconds);
+        Assert.Equal(0.5, reported);
+    }
 }

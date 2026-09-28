@@ -24,6 +24,7 @@
                         <Line X1="1" Y1="13" X2="13" Y2="2" Stroke="#E53935" StrokeThickness="1.6"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Grid>
+                    <TextBlock x:Name="SmoothingIndicator" Text=" ⏱" Foreground="White" Visibility="Collapsed"/>
                     <TextBlock x:Name="AudioIndicator" Text=" 🔊" Foreground="White" Visibility="Collapsed"/>
                 </StackPanel>
             </Border>
