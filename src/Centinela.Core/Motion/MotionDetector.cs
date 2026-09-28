@@ -12,10 +12,13 @@ public interface IMotionDetector
 /// <summary>
 /// Frame difference against a slowly adapting background: a pixel changed if it differs by more than 25;
 /// motion when enough pixels changed for N frames in a row. A sudden change of most of the image (lights,
-/// reconnection) resets the background instead of reporting motion.
+/// reconnection) resets the background instead of reporting motion. After construction, <see cref="Reset"/> or
+/// such a global change, the first <see cref="WarmUpFrames"/> frames only seed the background (never motion): the
+/// first images of a connection (gray fills, half-decoded frames) and an exposure still settling are not motion.
 /// </summary>
 public sealed class FrameDiffDetector(MotionSensitivity sensitivity) : IMotionDetector
 {
+    public const int WarmUpFrames = 5;
     const float Alpha = 0.05f;
     const int PixelThreshold = 25;
     const double GlobalChange = 0.60;
@@ -28,22 +31,29 @@ public sealed class FrameDiffDetector(MotionSensitivity sensitivity) : IMotionDe
     };
     float[]? _background;
     int _consecutive;
+    int _warmUpLeft = WarmUpFrames;
 
     public MotionSample Analyze(GrayFrame frame)
     {
         var pixels = frame.Pixels;
+        var fraction = _background is not null && _background.Length == pixels.Length ? ChangedFraction(pixels) : 0;
+        if (_warmUpLeft > 0)
+        {
+            _warmUpLeft--;
+            Seed(pixels);
+            return new MotionSample(false, fraction);
+        }
         if (_background is null || _background.Length != pixels.Length)
         {
-            Initialize(pixels);
+            // Resolution changed after the warm-up: start it over.
+            _warmUpLeft = WarmUpFrames - 1;
+            Seed(pixels);
             return new MotionSample(false, 0);
         }
-        var changed = 0;
-        for (var i = 0; i < pixels.Length; i++)
-            if (Math.Abs(pixels[i] - _background[i]) > PixelThreshold) changed++;
-        var fraction = changed / (double)pixels.Length;
         if (fraction > GlobalChange)
         {
-            Initialize(pixels);
+            _warmUpLeft = WarmUpFrames - 1;
+            Seed(pixels);
             return new MotionSample(false, fraction);
         }
         for (var i = 0; i < pixels.Length; i++) _background[i] += Alpha * (pixels[i] - _background[i]);
@@ -55,12 +65,21 @@ public sealed class FrameDiffDetector(MotionSensitivity sensitivity) : IMotionDe
     {
         _background = null;
         _consecutive = 0;
+        _warmUpLeft = WarmUpFrames;
     }
 
-    void Initialize(byte[] pixels)
+    double ChangedFraction(byte[] pixels)
     {
-        _background ??= new float[pixels.Length];
-        if (_background.Length != pixels.Length) _background = new float[pixels.Length];
+        var changed = 0;
+        for (var i = 0; i < pixels.Length; i++)
+            if (Math.Abs(pixels[i] - _background![i]) > PixelThreshold) changed++;
+        return changed / (double)pixels.Length;
+    }
+
+    /// <summary>The background becomes exactly this frame; no motion streak survives it.</summary>
+    void Seed(byte[] pixels)
+    {
+        if (_background is null || _background.Length != pixels.Length) _background = new float[pixels.Length];
         for (var i = 0; i < pixels.Length; i++) _background[i] = pixels[i];
         _consecutive = 0;
     }

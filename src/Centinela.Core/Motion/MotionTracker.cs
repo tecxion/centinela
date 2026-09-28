@@ -4,14 +4,17 @@ public enum MotionTransition { None, Started, Ended }
 
 public sealed record MotionEvent(DateTimeOffset Start, DateTimeOffset End, double Peak);
 
-public sealed record MotionUpdate(MotionTransition Transition, bool Alert, MotionEvent? Event)
+/// <param name="AlertEligible">Only on <see cref="MotionTransition.Started"/>: the cooldown has passed (nothing is consumed).</param>
+public sealed record MotionUpdate(MotionTransition Transition, bool AlertEligible, MotionEvent? Event)
 {
     public static readonly MotionUpdate None = new(MotionTransition.None, false, null);
 }
 
 /// <summary>
 /// Turns per-frame samples of one camera into events: starts on the first motion sample, ends after
-/// <see cref="EndAfter"/> without motion. Alerts only on start, at most once per <see cref="Cooldown"/>.
+/// <see cref="EndAfter"/> without motion. A start is alert-eligible when <see cref="Cooldown"/> has passed since the
+/// last notice actually shown; the caller reports a shown notice with <see cref="MarkAlerted"/>, so a start hidden
+/// by quiet hours or disabled notices does not consume the cooldown.
 /// </summary>
 public sealed class MotionTracker(TimeSpan cooldown)
 {
@@ -37,12 +40,14 @@ public sealed class MotionTracker(TimeSpan cooldown)
             IsActive = true;
             _start = _lastMotion = now;
             _peak = sample.ChangedFraction;
-            var alert = _lastAlert is not { } last || now - last >= Cooldown;
-            if (alert) _lastAlert = now;
-            return new MotionUpdate(MotionTransition.Started, alert, null);
+            var eligible = _lastAlert is not { } last || now - last >= Cooldown;
+            return new MotionUpdate(MotionTransition.Started, eligible, null);
         }
         return IsActive && now - _lastMotion >= EndAfter ? End() : MotionUpdate.None;
     }
+
+    /// <summary>A notice for an eligible start was shown at <paramref name="now"/>: the cooldown runs from there.</summary>
+    public void MarkAlerted(DateTimeOffset now) => _lastAlert = now;
 
     /// <summary>
     /// Ends an active event immediately (detection turned off, camera removed, app closing). The event ends at

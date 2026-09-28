@@ -40,7 +40,10 @@ public sealed class MotionService : IDisposable
 
     /// <summary>Raised on the UI thread when a camera's motion event starts (true) or ends (false).</summary>
     public event Action<Guid, bool>? MotionChanged;
-    /// <summary>Raised on the UI thread when an event starts; alert = the camera's cooldown has passed.</summary>
+    /// <summary>
+    /// Raised on the UI thread when an event starts; alertEligible = the camera's cooldown has passed. The cooldown
+    /// only restarts when the handler reports a shown notice with <see cref="ConfirmAlert"/>.
+    /// </summary>
     public event Action<Camera, bool>? MotionStarted;
     /// <summary>Raised on the UI thread when an event ends (also when detection stops with an event active).</summary>
     public event Action<Camera, MotionEvent>? MotionEnded;
@@ -49,7 +52,9 @@ public sealed class MotionService : IDisposable
 
     /// <summary>
     /// Monitors exactly the cameras with <see cref="Camera.MotionEnabled"/>: starts new ones, restarts those whose
-    /// substream or sensitivity changed, updates the rest in place and stops (flushing their events) the others.
+    /// substream changed, updates the rest in place (a new sensitivity swaps only the detector, keeping the session,
+    /// the event in progress and the cooldown) and stops (flushing their events) the others. A camera whose detector
+    /// failed restarts when its sensitivity changes.
     /// </summary>
     public void Apply(IReadOnlyList<Camera> cameras)
     {
@@ -63,12 +68,7 @@ public sealed class MotionService : IDisposable
             wanted.Add(camera.Id);
             if (_monitors.TryGetValue(camera.Id, out var monitor))
             {
-                if (monitor.Key == key)
-                {
-                    monitor.Camera = camera;
-                    lock (monitor.Gate) monitor.Tracker.Cooldown = CooldownOf(camera);
-                    continue;
-                }
+                if (monitor.Key == key && UpdateInPlace(monitor, camera)) continue;
                 _monitors.Remove(camera.Id);
                 stopped.Add(StopQuietly(monitor));
             }
@@ -77,7 +77,7 @@ public sealed class MotionService : IDisposable
                 wanted.Remove(camera.Id);
                 continue;
             }
-            _monitors[camera.Id] = new CameraMonitor(camera, key, lease, _detectorFactory(camera.MotionSensitivity));
+            _monitors[camera.Id] = new CameraMonitor(camera, key, lease, camera.MotionSensitivity, _detectorFactory(camera.MotionSensitivity));
         }
         foreach (var id in _monitors.Keys.Where(id => !wanted.Contains(id)).ToList())
         {
@@ -86,6 +86,16 @@ public sealed class MotionService : IDisposable
         }
         _running = [.. _monitors.Values];
         foreach (var monitor in stopped) Drain(monitor);
+    }
+
+    /// <summary>
+    /// UI thread: a notice for the event that just started on this camera was shown at <paramref name="when"/>, so
+    /// its cooldown runs from there. Unknown or stopped cameras are ignored.
+    /// </summary>
+    public void ConfirmAlert(Guid cameraId, DateTimeOffset when)
+    {
+        if (!_monitors.TryGetValue(cameraId, out var monitor)) return;
+        lock (monitor.Gate) monitor.Tracker.MarkAlerted(when);
     }
 
     /// <summary>True while the camera has a motion event in progress (as last raised on the UI thread).</summary>
@@ -116,12 +126,34 @@ public sealed class MotionService : IDisposable
 
     public void Dispose() => _ = ShutdownAsync();
 
-    /// <summary>The settings that need a new session or detector when they change; null = no usable substream.</summary>
+    /// <summary>
+    /// UI thread, same substream: takes the new options without touching the lease. False when the monitor must be
+    /// restarted instead (its detector failed and the sensitivity changed).
+    /// </summary>
+    bool UpdateInPlace(CameraMonitor monitor, Camera camera)
+    {
+        lock (monitor.Gate)
+        {
+            var sensitivityChanged = monitor.Sensitivity != camera.MotionSensitivity;
+            if (monitor.Stopped && sensitivityChanged) return false;
+            monitor.Tracker.Cooldown = CooldownOf(camera);
+            if (sensitivityChanged)
+            {
+                // A fresh detector starts with its own warm-up; the tracker (event in progress, cooldown) stays.
+                monitor.Sensitivity = camera.MotionSensitivity;
+                monitor.Detector = _detectorFactory(camera.MotionSensitivity);
+            }
+        }
+        monitor.Camera = camera;
+        return true;
+    }
+
+    /// <summary>The settings that need a new session when they change; null = no usable substream.</summary>
     static MonitorKey? KeyOf(Camera camera)
     {
         try
         {
-            return new MonitorKey(StreamUrlBuilder.Build(camera, StreamKind.Sub), camera.UseUdp, camera.MotionSensitivity);
+            return new MonitorKey(StreamUrlBuilder.Build(camera, StreamKind.Sub), camera.UseUdp);
         }
         catch (InvalidOperationException)
         {
@@ -246,7 +278,7 @@ public sealed class MotionService : IDisposable
                 case MotionTransition.Started:
                     monitor.Active = true;
                     MotionChanged?.Invoke(camera.Id, true);
-                    MotionStarted?.Invoke(camera, update.Alert);
+                    MotionStarted?.Invoke(camera, update.AlertEligible);
                     continue;
                 case MotionTransition.Ended:
                     monitor.Active = false;
@@ -259,17 +291,19 @@ public sealed class MotionService : IDisposable
         }
     }
 
-    sealed record MonitorKey(string Url, bool UseUdp, MotionSensitivity Sensitivity);
+    sealed record MonitorKey(string Url, bool UseUdp);
 
-    sealed class CameraMonitor(Camera camera, MonitorKey key, SharedStreamLease lease, IMotionDetector detector)
+    sealed class CameraMonitor(Camera camera, MonitorKey key, SharedStreamLease lease, MotionSensitivity sensitivity,
+        IMotionDetector detector)
     {
         public readonly object Gate = new();
         public readonly MonitorKey Key = key;
-        public readonly IMotionDetector Detector = detector;
         public readonly MotionTracker Tracker = new(CooldownOf(camera));
         public readonly GrayFrame Gray = GrayScaler.Create();
         // Guarded by Gate.
         public readonly Queue<MotionUpdate> Pending = new();
+        public MotionSensitivity Sensitivity = sensitivity;
+        public IMotionDetector Detector = detector;
         public SharedStreamLease? Lease = lease;
         public bool Stopped;
         public bool NeedsReset;

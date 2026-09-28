@@ -35,12 +35,19 @@ public partial class MainWindow
     /// <summary>Visible to the user: shown, not in the tray and not minimized.</summary>
     bool WindowVisible => !IsHiddenInTray && IsVisible && WindowState != WindowState.Minimized;
 
-    void OnMotionStarted(Camera camera, bool alert)
+    /// <summary>
+    /// Only a notice actually shown restarts the camera's cooldown: one hidden by quiet hours, disabled notices or the
+    /// visible window leaves the next event free to notify.
+    /// </summary>
+    void OnMotionStarted(Camera camera, bool alertEligible)
     {
-        if (!alert || _closed) return;
+        if (!alertEligible || _closed) return;
         var decision = NotificationGate.Decide(NoticeKind.Motion, camera, _settings, WindowVisible, DateTime.Now);
         if (decision.Show)
+        {
             _tray.ShowBalloon($"Detección de movimiento: «{camera.Name}»", DateTime.Now.ToString("HH:mm:ss"), ShowFromTray);
+            _motion.ConfirmAlert(camera.Id, DateTimeOffset.Now);
+        }
         if (decision.PlaySound) SystemSounds.Asterisk.Play();
     }
 

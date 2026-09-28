@@ -9,11 +9,11 @@ public class MotionTrackerTests
     static readonly MotionSample No = new(false, 0);
 
     [Fact]
-    public void Starts_with_alert_then_ends_after_3_s_without_motion_with_peak()
+    public void Starts_alert_eligible_then_ends_after_3_s_without_motion_with_peak()
     {
         var t = new MotionTracker(TimeSpan.FromSeconds(60));
         var start = t.Update(Yes(0.02), T0);
-        Assert.Equal((MotionTransition.Started, true), (start.Transition, start.Alert));
+        Assert.Equal((MotionTransition.Started, true), (start.Transition, start.AlertEligible));
         Assert.True(t.IsActive);
         Assert.Equal(MotionTransition.None, t.Update(Yes(0.09), T0.AddSeconds(1)).Transition);
         Assert.Equal(MotionTransition.None, t.Update(No, T0.AddSeconds(3.5)).Transition);
@@ -24,15 +24,25 @@ public class MotionTrackerTests
     }
 
     [Fact]
-    public void Second_event_within_cooldown_starts_without_alert()
+    public void Second_event_within_cooldown_of_a_shown_alert_is_not_eligible()
     {
         var t = new MotionTracker(TimeSpan.FromSeconds(60));
-        Assert.True(t.Update(Yes(), T0).Alert);
+        Assert.True(t.Update(Yes(), T0).AlertEligible);
+        t.MarkAlerted(T0);
         t.Update(No, T0.AddSeconds(5));
         var again = t.Update(Yes(), T0.AddSeconds(30));
-        Assert.Equal((MotionTransition.Started, false), (again.Transition, again.Alert));
+        Assert.Equal((MotionTransition.Started, false), (again.Transition, again.AlertEligible));
         t.Update(No, T0.AddSeconds(40));
-        Assert.True(t.Update(Yes(), T0.AddSeconds(61)).Alert);
+        Assert.True(t.Update(Yes(), T0.AddSeconds(61)).AlertEligible);
+    }
+
+    [Fact]
+    public void Eligible_alert_that_was_not_shown_does_not_consume_the_cooldown()
+    {
+        var t = new MotionTracker(TimeSpan.FromSeconds(60));
+        Assert.True(t.Update(Yes(), T0).AlertEligible);   // hidden (quiet hours, alerts off…): no MarkAlerted
+        t.Update(No, T0.AddSeconds(5));
+        Assert.True(t.Update(Yes(), T0.AddSeconds(10)).AlertEligible);
     }
 
     [Fact]
@@ -40,9 +50,10 @@ public class MotionTrackerTests
     {
         var t = new MotionTracker(TimeSpan.FromSeconds(900));
         t.Update(Yes(), T0);
+        t.MarkAlerted(T0);
         t.Update(No, T0.AddSeconds(5));
         t.Cooldown = TimeSpan.FromSeconds(30);
-        Assert.True(t.Update(Yes(), T0.AddSeconds(31)).Alert);
+        Assert.True(t.Update(Yes(), T0.AddSeconds(31)).AlertEligible);
     }
 
     [Fact]
