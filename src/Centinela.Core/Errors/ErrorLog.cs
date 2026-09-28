@@ -1,7 +1,3 @@
-using System.Collections.Concurrent;
-using System.Globalization;
-using System.Text;
-
 namespace Centinela.Core;
 
 public sealed record ErrorLogEntry(DateTime Time, string Camera, string Kind, string Title, string Detail);
@@ -12,90 +8,34 @@ public sealed class ErrorLog : IDisposable
     public const int Capacity = 500;
     const string Prefix = "centinela-";
 
-    readonly string _directory;
-    readonly object _gate = new();
-    readonly LinkedList<ErrorLogEntry> _entries = new();
-    readonly BlockingCollection<ErrorLogEntry> _pending = new();
-    readonly Task _writer;
+    readonly DailyLog<ErrorLogEntry> _log;
 
     public ErrorLog(string directory)
     {
-        _directory = directory;
-        _writer = Task.Run(WriteLoop);
+        _log = new DailyLog<ErrorLogEntry>(directory, Prefix, e => e.Time, FormatLine, Capacity);
     }
 
-    public event Action<ErrorLogEntry>? EntryAdded;
-
-    public void Add(ErrorLogEntry entry)
+    public event Action<ErrorLogEntry>? EntryAdded
     {
-        lock (_gate)
-        {
-            _entries.AddFirst(entry);
-            while (_entries.Count > Capacity) _entries.RemoveLast();
-        }
-        // After Dispose the entry stays in memory only; CompleteAdding may race with this call.
-        try { _pending.TryAdd(entry); }
-        catch (InvalidOperationException) { }
-        EntryAdded?.Invoke(entry);
+        add => _log.EntryAdded += value;
+        remove => _log.EntryAdded -= value;
     }
 
-    public IReadOnlyList<ErrorLogEntry> Snapshot()
-    {
-        lock (_gate) return _entries.ToList();
-    }
+    public void Add(ErrorLogEntry entry) => _log.Add(entry);
 
-    public void Clear()
-    {
-        lock (_gate) _entries.Clear();
-    }
+    public IReadOnlyList<ErrorLogEntry> Snapshot() => _log.Snapshot();
+
+    public void Clear() => _log.Clear();
 
     public static string FileFor(string directory, DateTime time) =>
-        Path.Combine(directory, $"{Prefix}{time:yyyy-MM-dd}.log");
+        DailyLog<ErrorLogEntry>.FileFor(directory, Prefix, time);
 
     public static string FormatLine(ErrorLogEntry e) => string.Join('\t',
-        e.Time.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
-        Clean(e.Camera), Clean(e.Kind), Clean(e.Title), Clean(e.Detail));
+        LogText.Stamp(e.Time),
+        LogText.Clean(e.Camera), LogText.Clean(e.Kind), LogText.Clean(e.Title), LogText.Clean(e.Detail));
 
-    public static int PurgeOlderThan(string directory, DateTime now, int days = 14)
-    {
-        if (!Directory.Exists(directory)) return 0;
-        var deleted = 0;
-        foreach (var file in Directory.GetFiles(directory, $"{Prefix}*.log"))
-        {
-            var stamp = Path.GetFileNameWithoutExtension(file)[Prefix.Length..];
-            if (DateTime.TryParseExact(stamp, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)
-                && day < now.Date.AddDays(-days))
-            {
-                try { File.Delete(file); deleted++; }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
-        }
-        return deleted;
-    }
+    public static int PurgeOlderThan(string directory, DateTime now, int days = 14) =>
+        DailyLog<ErrorLogEntry>.PurgeOlderThan(directory, Prefix, now, days);
 
-    public void Dispose()
-    {
-        _pending.CompleteAdding();
-        try { _writer.Wait(TimeSpan.FromSeconds(2)); }
-        catch (Exception) { /* the log must never block or break shutdown */ }
-    }
-
-    void WriteLoop()
-    {
-        foreach (var entry in _pending.GetConsumingEnumerable())
-        {
-            try
-            {
-                Directory.CreateDirectory(_directory);
-                File.AppendAllText(FileFor(_directory, entry.Time), FormatLine(entry) + Environment.NewLine, Encoding.UTF8);
-            }
-            catch (Exception)
-            {
-                // Losing one line is better than losing the writer: keep draining.
-            }
-        }
-    }
-
-    static string Clean(string value) => value.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
+    public void Dispose() => _log.Dispose();
 }
