@@ -684,7 +684,6 @@ public sealed partial class CameraTile : UserControl, IDisposable
         }
         var s = _session.Stats;
         StatsLabel.Text = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")}"
-            + (double.IsNaN(s.ReceiveRatio) ? "" : $" · red {s.ReceiveRatio * 100:0} %")
             + (s.SmoothingSeconds > 0
                 ? string.Create(CultureInfo.InvariantCulture, $" · suav. {s.SmoothingSeconds:0.##} s · cortes {s.Rebuffers}")
                 : "");

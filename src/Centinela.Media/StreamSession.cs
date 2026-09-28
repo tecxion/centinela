@@ -295,7 +295,7 @@ public sealed unsafe partial class StreamSession : IDisposable
                 {
                     OnVideoPacket(stream, pkt);
                     if (playout is null) MarkPlaying(ref reachedPlaying);
-                    else EnqueueVideo(playout, stream, pkt, arrival);
+                    else EnqueueVideo(playout, pkt, arrival);
                 }
                 else if (playout is not null && pkt->stream_index == _audioIndex && _audioParameters is not null && _audioSink is not null)
                     EnqueueAudio(playout, pkt, arrival);
@@ -496,7 +496,7 @@ public sealed unsafe partial class StreamSession : IDisposable
         }
         Interlocked.Exchange(ref _lastFrameTimestamp, now);
         Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero, SmoothingSeconds,
-            Volatile.Read(ref _receiveRatio), Volatile.Read(ref _rebuffers)));
+            Volatile.Read(ref _rebuffers)));
     }
 
     void KeepForSnapshot(AVFrame* src)

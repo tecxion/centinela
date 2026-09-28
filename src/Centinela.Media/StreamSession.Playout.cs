@@ -11,7 +11,8 @@ namespace Centinela.Media;
 /// Playout: the connection's reader thread queues every packet and a playout thread decodes and shows them.
 /// Normally a packet plays as soon as it is queued (no added latency). When the link turns irregular
 /// (<see cref="JitterMonitor"/>), the session switches to smoothing for good: a <see cref="PlayoutClock"/>
-/// plays the packets at their own timestamps, 0.5–2 s behind, so bursts come out evenly. Audio packets follow
+/// plays the frames evenly spaced at the frame rate measured from arrivals (<see cref="FrameTimeline"/>; the
+/// camera's own timestamps are not trusted), 0.5–2 s behind, so bursts come out evenly. Audio packets follow
 /// the video packet queued before them, so both keep their sync.
 /// </summary>
 public sealed unsafe partial class StreamSession
@@ -22,8 +23,8 @@ public sealed unsafe partial class StreamSession
     const int MaxQueuedPackets = 1000;
 
     readonly JitterMonitor _jitter = new();
-    readonly ArrivalRate _arrivalRate = new();
-    double _receiveRatio = double.NaN; // media seconds received per wall second (Volatile), for the stats
+    readonly FrameTimeline _timeline = new();
+    double _lastPts = double.NaN;      // reader only: camera timestamp of the previous video packet
     int _rebuffers;                    // times the smoothed view ran dry (Interlocked), for the stats
     double _smoothingSeconds; // 0 = off; session-wide so a reconnection keeps what was learned
 
@@ -50,18 +51,18 @@ public sealed unsafe partial class StreamSession
 
     static double Seconds(long stopwatchTicks) => (double)stopwatchTicks / Stopwatch.Frequency;
 
-    /// <summary>Decode timestamp (else presentation) in seconds; NaN when the packet has neither.</summary>
-    static double KeyOf(AVStream* stream, AVPacket* pkt)
+    /// <summary>The camera's timestamp, only to tell frames apart (packets of one frame share it); NaN if none.</summary>
+    static double TimestampOf(AVPacket* pkt)
     {
-        var ts = pkt->dts != ffmpeg.AV_NOPTS_VALUE ? pkt->dts : pkt->pts;
-        return ts == ffmpeg.AV_NOPTS_VALUE ? double.NaN : ts * ffmpeg.av_q2d(stream->time_base);
+        var ts = pkt->pts != ffmpeg.AV_NOPTS_VALUE ? pkt->pts : pkt->dts;
+        return ts == ffmpeg.AV_NOPTS_VALUE ? double.NaN : ts;
     }
 
     Playout StartPlayout(AVCodecContext* dec, AVFrame* frame, AVFrame* sw)
     {
         _jitter.Reset();
-        _arrivalRate.Reset();
-        Volatile.Write(ref _receiveRatio, double.NaN);
+        _timeline.Reset();
+        _lastPts = double.NaN;
         var playout = new Playout();
         var decoder = (nint)dec;
         var frames = ((nint)frame, (nint)sw);
@@ -98,15 +99,14 @@ public sealed unsafe partial class StreamSession
     }
 
     /// <summary>Reader thread: measures the link, then hands the packet to the playout thread.</summary>
-    void EnqueueVideo(Playout playout, AVStream* stream, AVPacket* pkt, long arrival)
+    void EnqueueVideo(Playout playout, AVPacket* pkt, long arrival)
     {
-        var key = KeyOf(stream, pkt);
-        if (!double.IsNaN(key))
-        {
-            _arrivalRate.Add(Seconds(arrival), key);
-            Volatile.Write(ref _receiveRatio, _arrivalRate.Ratio);
-        }
-        if (!double.IsNaN(key) && SmoothingSeconds == 0 && _jitter.Add(Seconds(arrival), key))
+        // Scheduling uses a timeline built from arrivals: some cameras' timestamps jump at every RTCP sync.
+        var pts = TimestampOf(pkt);
+        var newFrame = double.IsNaN(pts) || pts != _lastPts;
+        _lastPts = pts;
+        var key = _timeline.Add(Seconds(arrival), newFrame);
+        if (newFrame && SmoothingSeconds == 0 && _jitter.Add(Seconds(arrival), key))
             SetSmoothing(Math.Clamp(_jitter.WorstStall * 1.2, MinSmoothingSeconds, MaxSmoothingSeconds));
 
         if (playout.FlushRequested) return;
@@ -122,7 +122,7 @@ public sealed unsafe partial class StreamSession
             if ((pkt->flags & ffmpeg.AV_PKT_FLAG_KEY) == 0) return;
             playout.AwaitKeyframe = false;
         }
-        if (!double.IsNaN(key)) Volatile.Write(ref playout.Newest, key);
+        Volatile.Write(ref playout.Newest, key);
         Enqueue(playout, pkt, key, arrival, video: true);
     }
 

@@ -22,8 +22,9 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
   no hay sonido en la vista grande. Las capturas siguen tomándose del principal.
 - **Suavizado automático**: si la conexión de una cámara va a golpes (dos parones de más de 0,3 s en 30 s, típico
   de una wifi lejana), Centinela pasa esa cámara a reproducir con un colchón de 0,5–2 s: las imágenes salen a su
-  ritmo en vez de a trompicones y sin «avance rápido» tras un parón. Se ve un ⏱ junto al nombre (y «suav. N s»
-  en las estadísticas); el sonido va con el mismo retraso. Dura hasta cerrar la cámara o Centinela; las
+  ritmo en vez de a trompicones y sin «avance rápido» tras un parón. El ritmo es el que Centinela mide en la
+  llegada (imágenes por segundo de media), no las marcas de tiempo de la cámara, que en algunas saltan. Se ve un
+  ⏱ junto al nombre (y «suav. N s · cortes N» en las estadísticas); el sonido va con el mismo retraso. Dura hasta cerrar la cámara o Centinela; las
   cámaras con buena conexión no se tocan (sin retraso). Las grabaciones no cambian.
 - **Sonido**: botón 🔇/🔊 solo en las cámaras grandes y a pantalla completa, si la cámara envía audio. Todas empiezan
   en silencio y solo suena una a la vez; se calla al ocultar en la bandeja o cerrar la pantalla completa.
