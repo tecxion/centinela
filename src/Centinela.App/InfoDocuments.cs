@@ -84,14 +84,14 @@ public static class InfoDocuments
         doc.Blocks.Add(P("Cada cámara vigilada usa una conexión en calidad baja (la misma de la miniatura si se ve)."));
 
         doc.Blocks.Add(H("Registro de movimiento"));
-        doc.Blocks.Add(P("El botón «Movimiento» de la barra de estado muestra cuántos avisos no has visto y abre el registro: hora de inicio, cámara, duración y cambio máximo. Desde ahí puedes copiar las líneas, abrir la carpeta o vaciarlo."));
+        doc.Blocks.Add(P("El botón «Movimiento» de la barra de estado muestra cuántos movimientos no has visto y abre el registro: hora de inicio, cámara, duración y cambio máximo. Desde ahí puedes copiar las líneas, abrir la carpeta o vaciarlo."));
         doc.Blocks.Add(P(@"Cada movimiento se anota cuando termina (o al salir de Centinela). Los archivos (movimiento-AAAA-MM-DD.log, en %AppData%\Centinela\logs) se borran a los 14 días."));
 
         doc.Blocks.Add(H("Opciones de avisos"));
         doc.Blocks.Add(P("Ver › Opciones de avisos… tiene una tabla con cada cámara: detección, sensibilidad (Baja, Media o Alta), tiempo de espera entre avisos (30 s, 1 min, 5 min o 15 min), avisos de conexión y avisos de movimiento."));
         doc.Blocks.Add(P("También puedes activar sonidos de Windows al perder la conexión y con movimiento (solo cuando sale el aviso)."));
         doc.Blocks.Add(P("En las horas de silencio (por ejemplo, de 23:00 a 07:00, pueden pasar de medianoche) no hay avisos ni sonidos, pero el registro y el marco rojo siguen funcionando."));
-        doc.Blocks.Add(P("Estas opciones se guardan con las cámaras y van en la copia JSON. Las copias antiguas se importan con la detección apagada."));
+        doc.Blocks.Add(P("Las opciones de cada cámara se guardan con las cámaras y van en la copia JSON (las copias antiguas se importan con la detección apagada). Los sonidos y las horas de silencio se guardan en los ajustes de Centinela y no van en la copia."));
 
         doc.Blocks.Add(H("Copias de seguridad"));
         doc.Blocks.Add(P("Archivo › Exportar JSON guarda la lista de cámaras. Puedes exportarla sin contraseñas o con ellas, cifradas con una clave que eliges tú (al menos 8 caracteres)."));

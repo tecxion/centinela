@@ -26,7 +26,7 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
   «Detección de movimiento» o Ver › Opciones de avisos…. Un 👁 tachado junto al nombre indica que está apagada.
   Sigue funcionando con la ventana en la bandeja. Mientras hay movimiento la cámara lleva un **marco rojo**
   (miniaturas, grandes y pantalla completa) que se quita 3 s después de que pare.
-- Aviso junto al reloj «Detección de movimiento: «Nombre»» **solo** con la ventana minimizada o en la bandeja
+- Aviso junto al reloj «Detección de movimiento: "Nombre"» **solo** con la ventana minimizada o en la bandeja
   (clic → abre la ventana). Como mucho un aviso por cámara cada tiempo de espera (30 s, 1 min —de serie—, 5 o
   15 min). Sensibilidad Baja, Media o Alta.
 - Botón **Movimiento** en la barra de estado (con el número de eventos sin ver): registro con inicio, cámara,
@@ -35,8 +35,9 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
 - Ver › **Opciones de avisos…**: tabla por cámara (Detección, Sensibilidad, Espera, Avisos de conexión, Avisos de
   movimiento), sonidos de Windows (al perder la conexión; con movimiento, solo cuando sale el aviso) y
   **horas de silencio** HH:mm–HH:mm (pueden cruzar la medianoche): sin avisos ni sonidos, pero el registro y el
-  marco rojo siguen. Los avisos de conexión también respetan «Avisos de conexión». Estas opciones van en
-  `cameras.json` y en la copia JSON; las copias antiguas se importan con la detección apagada.
+  marco rojo siguen. Los avisos de conexión también respetan «Avisos de conexión». Las opciones de cada cámara
+  van en `cameras.json` y en la copia JSON (las copias antiguas se importan con la detección apagada); los
+  sonidos y las horas de silencio se guardan en `settings.json` y no van en la copia.
 - Menú **Archivo**: importar/exportar la lista de cámaras en JSON, con las contraseñas cifradas con una clave
   opcional (sin clave se exporta sin contraseñas). Al importar se añaden las cámaras nuevas y se actualizan
   las que ya existen (misma IP y puerto). Formato: [`docs/ejemplo-camaras.json`](docs/ejemplo-camaras.json).
@@ -121,14 +122,15 @@ Además es una instancia aparte: no despierta ni se confunde con la Centinela qu
 
 1. Cambia `<Version>` en `Directory.Build.props` (p. ej. `1.3.0`).
 2. Crea y **publica** en GitHub (`tecxion/centinela`) una *release* con la etiqueta `vX.Y.Z` o `vX.Y`
-   (2 o 3 números, p. ej. `v1.2.0`). Los borradores y las *pre-releases* no cuentan: la comprobación usa
+   (2 o 3 números, p. ej. `v1.3.0`). Los borradores y las *pre-releases* no cuentan: la comprobación usa
    la última *release* publicada.
 
 Las copias instaladas la verán en su siguiente comprobación (o con Ayuda › Buscar actualizaciones…).
 
 ## Datos
 
-- Cámaras y opciones de avisos: `%AppData%\Centinela\cameras.json` (contraseñas cifradas, solo tu usuario de Windows puede leerlas)
+- Cámaras y sus opciones de avisos: `%AppData%\Centinela\cameras.json` (contraseñas cifradas, solo tu usuario de Windows puede leerlas)
+- Ajustes, sonidos y horas de silencio: `%AppData%\Centinela\settings.json`
 - Registro de errores: `%AppData%\Centinela\logs\centinela-AAAA-MM-DD.log`
 - Registro de movimiento: `%AppData%\Centinela\logs\movimiento-AAAA-MM-DD.log` (los registros se borran a los 14 días)
 - Copia automática: `Documentos\Centinela\camaras-copia.json` (o la carpeta elegida)
