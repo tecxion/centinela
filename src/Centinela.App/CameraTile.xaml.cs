@@ -44,6 +44,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         _manage = manage;
         NameLabel.Text = camera.Name;
         EditButton.Visibility = DeleteButton.Visibility = MotionButton.Visibility = manage ? Visibility.Visible : Visibility.Collapsed;
+        PlaceActions();
         MouseEnter += (_, _) => Actions.Visibility = Visibility.Visible;
         MouseLeave += (_, _) =>
         {
@@ -155,6 +156,23 @@ public sealed partial class CameraTile : UserControl, IDisposable
     public StreamKind Kind { get; }
     /// <summary>False when the camera has no usable URL, so the tile will never show video.</summary>
     public bool HasStream => _session is not null;
+
+    /// <summary>
+    /// Big (main-stream) tiles get large buttons bottom-centre in a dark pill, clear of the stats and zoom
+    /// labels in the bottom corners; thumbnails keep the small ones in the top-right corner.
+    /// </summary>
+    void PlaceActions()
+    {
+        if (Kind != StreamKind.Main) return;
+        Actions.HorizontalAlignment = HorizontalAlignment.Center;
+        Actions.VerticalAlignment = VerticalAlignment.Bottom;
+        Actions.Margin = new Thickness(0, 0, 0, 24);
+        Actions.Padding = new Thickness(6);
+        Actions.CornerRadius = new CornerRadius(10);
+        Actions.Background = new SolidColorBrush(Color.FromArgb(0xC0, 0, 0, 0));
+        var large = (Style)FindResource("TileButtonLarge");
+        foreach (var button in ActionButtons.Children.OfType<Button>()) button.Style = large;
+    }
 
     public event Action<CameraTile>? EditRequested;
     public event Action<CameraTile>? DuplicateRequested;

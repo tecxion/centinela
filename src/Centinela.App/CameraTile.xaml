@@ -35,16 +35,18 @@
                     HorizontalAlignment="Right" VerticalAlignment="Bottom" Visibility="Collapsed">
                 <TextBlock x:Name="ZoomLabel" Foreground="White" FontSize="11"/>
             </Border>
-            <StackPanel x:Name="Actions" Orientation="Horizontal" Margin="4"
-                        HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
-                <Button x:Name="AudioButton" Content="🔇" ToolTip="Activar sonido" Style="{StaticResource TileButton}" Click="Audio_Click" Visibility="Collapsed"
-                        ToolTipService.ShowOnDisabled="True"/>
-                <Button x:Name="MotionButton" Content="👁" Style="{StaticResource TileButton}" Click="Motion_Click"/>
-                <Button x:Name="SnapshotButton" Content="📷" ToolTip="Captura" Style="{StaticResource TileButton}" Click="Snapshot_Click"/>
-                <Button x:Name="RecordButton" Content="⏺" ToolTip="Grabar" Style="{StaticResource TileButton}" Click="Record_Click"/>
-                <Button x:Name="EditButton" Content="✎" ToolTip="Editar" Style="{StaticResource TileButton}" Click="Edit_Click"/>
-                <Button x:Name="DeleteButton" Content="🗑" ToolTip="Eliminar" Style="{StaticResource TileButton}" Click="Delete_Click"/>
-            </StackPanel>
+            <!-- Thumbnails: top-right corner. Big tiles move it bottom-centre in a pill (see PlaceActions). -->
+            <Border x:Name="Actions" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
+                <StackPanel x:Name="ActionButtons" Orientation="Horizontal">
+                    <Button x:Name="AudioButton" Content="🔇" ToolTip="Activar sonido" Style="{StaticResource TileButton}" Click="Audio_Click" Visibility="Collapsed"
+                            ToolTipService.ShowOnDisabled="True"/>
+                    <Button x:Name="MotionButton" Content="👁" Style="{StaticResource TileButton}" Click="Motion_Click"/>
+                    <Button x:Name="SnapshotButton" Content="📷" ToolTip="Captura" Style="{StaticResource TileButton}" Click="Snapshot_Click"/>
+                    <Button x:Name="RecordButton" Content="⏺" ToolTip="Grabar" Style="{StaticResource TileButton}" Click="Record_Click"/>
+                    <Button x:Name="EditButton" Content="✎" ToolTip="Editar" Style="{StaticResource TileButton}" Click="Edit_Click"/>
+                    <Button x:Name="DeleteButton" Content="🗑" ToolTip="Eliminar" Style="{StaticResource TileButton}" Click="Delete_Click"/>
+                </StackPanel>
+            </Border>
         </Grid>
     </Border>
 </UserControl>
