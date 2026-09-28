@@ -10,8 +10,9 @@ public sealed class SharedStreams : IDisposable
     readonly Dictionary<(Guid Key, string Url, bool UseUdp), Entry> _entries = [];
     bool _disposed;
 
-    internal sealed class Entry(StreamSession session)
+    internal sealed class Entry((Guid, string, bool) id, StreamSession session)
     {
+        public (Guid, string, bool) Id { get; } = id;
         public StreamSession Session { get; } = session;
         public List<SharedStreamLease> Leases { get; } = [];
         public Task? StopTask;   // set once, under the gate, when the entry is closed
@@ -19,7 +20,9 @@ public sealed class SharedStreams : IDisposable
 
     /// <summary>
     /// A lease on the session for (key, url, useUdp). The first lease creates it, calls onCreated (to wire
-    /// events once) and starts it; the last release stops it off the calling thread.
+    /// events once) and starts it; the last release stops it off the calling thread. width/height 0 = native size
+    /// (see <see cref="SharedStreamLease.SetTargetSize"/>). If onCreated throws, that lease is released and the
+    /// exception propagates; leases that joined meanwhile keep a started session.
     /// </summary>
     public SharedStreamLease Acquire(Guid key, string url, bool useUdp, int width, int height, Action<StreamSession>? onCreated = null)
     {
@@ -34,7 +37,7 @@ public sealed class SharedStreams : IDisposable
             created = !_entries.TryGetValue(id, out entry!);
             if (created)
             {
-                entry = new Entry(new StreamSession(url, useUdp));
+                entry = new Entry(id, new StreamSession(url, useUdp));
                 _entries.Add(id, entry);
             }
             lease = new SharedStreamLease(this, entry, width, height);
@@ -51,15 +54,22 @@ public sealed class SharedStreams : IDisposable
         }
         catch
         {
+            // Leases that joined while onCreated ran still need a started session.
             _ = lease.ReleaseAsync();
+            StartUnlessClosed(entry);
             throw;
         }
+        StartUnlessClosed(entry);
+        return lease;
+    }
+
+    void StartUnlessClosed(Entry entry)
+    {
         lock (_gate)
         {
             // Every lease may already have been released (or the hub disposed) while onCreated ran.
             if (entry.StopTask is null) entry.Session.Start();
         }
-        return lease;
     }
 
     /// <summary>Live sessions (tests).</summary>
@@ -106,8 +116,7 @@ public sealed class SharedStreams : IDisposable
             }
             else
             {
-                foreach (var (id, e) in _entries)
-                    if (ReferenceEquals(e, entry)) { _entries.Remove(id); break; }
+                _entries.Remove(entry.Id);
                 lease.ReleaseTask = Close(entry);
             }
             return lease.ReleaseTask;
@@ -123,12 +132,14 @@ public sealed class SharedStreams : IDisposable
         return entry.StopTask = Task.Run(session.Dispose);
     }
 
-    // Caller holds the gate.
+    // Caller holds the gate. Max over live leases; a lease asking for 0 (native) in either dimension makes the
+    // whole entry decode at native size, since no box can be larger than native.
     static void ApplyTargetSize(Entry entry)
     {
         int width = 0, height = 0;
         foreach (var lease in entry.Leases)
         {
+            if (lease.Width <= 0 || lease.Height <= 0) { width = height = 0; break; }
             width = Math.Max(width, lease.Width);
             height = Math.Max(height, lease.Height);
         }
@@ -155,7 +166,10 @@ public sealed class SharedStreamLease : IDisposable
 
     public StreamSession Session => Entry.Session;
 
-    /// <summary>The session decodes at the maximum size over its live leases.</summary>
+    /// <summary>
+    /// The session decodes at the maximum size over its live leases. 0 in either dimension means native size, and
+    /// then the whole shared session decodes at native size while this lease is live.
+    /// </summary>
     public void SetTargetSize(int width, int height) => _owner.SetTargetSize(this, width, height);
 
     /// <summary>Idempotent; completes when the session is disposed if this was the last lease, else at once.</summary>
