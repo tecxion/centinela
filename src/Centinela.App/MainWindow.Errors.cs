@@ -27,7 +27,10 @@ public partial class MainWindow
         };
     }
 
-    /// <summary>Live-view tiles (grid, placeholder or fullscreen) report into the error center.</summary>
+    /// <summary>
+    /// Live-view tiles (grid, placeholder or fullscreen) report into the error center. Tiles on a shared substream
+    /// never raise these: <see cref="AcquireSub"/> reports each shared session once.
+    /// </summary>
     void WireErrors(CameraTile tile)
     {
         tile.ErrorReported += (t, error) => _errors.Report(t.Camera, error);

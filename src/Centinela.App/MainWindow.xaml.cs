@@ -359,6 +359,9 @@ public partial class MainWindow : Window
             .ToArray();
         _tiles.Clear();
         _placeholders.Clear();
+        // The tiles above released their leases (the last one stops each session, awaited below); stop whatever
+        // else still holds a shared session now rather than after the wait, so it winds down in parallel.
+        _streams.Dispose();
         try
         {
             Task.WaitAll(shutdowns, TimeSpan.FromSeconds(8));

@@ -14,8 +14,17 @@ namespace Centinela.App;
 
 public sealed partial class CameraTile : UserControl, IDisposable
 {
-    // Null when the camera has no usable URL (custom camera without one): the tile only shows the error.
+    // The session in use, own or leased. Null when the camera has no usable URL (custom camera without one):
+    // the tile only shows the error.
     readonly StreamSession? _session;
+    // Set when the session is shared (substream): the tile releases the lease instead of disposing the session,
+    // and the window, not the tile, reports its errors (once per session).
+    readonly SharedStreamLease? _lease;
+    // Stored so a leased session, which outlives the tile, can be unsubscribed on shutdown.
+    readonly Action<SessionState>? _onState;
+    readonly Action<StreamError>? _onError;
+    readonly Action<StreamInfo>? _onInfo;
+    readonly Action<string>? _onAudioFailed;
     readonly bool _manage;
     Task? _shutdown;
     WriteableBitmap? _bitmap;
@@ -23,7 +32,11 @@ public sealed partial class CameraTile : UserControl, IDisposable
     bool _disposed;
     bool _firstFrameRaised;
 
-    public CameraTile(Camera camera, StreamKind kind, bool manage = true)
+    /// <param name="acquireShared">
+    /// For Sub tiles: leases the camera's shared substream session (null result = no usable URL) instead of
+    /// opening a connection of its own.
+    /// </param>
+    public CameraTile(Camera camera, StreamKind kind, bool manage = true, Func<Camera, SharedStreamLease?>? acquireShared = null)
     {
         InitializeComponent();
         Camera = camera;
@@ -71,12 +84,23 @@ public sealed partial class CameraTile : UserControl, IDisposable
         }
         ContextMenu = menu;
 
-        string url;
-        try
+        if (kind == StreamKind.Sub && acquireShared is not null)
         {
-            url = StreamUrlBuilder.Build(camera, kind);
+            _lease = acquireShared(camera);
+            _session = _lease?.Session;
         }
-        catch (InvalidOperationException)
+        else
+        {
+            try
+            {
+                _session = new StreamSession(StreamUrlBuilder.Build(camera, kind), camera.UseUdp);
+            }
+            catch (InvalidOperationException)
+            {
+                _session = null;
+            }
+        }
+        if (_session is null)
         {
             StatusLabel.Text = "Falta la URL RTSP";
             Video.Opacity = 0.4;
@@ -84,12 +108,15 @@ public sealed partial class CameraTile : UserControl, IDisposable
             _snapshotItem.IsEnabled = _recordItem.IsEnabled = false;
             return;
         }
-        _session = new StreamSession(url, camera.UseUdp);
-        _session.StateChanged += state => Dispatcher.BeginInvoke(() => ShowState(state));
-        _session.ErrorOccurred += error => Dispatcher.BeginInvoke(() => ShowError(error));
-        _session.InfoAvailable += _ => Dispatcher.BeginInvoke(UpdateAudioButton);
+        _onState = state => Dispatcher.BeginInvoke(() => ShowState(state));
+        _onError = error => Dispatcher.BeginInvoke(() => ShowError(error));
+        _onInfo = _ => Dispatcher.BeginInvoke(UpdateAudioButton);
         // A failure reported after the tile was silenced (or removed) is stale: nothing to release or report.
-        _session.AudioFailed += message => Dispatcher.BeginInvoke(() => { if (!_disposed && AudioOn) AudioFailed?.Invoke(this, message); });
+        _onAudioFailed = message => Dispatcher.BeginInvoke(() => { if (!_disposed && AudioOn) AudioFailed?.Invoke(this, message); });
+        _session.StateChanged += _onState;
+        _session.ErrorOccurred += _onError;
+        _session.InfoAvailable += _onInfo;
+        _session.AudioFailed += _onAudioFailed;
         SizeChanged += (_, _) =>
         {
             if (_zoom.IsZoomed) ApplyZoom(); // re-clamps to the new size and updates the decode box
@@ -101,8 +128,18 @@ public sealed partial class CameraTile : UserControl, IDisposable
             if (_zoom.IsZoomed) ApplyZoom();
         };
         CompositionTarget.Rendering += OnRendering;
-        ShowState(SessionState.Connecting);
-        _session.Start();
+        if (_lease is null)
+        {
+            ShowState(SessionState.Connecting);
+            _session.Start();
+            return;
+        }
+        // A shared session may already be playing, retrying or failed: show where it is now (subscribed first,
+        // so any later change is queued after this). Its errors were already reported by the window.
+        var current = _session.State;
+        if (current != SessionState.Playing && _session.LastErrorKind is { } lastError) ShowErrorKind(lastError);
+        ShowState(current == SessionState.Idle ? SessionState.Connecting : current);
+        UpdateAudioButton();
     }
 
     public Camera Camera { get; }
@@ -345,17 +382,27 @@ public sealed partial class CameraTile : UserControl, IDisposable
     {
         // Zoomed images are decoded larger (FrameGeometry never upscales beyond the native size).
         var dpi = VisualTreeHelper.GetDpi(this);
-        _session?.SetTargetSize((int)(ActualWidth * dpi.DpiScaleX * _zoom.Scale), (int)(ActualHeight * dpi.DpiScaleY * _zoom.Scale));
+        var width = (int)(ActualWidth * dpi.DpiScaleX * _zoom.Scale);
+        var height = (int)(ActualHeight * dpi.DpiScaleY * _zoom.Scale);
+        // A shared session decodes at the largest size any of its leases asks for.
+        if (_lease is not null) _lease.SetTargetSize(width, height);
+        else _session?.SetTargetSize(width, height);
     }
 
     void ShowError(StreamError error)
     {
         if (_disposed) return;
-        _errorKind = error.Kind;
-        var text = ErrorCenter.Translate(Camera, error.Kind);
-        StatusLabel.Text = error.Kind == StreamErrorKind.AuthFailed ? text.Short : $"{text.Short} · reintentando";
-        FixButton.Visibility = error.Kind == StreamErrorKind.AuthFailed && _manage ? Visibility.Visible : Visibility.Collapsed;
-        ErrorReported?.Invoke(this, error);
+        ShowErrorKind(error.Kind);
+        // A shared session's errors are reported once by the window, not by each tile that shows it.
+        if (_lease is null) ErrorReported?.Invoke(this, error);
+    }
+
+    void ShowErrorKind(StreamErrorKind kind)
+    {
+        _errorKind = kind;
+        var text = ErrorCenter.Translate(Camera, kind);
+        StatusLabel.Text = kind == StreamErrorKind.AuthFailed ? text.Short : $"{text.Short} · reintentando";
+        FixButton.Visibility = kind == StreamErrorKind.AuthFailed && _manage ? Visibility.Visible : Visibility.Collapsed;
     }
 
     void ShowState(SessionState state)
@@ -390,7 +437,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         {
             _errorKind = null;
             FixButton.Visibility = Visibility.Collapsed;
-            PlayingReached?.Invoke(this);
+            if (_lease is null) PlayingReached?.Invoke(this);
         }
     }
 
@@ -537,8 +584,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
     /// <summary>Plays this tile's audio into <paramref name="sink"/>, or silences it with null.</summary>
     public void SetAudio(IAudioSink? sink)
     {
-        AudioOn = sink is not null && !_disposed;
-        _session?.SetAudioSink(AudioOn ? sink : null);
+        // Shared sessions never play audio (Sub tiles are not audio-capable): the sink would reach every viewer.
+        AudioOn = sink is not null && !_disposed && _lease is null;
+        if (_lease is null) _session?.SetAudioSink(AudioOn ? sink : null);
         AudioButton.Content = AudioOn ? "🔊" : "🔇";
         // A disabled button keeps the tooltip that explains why.
         if (AudioButton.IsEnabled) AudioButton.ToolTip = AudioOn ? "Silenciar" : "Activar sonido";
@@ -560,23 +608,40 @@ public sealed partial class CameraTile : UserControl, IDisposable
         if (AudioOn && !hasAudio) AudioLost?.Invoke(this);
     }
 
-    public void RequestStop() => _session?.RequestStop();
+    /// <summary>Asks the own session to stop; a shared session is only stopped by releasing its last lease.</summary>
+    public void RequestStop()
+    {
+        if (_lease is null) _session?.RequestStop();
+    }
 
     /// <summary>
-    /// Stops the live view and disposes its session off the UI thread (recordings are owned by
-    /// RecordingController). Call on the UI thread; repeated calls return the same task.
+    /// Stops the live view and disposes its session off the UI thread, or releases its shared lease (recordings are
+    /// owned by RecordingController). Call on the UI thread; repeated calls return the same task.
     /// </summary>
     public Task ShutdownAsync()
     {
         if (_shutdown is not null) return _shutdown;
         _disposed = true;
-        _session?.SetAudioSink(null);
+        if (_lease is null) _session?.SetAudioSink(null);
         AudioOn = false;
         _clickTimer.Stop();
         EndPan();
         _statsTimer?.Stop();
         CompositionTarget.Rendering -= OnRendering;
         var session = _session;
+        if (session is not null)
+        {
+            session.StateChanged -= _onState;
+            session.ErrorOccurred -= _onError;
+            session.InfoAvailable -= _onInfo;
+            session.AudioFailed -= _onAudioFailed;
+        }
+        if (_lease is not null)
+        {
+            // Completes once the session is disposed if this was its last lease, at once otherwise.
+            _shutdown = _lease.ReleaseAsync();
+            return _shutdown;
+        }
         session?.RequestStop();
         _shutdown = session is null ? Task.CompletedTask : Task.Run(session.Dispose);
         return _shutdown;
