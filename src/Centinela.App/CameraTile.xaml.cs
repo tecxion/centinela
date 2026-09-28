@@ -684,7 +684,10 @@ public sealed partial class CameraTile : UserControl, IDisposable
         }
         var s = _session.Stats;
         StatsLabel.Text = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")}"
-            + (s.SmoothingSeconds > 0 ? string.Create(CultureInfo.InvariantCulture, $" · suav. {s.SmoothingSeconds:0.##} s") : "");
+            + (double.IsNaN(s.ReceiveRatio) ? "" : $" · red {s.ReceiveRatio * 100:0} %")
+            + (s.SmoothingSeconds > 0
+                ? string.Create(CultureInfo.InvariantCulture, $" · suav. {s.SmoothingSeconds:0.##} s · cortes {s.Rebuffers}")
+                : "");
         StatsLabel.Foreground = s.SinceLastFrame > TimeSpan.FromSeconds(1) ? Brushes.Orange : Brushes.White;
     }
 

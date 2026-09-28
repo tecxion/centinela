@@ -495,7 +495,8 @@ public sealed unsafe partial class StreamSession : IDisposable
             _statsWindowStart = now;
         }
         Interlocked.Exchange(ref _lastFrameTimestamp, now);
-        Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero, SmoothingSeconds));
+        Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero, SmoothingSeconds,
+            Volatile.Read(ref _receiveRatio), Volatile.Read(ref _rebuffers)));
     }
 
     void KeepForSnapshot(AVFrame* src)

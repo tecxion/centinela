@@ -22,6 +22,9 @@ public sealed unsafe partial class StreamSession
     const int MaxQueuedPackets = 1000;
 
     readonly JitterMonitor _jitter = new();
+    readonly ArrivalRate _arrivalRate = new();
+    double _receiveRatio = double.NaN; // media seconds received per wall second (Volatile), for the stats
+    int _rebuffers;                    // times the smoothed view ran dry (Interlocked), for the stats
     double _smoothingSeconds; // 0 = off; session-wide so a reconnection keeps what was learned
 
     /// <summary>Delay of the smoothed live view in seconds; 0 while the stream plays as it arrives.</summary>
@@ -57,6 +60,8 @@ public sealed unsafe partial class StreamSession
     Playout StartPlayout(AVCodecContext* dec, AVFrame* frame, AVFrame* sw)
     {
         _jitter.Reset();
+        _arrivalRate.Reset();
+        Volatile.Write(ref _receiveRatio, double.NaN);
         var playout = new Playout();
         var decoder = (nint)dec;
         var frames = ((nint)frame, (nint)sw);
@@ -96,6 +101,11 @@ public sealed unsafe partial class StreamSession
     void EnqueueVideo(Playout playout, AVStream* stream, AVPacket* pkt, long arrival)
     {
         var key = KeyOf(stream, pkt);
+        if (!double.IsNaN(key))
+        {
+            _arrivalRate.Add(Seconds(arrival), key);
+            Volatile.Write(ref _receiveRatio, _arrivalRate.Ratio);
+        }
         if (!double.IsNaN(key) && SmoothingSeconds == 0 && _jitter.Add(Seconds(arrival), key))
             SetSmoothing(Math.Clamp(_jitter.WorstStall * 1.2, MinSmoothingSeconds, MaxSmoothingSeconds));
 
@@ -166,7 +176,9 @@ public sealed unsafe partial class StreamSession
                 {
                     if (clock is not null && !double.IsNaN(newest))
                     {
+                        var wasBuffering = clock.Buffering;
                         clock.Idle(newest, now);
+                        if (clock.Buffering && !wasBuffering) Interlocked.Increment(ref _rebuffers);
                         SetSmoothing(clock.TargetDelay);
                     }
                     playout.Signal.WaitOne(clock is null ? 100 : 20);
