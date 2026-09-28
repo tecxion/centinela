@@ -7,9 +7,8 @@ namespace Centinela.Media;
 public enum SessionState { Idle, Connecting, Playing, Reconnecting, AuthFailed, Stopped }
 
 /// <summary>
-/// One RTSP connection: a reader thread, plus a playout thread that decodes and pushes the newest frame
-/// (BGRA, scaled to the target size) into <see cref="Mailbox"/>. Frames show as soon as they arrive unless
-/// the link turns irregular; then they are smoothed (see StreamSession.Playout.cs).
+/// One RTSP connection on its own thread. Decoding sessions push the newest frame (BGRA, scaled to
+/// the target size) into <see cref="Mailbox"/>; there is no buffering, clock or queue on purpose.
 /// </summary>
 public sealed unsafe partial class StreamSession : IDisposable
 {
@@ -47,8 +46,7 @@ public sealed unsafe partial class StreamSession : IDisposable
     int _statsFrames;
     double _fps;
     double _latencyEma = -1;
-    long _packetTimestamp;          // when the packet being decoded was read (playout thread)
-    volatile bool _connectionPlayed; // the current connection showed a frame (set by the playout thread)
+    long _packetTimestamp;          // when the packet being decoded was read
     volatile StreamInfo? _info;     // null until known for the current connection
     bool _infoPublished;            // session thread only
     int _audioIndex = -1;           // current connection's audio stream, -1 = none
@@ -239,8 +237,6 @@ public sealed unsafe partial class StreamSession : IDisposable
         var pkt = ffmpeg.av_packet_alloc();
         var frame = ffmpeg.av_frame_alloc();
         var sw = ffmpeg.av_frame_alloc();
-        Playout? playout = null;
-        _connectionPlayed = false;
         try
         {
             fmt->interrupt_callback.callback = _interrupt;
@@ -277,36 +273,25 @@ public sealed unsafe partial class StreamSession : IDisposable
             if (!_decode && stream->codecpar->width > 0) PublishInfo(stream->codecpar->width, stream->codecpar->height);
             if (_decode) dec = OpenDecoder(codec, stream->codecpar, hwDevice);
             if (_decode && _audioIndex >= 0) _audioParameters = fmt->streams[_audioIndex]->codecpar;
-            if (dec is not null) playout = StartPlayout(dec, frame, sw);
 
             while (!_stopping)
             {
-                if (playout is not null) ThrowIfPlayoutFailed(playout);
                 ArmDeadline(StallTimeoutMs);
-                var read = ffmpeg.av_read_frame(fmt, pkt);
-                if (playout?.Failure is not null)
-                {
-                    _deadlineHit = false; // the playout thread interrupted the read: its error is the real one
-                    ThrowIfPlayoutFailed(playout);
-                }
-                FFmpegException.ThrowIfError(read, "read");
-                var arrival = Stopwatch.GetTimestamp();
+                FFmpegException.ThrowIfError(ffmpeg.av_read_frame(fmt, pkt), "read");
+                _packetTimestamp = Stopwatch.GetTimestamp();
                 if (pkt->stream_index == videoIndex)
                 {
                     OnVideoPacket(stream, pkt);
-                    if (playout is null) MarkPlaying(ref reachedPlaying);
-                    else EnqueueVideo(playout, pkt, arrival);
+                    if (dec is null) MarkPlaying(ref reachedPlaying);
+                    else DecodePacket(dec, pkt, frame, sw, ref reachedPlaying);
                 }
-                else if (playout is not null && pkt->stream_index == _audioIndex && _audioParameters is not null && _audioSink is not null)
-                    EnqueueAudio(playout, pkt, arrival);
+                else if (pkt->stream_index == _audioIndex && _audioParameters is not null && _audioSink is not null)
+                    OnAudioPacket(pkt);
                 ffmpeg.av_packet_unref(pkt);
             }
         }
         finally
         {
-            // The playout thread uses the decoder, frames and audio pump freed below.
-            StopPlayout(playout);
-            if (_connectionPlayed) reachedPlaying = true;
             FFmpegLog.Unregister((void*)logContext, logSink);
             StopAudioPump();
             OnConnectionClosed();
@@ -410,8 +395,7 @@ public sealed unsafe partial class StreamSession : IDisposable
         return ffmpeg.avcodec_default_get_format(context, formats);
     }
 
-    /// <summary>Playout thread. <paramref name="present"/> false decodes without showing (catching up).</summary>
-    void DecodePacket(AVCodecContext* dec, AVPacket* pkt, AVFrame* frame, AVFrame* sw, bool present)
+    void DecodePacket(AVCodecContext* dec, AVPacket* pkt, AVFrame* frame, AVFrame* sw, ref bool reachedPlaying)
     {
         var again = ffmpeg.AVERROR(ffmpeg.EAGAIN);
         var err = ffmpeg.avcodec_send_packet(dec, pkt);
@@ -430,12 +414,9 @@ public sealed unsafe partial class StreamSession : IDisposable
                 return;
             }
             _decodeErrors = 0;
-            if (present)
-            {
-                PresentFrame(frame, sw);
-                MarkPlaying();
-            }
+            PresentFrame(frame, sw);
             ffmpeg.av_frame_unref(frame);
+            MarkPlaying(ref reachedPlaying);
         }
     }
 
@@ -495,8 +476,7 @@ public sealed unsafe partial class StreamSession : IDisposable
             _statsWindowStart = now;
         }
         Interlocked.Exchange(ref _lastFrameTimestamp, now);
-        Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero, SmoothingSeconds,
-            Volatile.Read(ref _rebuffers)));
+        Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero));
     }
 
     void KeepForSnapshot(AVFrame* src)
@@ -512,12 +492,6 @@ public sealed unsafe partial class StreamSession : IDisposable
     void MarkPlaying(ref bool reachedPlaying)
     {
         reachedPlaying = true;
-        MarkPlaying();
-    }
-
-    void MarkPlaying()
-    {
-        _connectionPlayed = true;
         if (_state == SessionState.Playing) return;
         _lastError = null;
         // Lines logged before playback (non-fatal warnings) must not reclassify a later stall.

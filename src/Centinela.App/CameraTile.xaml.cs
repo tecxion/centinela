@@ -25,7 +25,6 @@ public sealed partial class CameraTile : UserControl, IDisposable
     readonly Action<StreamError>? _onError;
     readonly Action<StreamInfo>? _onInfo;
     readonly Action<string>? _onAudioFailed;
-    readonly Action<double>? _onSmoothing;
     readonly bool _manage;
     Task? _shutdown;
     WriteableBitmap? _bitmap;
@@ -120,9 +119,6 @@ public sealed partial class CameraTile : UserControl, IDisposable
         _session.ErrorOccurred += _onError;
         _session.InfoAvailable += _onInfo;
         _session.AudioFailed += _onAudioFailed;
-        _onSmoothing = seconds => Dispatcher.BeginInvoke(() => ShowSmoothing(seconds));
-        _session.SmoothingChanged += _onSmoothing;
-        ShowSmoothing(_session.SmoothingSeconds);
         SizeChanged += (_, _) =>
         {
             if (_zoom.IsZoomed) ApplyZoom(); // re-clamps to the new size and updates the decode box
@@ -184,15 +180,6 @@ public sealed partial class CameraTile : UserControl, IDisposable
             foreach (var button in ActionButtons.Children.OfType<Button>()) button.Style = style;
             QualityButton.Visibility = value && _manage ? Visibility.Visible : Visibility.Collapsed;
         }
-    }
-
-    /// <summary>⏱ next to the name while the session smooths an irregular link (frames shown a little late, but evenly).</summary>
-    void ShowSmoothing(double seconds)
-    {
-        if (_disposed) return;
-        SmoothingIndicator.Visibility = seconds > 0 ? Visibility.Visible : Visibility.Collapsed;
-        SmoothingIndicator.ToolTip = string.Create(new CultureInfo("es-ES"),
-            $"Imagen suavizada: {seconds:0.##} s de retraso. La conexión de esta cámara va a golpes y se muestra con un colchón para que se vea fluida.");
     }
 
     /// <summary>Raised when the user asks to switch this camera's big view between main and substream (manage tiles only).</summary>
@@ -683,10 +670,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
             return;
         }
         var s = _session.Stats;
-        StatsLabel.Text = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")}"
-            + (s.SmoothingSeconds > 0
-                ? string.Create(CultureInfo.InvariantCulture, $" · suav. {s.SmoothingSeconds:0.##} s · cortes {s.Rebuffers}")
-                : "");
+        StatsLabel.Text = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")}";
         StatsLabel.Foreground = s.SinceLastFrame > TimeSpan.FromSeconds(1) ? Brushes.Orange : Brushes.White;
     }
 
@@ -755,7 +739,6 @@ public sealed partial class CameraTile : UserControl, IDisposable
             session.ErrorOccurred -= _onError;
             session.InfoAvailable -= _onInfo;
             session.AudioFailed -= _onAudioFailed;
-            session.SmoothingChanged -= _onSmoothing;
         }
         if (_lease is not null)
         {
