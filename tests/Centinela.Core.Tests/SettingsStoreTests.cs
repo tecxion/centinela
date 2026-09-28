@@ -124,4 +124,21 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(when, s.LastUpdateCheck);
         Assert.Equal("1.3.0", s.SkippedVersion);
     }
+
+    [Fact]
+    public void Sound_and_quiet_defaults_and_invalid_times_are_repaired()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "q.json");
+        File.WriteAllText(path, """{ "quietHoursEnabled": true, "quietFrom": "25:00", "quietTo": "7" }""");
+        var s = new SettingsStore(path).Load();
+        Assert.True(s.QuietHoursEnabled);
+        Assert.Equal(("23:00", "07:00"), (s.QuietFrom, s.QuietTo));
+        Assert.False(new AppSettings().SoundOnConnectionLost);
+        Assert.False(new AppSettings().SoundOnMotion);
+    }
+
+    [Theory]
+    [InlineData("00:00", true)] [InlineData("23:59", true)] [InlineData("7:05", false)] [InlineData("24:00", false)] [InlineData("", false)] [InlineData(null, false)]
+    public void TryParseTime_accepts_only_HH_mm(string? text, bool ok) => Assert.Equal(ok, AppSettings.TryParseTime(text, out _));
 }

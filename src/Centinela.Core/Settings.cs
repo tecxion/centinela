@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -28,6 +29,15 @@ public sealed class AppSettings
     public bool CheckUpdatesOnStartup { get; set; } = true;
     public DateTimeOffset? LastUpdateCheck { get; set; }
     public string? SkippedVersion { get; set; }
+    public bool SoundOnConnectionLost { get; set; }
+    public bool SoundOnMotion { get; set; }
+    public bool QuietHoursEnabled { get; set; }
+    public string QuietFrom { get; set; } = "23:00";
+    public string QuietTo { get; set; } = "07:00";
+
+    /// <summary>Exactly "HH:mm" (00:00–23:59).</summary>
+    public static bool TryParseTime(string? text, out TimeSpan time) =>
+        TimeSpan.TryParseExact(text ?? "", @"hh\:mm", CultureInfo.InvariantCulture, out time) && time < TimeSpan.FromDays(1);
 }
 
 public sealed class SettingsStore(string filePath)
@@ -58,6 +68,8 @@ public sealed class SettingsStore(string filePath)
         if (!Enum.IsDefined(settings.LayoutMode)) settings.LayoutMode = LayoutMode.Grid;
         settings.DualCameraIds ??= [];
         if (settings.DualNextReplace is not (0 or 1)) settings.DualNextReplace = 0;
+        if (!AppSettings.TryParseTime(settings.QuietFrom, out _)) settings.QuietFrom = "23:00";
+        if (!AppSettings.TryParseTime(settings.QuietTo, out _)) settings.QuietTo = "07:00";
         return settings;
     }
 

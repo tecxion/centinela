@@ -59,6 +59,11 @@ public static class CameraBackup
                     MainUrl = mainUrl,
                     SubUrl = subUrl,
                     UseUdp = c.UseUdp,
+                    MotionEnabled = c.MotionEnabled,
+                    MotionSensitivity = c.MotionSensitivity,
+                    MotionCooldownSeconds = c.MotionCooldownSeconds,
+                    ConnectionAlerts = c.ConnectionAlerts,
+                    MotionAlerts = c.MotionAlerts,
                 };
             }).ToList(),
         };
@@ -113,6 +118,11 @@ public static class CameraBackup
                 SubUrlOverride = entry.SubUrl,
                 UseUdp = entry.UseUdp,
                 Order = index,
+                MotionEnabled = entry.MotionEnabled,
+                MotionSensitivity = Enum.IsDefined(entry.MotionSensitivity) ? entry.MotionSensitivity : MotionSensitivity.Medium,
+                MotionCooldownSeconds = Camera.NormalizeCooldown(entry.MotionCooldownSeconds),
+                ConnectionAlerts = entry.ConnectionAlerts,
+                MotionAlerts = entry.MotionAlerts,
             });
         }
         return new BackupImport(cameras, key is not null);
@@ -219,6 +229,12 @@ public static class CameraBackup
         public string? MainUrl { get; set; }
         public string? SubUrl { get; set; }
         public bool UseUdp { get; set; }
+        public bool MotionEnabled { get; set; }
+        [JsonConverter(typeof(LenientSensitivityConverter))]
+        public MotionSensitivity MotionSensitivity { get; set; } = MotionSensitivity.Medium;
+        public int MotionCooldownSeconds { get; set; } = 60;
+        public bool ConnectionAlerts { get; set; } = true;
+        public bool MotionAlerts { get; set; } = true;
     }
 
     /// <summary>Unknown brand names or numbers map to <see cref="Brand.Custom"/> instead of failing the whole file.</summary>
@@ -234,6 +250,22 @@ public static class CameraBackup
             };
 
         public override void Write(Utf8JsonWriter writer, Brand value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.ToString());
+    }
+
+    /// <summary>Unknown sensitivity names or numbers map to <see cref="MotionSensitivity.Medium"/> instead of failing the whole file.</summary>
+    sealed class LenientSensitivityConverter : JsonConverter<MotionSensitivity>
+    {
+        public override MotionSensitivity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            reader.TokenType switch
+            {
+                JsonTokenType.String => Enum.TryParse<MotionSensitivity>(reader.GetString(), ignoreCase: true, out var s) && Enum.IsDefined(s) ? s : MotionSensitivity.Medium,
+                JsonTokenType.Number => reader.TryGetInt32(out var n) && Enum.IsDefined((MotionSensitivity)n) ? (MotionSensitivity)n : MotionSensitivity.Medium,
+                JsonTokenType.Null => MotionSensitivity.Medium,
+                _ => throw new JsonException("Invalid motion sensitivity."),
+            };
+
+        public override void Write(Utf8JsonWriter writer, MotionSensitivity value, JsonSerializerOptions options) =>
             writer.WriteStringValue(value.ToString());
     }
 }

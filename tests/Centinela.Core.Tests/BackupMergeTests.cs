@@ -104,4 +104,17 @@ public class BackupMergeTests
         var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Name = "A" }, new Camera { Host = "h", Port = 554, Name = "B" }]);
         Assert.Equal((0, 1, 1), (r.Added, r.Updated, r.WithoutPassword));
     }
+
+    [Fact]
+    public void Merge_copies_motion_fields_and_counts_them_as_changes()
+    {
+        var existing = new Camera { Name = "A", Host = "h", Port = 554 };
+        var incoming = existing.Clone();
+        incoming.MotionEnabled = true;
+        incoming.MotionAlerts = false;
+        var result = BackupMerge.Merge([existing], [incoming]);
+        Assert.Equal(1, result.Updated);
+        Assert.True(result.Cameras[0].MotionEnabled);
+        Assert.False(result.Cameras[0].MotionAlerts);
+    }
 }

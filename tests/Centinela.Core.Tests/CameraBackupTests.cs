@@ -244,4 +244,29 @@ public class CameraBackupTests
         Assert.True(CameraBackup.IsEncrypted(CameraBackup.Export(Sample(), "clave-larga")));
         Assert.False(CameraBackup.IsEncrypted(CameraBackup.Export(Sample(), null)));
     }
+
+    [Fact]
+    public void Motion_and_alert_fields_are_exported_and_imported()
+    {
+        var json = CameraBackup.Export([new Camera { Name = "A", Brand = Brand.Tapo, Host = "h", MotionEnabled = true,
+            MotionSensitivity = MotionSensitivity.Low, MotionCooldownSeconds = 900, ConnectionAlerts = false, MotionAlerts = false }], null);
+        var c = CameraBackup.Import(json, () => null).Cameras[0];
+        Assert.Equal((true, MotionSensitivity.Low, 900, false, false),
+            (c.MotionEnabled, c.MotionSensitivity, c.MotionCooldownSeconds, c.ConnectionAlerts, c.MotionAlerts));
+    }
+
+    [Fact]
+    public void Old_copies_without_motion_fields_import_with_defaults()
+    {
+        var c = CameraBackup.Import("""{ "format": "centinela-cameras", "version": 1, "cameras": [ { "name": "A", "brand": "Tapo", "host": "h" } ] }""", () => null).Cameras[0];
+        Assert.Equal((false, MotionSensitivity.Medium, 60, true, true),
+            (c.MotionEnabled, c.MotionSensitivity, c.MotionCooldownSeconds, c.ConnectionAlerts, c.MotionAlerts));
+    }
+
+    [Fact]
+    public void Bad_motion_values_in_copies_are_repaired()
+    {
+        var c = CameraBackup.Import("""{ "format": "centinela-cameras", "version": 1, "cameras": [ { "name": "A", "brand": "Tapo", "host": "h", "motionSensitivity": "Extreme", "motionCooldownSeconds": 45 } ] }""", () => null).Cameras[0];
+        Assert.Equal((MotionSensitivity.Medium, 60), (c.MotionSensitivity, c.MotionCooldownSeconds));
+    }
 }

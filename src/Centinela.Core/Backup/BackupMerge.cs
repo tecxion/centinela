@@ -39,6 +39,11 @@ public static class BackupMerge
             if (!keepsStoredPassword || SameUrl(match.SubUrlOverride, incoming.SubUrlOverride))
                 match.SubUrlOverride = incoming.SubUrlOverride;
             match.UseUdp = incoming.UseUdp;
+            match.MotionEnabled = incoming.MotionEnabled;
+            match.MotionSensitivity = incoming.MotionSensitivity;
+            match.MotionCooldownSeconds = incoming.MotionCooldownSeconds;
+            match.ConnectionAlerts = incoming.ConnectionAlerts;
+            match.MotionAlerts = incoming.MotionAlerts;
             // Only real changes count: an identical re-import must not restart any live view or recording.
             if (!addedIds.Contains(match.Id) && Differs(before, match)) updatedIds.Add(match.Id);
             touched[match.Id] = match;
@@ -49,6 +54,9 @@ public static class BackupMerge
     static bool Differs(Camera a, Camera b) =>
         a.Name != b.Name || a.Brand != b.Brand || a.Host != b.Host || a.Port != b.Port || a.User != b.User
         || a.Password != b.Password || a.UseUdp != b.UseUdp
+        || a.MotionEnabled != b.MotionEnabled || a.MotionSensitivity != b.MotionSensitivity
+        || a.MotionCooldownSeconds != b.MotionCooldownSeconds
+        || a.ConnectionAlerts != b.ConnectionAlerts || a.MotionAlerts != b.MotionAlerts
         || !SameUrl(a.MainUrlOverride, b.MainUrlOverride) || !SameUrl(a.SubUrlOverride, b.SubUrlOverride);
 
     static bool SameUrl(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);

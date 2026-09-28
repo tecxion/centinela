@@ -76,6 +76,8 @@ public sealed class CameraStore(string filePath)
             Id = c.Id, Name = c.Name, Brand = c.Brand, Host = c.Host, Port = c.Port, User = user,
             PasswordProtected = Protect(password), MainUrlOverride = main,
             SubUrlOverride = sub, UseUdp = c.UseUdp, Order = c.Order,
+            MotionEnabled = c.MotionEnabled, MotionSensitivity = c.MotionSensitivity,
+            MotionCooldownSeconds = c.MotionCooldownSeconds, ConnectionAlerts = c.ConnectionAlerts, MotionAlerts = c.MotionAlerts,
         };
     }
 
@@ -90,6 +92,10 @@ public sealed class CameraStore(string filePath)
         Id = d.Id, Name = d.Name, Brand = Enum.IsDefined(d.Brand) ? d.Brand : Brand.Custom, Host = d.Host, Port = d.Port, User = d.User,
         Password = Unprotect(d.PasswordProtected), MainUrlOverride = d.MainUrlOverride,
         SubUrlOverride = d.SubUrlOverride, UseUdp = d.UseUdp, Order = d.Order,
+        MotionEnabled = d.MotionEnabled,
+        MotionSensitivity = Enum.IsDefined(d.MotionSensitivity) ? d.MotionSensitivity : MotionSensitivity.Medium,
+        MotionCooldownSeconds = Camera.NormalizeCooldown(d.MotionCooldownSeconds),
+        ConnectionAlerts = d.ConnectionAlerts, MotionAlerts = d.MotionAlerts,
     };
 
     static string Protect(string plain) => plain.Length == 0
@@ -124,5 +130,10 @@ public sealed class CameraStore(string filePath)
         public string? SubUrlOverride { get; set; }
         public bool UseUdp { get; set; }
         public int Order { get; set; }
+        public bool MotionEnabled { get; set; }
+        public MotionSensitivity MotionSensitivity { get; set; } = MotionSensitivity.Medium;
+        public int MotionCooldownSeconds { get; set; } = 60;
+        public bool ConnectionAlerts { get; set; } = true;
+        public bool MotionAlerts { get; set; } = true;
     }
 }

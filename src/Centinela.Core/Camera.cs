@@ -4,6 +4,8 @@ public enum Brand { Tapo, Imou, Custom }
 
 public enum StreamKind { Main, Sub }
 
+public enum MotionSensitivity { Low, Medium, High }
+
 public sealed class Camera
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -18,6 +20,15 @@ public sealed class Camera
     public string? SubUrlOverride { get; set; }
     public bool UseUdp { get; set; }
     public int Order { get; set; }
+    public bool MotionEnabled { get; set; }
+    public MotionSensitivity MotionSensitivity { get; set; } = MotionSensitivity.Medium;
+    /// <summary>Minimum time between two motion notices of this camera; one of <see cref="AllowedCooldowns"/>.</summary>
+    public int MotionCooldownSeconds { get; set; } = 60;
+    public bool ConnectionAlerts { get; set; } = true;
+    public bool MotionAlerts { get; set; } = true;
+
+    public static readonly int[] AllowedCooldowns = [30, 60, 300, 900];
+    public static int NormalizeCooldown(int seconds) => AllowedCooldowns.Contains(seconds) ? seconds : 60;
 
     public Camera Clone() => (Camera)MemberwiseClone();
 

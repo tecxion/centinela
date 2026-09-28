@@ -177,4 +177,32 @@ public sealed class CameraStoreTests : IDisposable
         File.WriteAllText(FilePath, CameraJson("").Replace("\"brand\": \"Imou\"", "\"brand\": 7"));
         Assert.Equal(Brand.Custom, Assert.Single(new CameraStore(FilePath).Load()).Brand);
     }
+
+    [Fact]
+    public void Motion_and_alert_fields_round_trip()
+    {
+        var path = Path.Combine(_dir, "c.json");
+        var store = new CameraStore(path);
+        store.Save([new Camera { Name = "A", Host = "h", MotionEnabled = true, MotionSensitivity = MotionSensitivity.High,
+            MotionCooldownSeconds = 300, ConnectionAlerts = false, MotionAlerts = false }]);
+        var c = Assert.Single(store.Load());
+        Assert.Equal((true, MotionSensitivity.High, 300, false, false),
+            (c.MotionEnabled, c.MotionSensitivity, c.MotionCooldownSeconds, c.ConnectionAlerts, c.MotionAlerts));
+    }
+
+    [Fact]
+    public void V12_file_without_new_fields_gets_defaults_and_bad_values_are_repaired()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "old.json");
+        File.WriteAllText(path, """
+            [ { "id": "6f1c6a36-4a6e-4a53-9a0f-1d0e0b0a0c01", "name": "Vieja", "brand": "Tapo", "host": "h", "port": 554, "user": "u", "order": 0 },
+              { "id": "6f1c6a36-4a6e-4a53-9a0f-1d0e0b0a0c02", "name": "Rara", "brand": "Tapo", "host": "h2", "port": 554, "user": "u", "order": 1,
+                "motionCooldownSeconds": 45, "motionSensitivity": 7 } ]
+            """);
+        var cams = new CameraStore(path).Load();
+        Assert.Equal((false, MotionSensitivity.Medium, 60, true, true),
+            (cams[0].MotionEnabled, cams[0].MotionSensitivity, cams[0].MotionCooldownSeconds, cams[0].ConnectionAlerts, cams[0].MotionAlerts));
+        Assert.Equal((MotionSensitivity.Medium, 60), (cams[1].MotionSensitivity, cams[1].MotionCooldownSeconds));
+    }
 }
