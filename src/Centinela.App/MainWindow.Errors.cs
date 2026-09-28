@@ -1,3 +1,4 @@
+using System.Media;
 using System.Windows;
 using Centinela.Core;
 using Centinela.Media;
@@ -16,8 +17,13 @@ public partial class MainWindow
         try { ErrorLog.PurgeOlderThan(AppPaths.LogsDirectory, DateTime.Now); }
         catch (Exception) { /* old logs are only a nuisance; never block startup */ }
         _errorLog = new ErrorLog(AppPaths.LogsDirectory);
-        _errors = new ErrorCenter(_errorLog);
+        _errors = new ErrorCenter(_errorLog, (kind, camera) =>
+            NotificationGate.Decide(kind, CurrentCamera(camera), _settings, WindowVisible, DateTime.Now));
         _errors.ToastRequested += ShowToast;
+        _errors.SoundRequested += kind =>
+        {
+            if (kind == NoticeKind.ConnectionLost && !_closed) SystemSounds.Exclamation.Play();
+        };
         _errors.UnreadChanged += n => LogButton.Content = n == 0 ? "Registro" : $"Registro ({n})";
         Toasts.OpenLogRequested += OpenLog;
         _recordings.ErrorOccurred += (camera, error) => _errors.Report(camera, error);
@@ -26,6 +32,9 @@ public partial class MainWindow
             if (state == SessionState.Playing) _errors.Playing(camera);
         };
     }
+
+    /// <summary>The stored camera with this Id (a tile may hold an older copy); the given one if it was deleted.</summary>
+    Camera CurrentCamera(Camera camera) => _cameras.FirstOrDefault(c => c.Id == camera.Id) ?? camera;
 
     /// <summary>
     /// Live-view tiles (grid, placeholder or fullscreen) report into the error center. Tiles on a shared substream

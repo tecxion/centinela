@@ -91,4 +91,33 @@ public partial class MainWindow
         _motion.Apply(_cameras);
         foreach (var tile in TilesOf(camera.Id)) tile.SetMotionEnabled(camera.MotionEnabled);
     }
+
+    /// <summary>
+    /// Ver › Opciones de avisos…: edits copies in a modal window; «Aceptar» writes them into the current cameras (by Id,
+    /// ignoring cameras deleted meanwhile) and the settings, saves and applies at once. «Cancelar» changes nothing.
+    /// </summary>
+    void NotificationOptions_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new NotificationOptionsWindow([.. _cameras.Select(c => c.Clone())], _settings) { Owner = this };
+        if (window.ShowDialog() != true || _closed) return;
+        foreach (var row in window.Rows)
+        {
+            if (_cameras.FirstOrDefault(c => c.Id == row.Id) is not { } camera) continue;
+            camera.MotionEnabled = row.MotionEnabled;
+            camera.MotionSensitivity = row.Sensitivity;
+            camera.MotionCooldownSeconds = Camera.NormalizeCooldown(row.CooldownSeconds);
+            camera.ConnectionAlerts = row.ConnectionAlerts;
+            camera.MotionAlerts = row.MotionAlerts;
+        }
+        _settings.SoundOnConnectionLost = window.SoundOnConnectionLost;
+        _settings.SoundOnMotion = window.SoundOnMotion;
+        _settings.QuietHoursEnabled = window.QuietHoursEnabled;
+        _settings.QuietFrom = window.QuietFrom;
+        _settings.QuietTo = window.QuietTo;
+        SaveCameras();
+        SaveSettingsQuietly();
+        _motion.Apply(_cameras);
+        foreach (var camera in _cameras)
+            foreach (var tile in TilesOf(camera.Id)) tile.SetMotionEnabled(camera.MotionEnabled);
+    }
 }

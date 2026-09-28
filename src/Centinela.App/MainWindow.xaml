@@ -14,6 +14,8 @@
             </MenuItem>
             <MenuItem Header="_Ver">
                 <MenuItem x:Name="ShowStatsItem" Header="Mostrar _estadísticas" IsCheckable="True" Click="ShowStats_Click"/>
+                <Separator/>
+                <MenuItem Header="_Opciones de avisos…" Click="NotificationOptions_Click"/>
             </MenuItem>
             <MenuItem x:Name="HelpMenu" Header="A_yuda">
                 <MenuItem Header="_Manual" Click="Manual_Click"/>
