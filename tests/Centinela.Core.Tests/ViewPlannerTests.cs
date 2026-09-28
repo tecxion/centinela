@@ -38,6 +38,14 @@ public class ViewPlannerTests
         Assert.All(plan.Slots.Skip(1), s => Assert.Equal((StreamKind.Sub, 1, 1), (s.Kind, s.RowSpan, s.ColumnSpan)));
     }
 
+    [Theory]
+    [InlineData(StreamKind.Main, false, StreamKind.Main)]
+    [InlineData(StreamKind.Main, true, StreamKind.Sub)]
+    [InlineData(StreamKind.Sub, false, StreamKind.Sub)]
+    [InlineData(StreamKind.Sub, true, StreamKind.Sub)]
+    public void Big_slots_of_low_quality_cameras_play_the_substream(StreamKind role, bool lowQuality, StreamKind expected) =>
+        Assert.Equal(expected, ViewPlanner.StreamFor(new Camera { LowQualityWhenBig = lowQuality }, role));
+
     [Fact]
     public void Featured_uses_selected_camera_and_keeps_others_in_order()
     {

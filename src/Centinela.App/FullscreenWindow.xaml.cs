@@ -12,7 +12,8 @@ public partial class FullscreenWindow : Window
     {
         InitializeComponent();
         Title = camera.Name;
-        _tile = new CameraTile(camera, StreamKind.Main, manage: false) { EnableZoom = true };
+        // Same stream as the camera's big view: a low-quality camera stays on its substream in fullscreen too.
+        _tile = new CameraTile(camera, ViewPlanner.StreamFor(camera, StreamKind.Main), manage: false) { EnableZoom = true, Big = true };
         _tile.FullscreenRequested += _ => Close();
         Content = _tile;
         KeyDown += (_, e) =>

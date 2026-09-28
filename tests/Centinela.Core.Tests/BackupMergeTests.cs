@@ -117,4 +117,15 @@ public class BackupMergeTests
         Assert.True(result.Cameras[0].MotionEnabled);
         Assert.False(result.Cameras[0].MotionAlerts);
     }
+
+    [Fact]
+    public void Merge_copies_low_quality_when_big_and_counts_it_as_a_change()
+    {
+        var existing = new Camera { Name = "A", Host = "h", Port = 554 };
+        var incoming = existing.Clone();
+        incoming.LowQualityWhenBig = true;
+        var result = BackupMerge.Merge([existing], [incoming]);
+        Assert.Equal(1, result.Updated);
+        Assert.True(result.Cameras[0].LowQualityWhenBig);
+    }
 }

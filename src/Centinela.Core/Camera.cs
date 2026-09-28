@@ -26,6 +26,8 @@ public sealed class Camera
     public int MotionCooldownSeconds { get; set; } = 60;
     public bool ConnectionAlerts { get; set; } = true;
     public bool MotionAlerts { get; set; } = true;
+    /// <summary>Shown big with the substream: for cameras whose link cannot carry the main stream smoothly.</summary>
+    public bool LowQualityWhenBig { get; set; }
 
     public static readonly int[] AllowedCooldowns = [30, 60, 300, 900];
     public static int NormalizeCooldown(int seconds) => AllowedCooldowns.Contains(seconds) ? seconds : 60;

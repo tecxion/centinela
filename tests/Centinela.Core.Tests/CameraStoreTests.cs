@@ -191,6 +191,17 @@ public sealed class CameraStoreTests : IDisposable
     }
 
     [Fact]
+    public void Low_quality_when_big_round_trips_and_defaults_to_off()
+    {
+        var path = Path.Combine(_dir, "q.json");
+        var store = new CameraStore(path);
+        store.Save([new Camera { Name = "A", Host = "h", LowQualityWhenBig = true }, new Camera { Name = "B", Host = "h2" }]);
+        var cams = store.Load();
+        Assert.True(cams.Single(c => c.Name == "A").LowQualityWhenBig);
+        Assert.False(cams.Single(c => c.Name == "B").LowQualityWhenBig);
+    }
+
+    [Fact]
     public void V12_file_without_new_fields_gets_defaults_and_bad_values_are_repaired()
     {
         Directory.CreateDirectory(_dir);

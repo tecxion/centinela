@@ -44,7 +44,6 @@ public sealed partial class CameraTile : UserControl, IDisposable
         _manage = manage;
         NameLabel.Text = camera.Name;
         EditButton.Visibility = DeleteButton.Visibility = MotionButton.Visibility = manage ? Visibility.Visible : Visibility.Collapsed;
-        PlaceActions();
         MouseEnter += (_, _) => Actions.Visibility = Visibility.Visible;
         MouseLeave += (_, _) =>
         {
@@ -157,21 +156,44 @@ public sealed partial class CameraTile : UserControl, IDisposable
     /// <summary>False when the camera has no usable URL, so the tile will never show video.</summary>
     public bool HasStream => _session is not null;
 
+    static readonly Brush PillBackground = new SolidColorBrush(Color.FromArgb(0xC0, 0, 0, 0));
+    bool _big;
+
     /// <summary>
-    /// Big (main-stream) tiles get large buttons bottom-centre in a dark pill, clear of the stats and zoom
-    /// labels in the bottom corners; thumbnails keep the small ones in the top-right corner.
+    /// Set by the owner for the big tiles of the featured/dual views and fullscreen, whatever stream they play.
+    /// Big tiles get large buttons bottom-centre in a dark pill, clear of the stats and zoom labels in the
+    /// bottom corners, plus the quality button; thumbnails keep the small ones in the top-right corner.
     /// </summary>
-    void PlaceActions()
+    public bool Big
     {
-        if (Kind != StreamKind.Main) return;
-        Actions.HorizontalAlignment = HorizontalAlignment.Center;
-        Actions.VerticalAlignment = VerticalAlignment.Bottom;
-        Actions.Margin = new Thickness(0, 0, 0, 24);
-        Actions.Padding = new Thickness(6);
-        Actions.CornerRadius = new CornerRadius(10);
-        Actions.Background = new SolidColorBrush(Color.FromArgb(0xC0, 0, 0, 0));
-        var large = (Style)FindResource("TileButtonLarge");
-        foreach (var button in ActionButtons.Children.OfType<Button>()) button.Style = large;
+        get => _big;
+        set
+        {
+            _big = value;
+            Actions.HorizontalAlignment = value ? HorizontalAlignment.Center : HorizontalAlignment.Right;
+            Actions.VerticalAlignment = value ? VerticalAlignment.Bottom : VerticalAlignment.Top;
+            Actions.Margin = value ? new Thickness(0, 0, 0, 24) : new Thickness(4);
+            Actions.Padding = value ? new Thickness(6) : new Thickness(0);
+            Actions.CornerRadius = new CornerRadius(value ? 10 : 0);
+            Actions.Background = value ? PillBackground : null;
+            var style = (Style)FindResource(value ? "TileButtonLarge" : "TileButton");
+            foreach (var button in ActionButtons.Children.OfType<Button>()) button.Style = style;
+            QualityButton.Visibility = value && _manage ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>Raised when the user asks to switch this camera's big view between main and substream (manage tiles only).</summary>
+    public event Action<CameraTile>? QualityToggleRequested;
+
+    void Quality_Click(object sender, RoutedEventArgs e) => QualityToggleRequested?.Invoke(this);
+
+    /// <summary>Shows which stream the camera uses when big: HD (main) or SD (substream).</summary>
+    public void SetLowQuality(bool low)
+    {
+        QualityButton.Content = low ? "SD" : "HD";
+        QualityButton.ToolTip = low
+            ? "Calidad baja (flujo secundario): más fluida con mala conexión. Pulsa para calidad alta."
+            : "Calidad alta (flujo principal). Pulsa para calidad baja si la imagen va a saltos.";
     }
 
     public event Action<CameraTile>? EditRequested;

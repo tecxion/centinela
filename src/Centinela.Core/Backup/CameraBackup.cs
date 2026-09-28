@@ -64,6 +64,7 @@ public static class CameraBackup
                     MotionCooldownSeconds = c.MotionCooldownSeconds,
                     ConnectionAlerts = c.ConnectionAlerts,
                     MotionAlerts = c.MotionAlerts,
+                    LowQualityWhenBig = c.LowQualityWhenBig,
                 };
             }).ToList(),
         };
@@ -123,6 +124,7 @@ public static class CameraBackup
                 MotionCooldownSeconds = Camera.NormalizeCooldown(entry.MotionCooldownSeconds),
                 ConnectionAlerts = entry.ConnectionAlerts,
                 MotionAlerts = entry.MotionAlerts,
+                LowQualityWhenBig = entry.LowQualityWhenBig,
             });
         }
         return new BackupImport(cameras, key is not null);
@@ -235,5 +237,6 @@ public static class CameraBackup
         public int MotionCooldownSeconds { get; set; } = 60;
         public bool ConnectionAlerts { get; set; } = true;
         public bool MotionAlerts { get; set; } = true;
+        public bool LowQualityWhenBig { get; set; }
     }
 }

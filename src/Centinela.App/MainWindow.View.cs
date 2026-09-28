@@ -42,17 +42,21 @@ public partial class MainWindow
         for (var r = 0; r < plan.Rows; r++) TileGrid.RowDefinitions.Add(new RowDefinition());
         for (var c = 0; c < plan.Columns; c++) TileGrid.ColumnDefinitions.Add(new ColumnDefinition());
 
-        var wanted = plan.Slots.Select(s => (s.CameraId, s.Kind)).ToHashSet();
-        foreach (var slot in plan.Slots) PlaceTile(slot, wanted);
+        // The plan marks big slots as Main; low-quality cameras play them on the substream instead.
+        var bigs = plan.Slots.Where(s => s.Kind == StreamKind.Main).Select(s => s.CameraId).ToHashSet();
+        var slots = plan.Slots.Select(s => s with { Kind = ViewPlanner.StreamFor(_cameras.First(c => c.Id == s.CameraId), s.Kind) }).ToList();
+        var wanted = slots.Select(s => (s.CameraId, s.Kind)).ToHashSet();
+        foreach (var slot in slots) PlaceTile(slot, bigs.Contains(slot.CameraId), wanted);
         foreach (var key in _tiles.Keys.Where(k => !wanted.Contains(k)).ToList()) DisposeTile(key);
         EmptyState.Visibility = _cameras.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    void PlaceTile(TileSlot slot, HashSet<(Guid, StreamKind)> wanted)
+    void PlaceTile(TileSlot slot, bool big, HashSet<(Guid, StreamKind)> wanted)
     {
         var key = (slot.CameraId, slot.Kind);
         if (_tiles.TryGetValue(key, out var existing))
         {
+            SetBig(existing, big);
             Position(existing, slot);
             if (_placeholders.TryGetValue(existing, out var covering)) Cover(covering, slot);
             return;
@@ -69,12 +73,13 @@ public partial class MainWindow
             _tiles.Remove(otherKey);
             RemoveAndShutdown(unpainted);
             _tiles[key] = previous;
+            SetBig(previous, big);
             Position(previous, slot);
             return;
         }
 
         var camera = _cameras.First(c => c.Id == slot.CameraId);
-        var tile = CreateTile(camera, slot.Kind);
+        var tile = CreateTile(camera, slot.Kind, big);
         _tiles[key] = tile;
         Position(tile, slot);
         TileGrid.Children.Add(tile);
@@ -108,15 +113,15 @@ public partial class MainWindow
         }
     }
 
-    CameraTile CreateTile(Camera camera, StreamKind kind)
+    CameraTile CreateTile(Camera camera, StreamKind kind, bool big)
     {
         // Substream tiles share one connection per camera (the tile sets its decode size once laid out).
         var tile = kind == StreamKind.Sub
             ? new CameraTile(camera, kind, acquireShared: c => AcquireSub(c, 0, 0))
             : new CameraTile(camera, kind);
-        // Main tiles exist only in the featured/dual layouts: those are the big ones that zoom.
-        tile.EnableZoom = kind == StreamKind.Main;
-        tile.AudioCapable = kind == StreamKind.Main;
+        SetBig(tile, big);
+        tile.SetLowQuality(camera.LowQualityWhenBig);
+        tile.QualityToggleRequested += ToggleQuality;
         WireAudio(tile);
         tile.EditRequested += EditCamera;
         tile.DuplicateRequested += DuplicateCamera;
@@ -131,6 +136,34 @@ public partial class MainWindow
         WireErrors(tile);
         WireMotion(tile);
         return tile;
+    }
+
+    /// <summary>
+    /// Big tiles (featured/dual) zoom and, on their own main-stream session, may play audio. A tile that stays
+    /// on screen as a thumbnail (a low-quality camera's substream losing the big slot) drops both.
+    /// </summary>
+    void SetBig(CameraTile tile, bool big)
+    {
+        if (tile.Big == big && tile.EnableZoom == big) return;
+        if (!big)
+        {
+            tile.ResetZoom();
+            ReleaseAudio(tile);
+        }
+        tile.Big = big;
+        tile.EnableZoom = big;
+        // Shared (substream) sessions never play audio: the sink would reach every viewer of the lease.
+        tile.AudioCapable = big && tile.Kind == StreamKind.Main;
+    }
+
+    /// <summary>The HD/SD button: switches the camera's big view between main and substream, and remembers it.</summary>
+    void ToggleQuality(CameraTile shown)
+    {
+        if (_cameras.FirstOrDefault(c => c.Id == shown.Camera.Id) is not { } camera) return;
+        camera.LowQualityWhenBig = !camera.LowQualityWhenBig;
+        SaveCameras();
+        foreach (var tile in TilesOf(camera.Id)) tile.SetLowQuality(camera.LowQualityWhenBig);
+        RebuildView();
     }
 
     void RetirePlaceholder(CameraTile tile)

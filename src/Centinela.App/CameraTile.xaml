@@ -35,9 +35,11 @@
                     HorizontalAlignment="Right" VerticalAlignment="Bottom" Visibility="Collapsed">
                 <TextBlock x:Name="ZoomLabel" Foreground="White" FontSize="11"/>
             </Border>
-            <!-- Thumbnails: top-right corner. Big tiles move it bottom-centre in a pill (see PlaceActions). -->
+            <!-- Thumbnails: top-right corner. Big tiles move it bottom-centre in a pill (see Big). -->
             <Border x:Name="Actions" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
                 <StackPanel x:Name="ActionButtons" Orientation="Horizontal">
+                    <Button x:Name="QualityButton" Content="HD" Style="{StaticResource TileButton}" Click="Quality_Click" Visibility="Collapsed"
+                            FontFamily="Segoe UI" FontWeight="Bold" FontSize="12"/>
                     <Button x:Name="AudioButton" Content="🔇" ToolTip="Activar sonido" Style="{StaticResource TileButton}" Click="Audio_Click" Visibility="Collapsed"
                             ToolTipService.ShowOnDisabled="True"/>
                     <Button x:Name="MotionButton" Content="👁" Style="{StaticResource TileButton}" Click="Motion_Click"/>

@@ -16,6 +16,10 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
 - **Zoom digital** en las cámaras grandes y a pantalla completa: rueda del ratón (1×–8×, hacia el cursor),
   arrastrar para moverse (sin reordenar mientras hay zoom) y `0` (con el puntero sobre la cámara) o el menú
   para volver a 1×. No se guarda.
+- **Calidad HD/SD** en las cámaras grandes: el botón HD/SD (abajo en el centro, al pasar el ratón) cambia la vista
+  grande de esa cámara entre el flujo principal (HD) y el secundario (SD), más ligero y fluido si la conexión
+  (p. ej. wifi lejana) no da para el principal. Se guarda por cámara y también vale a pantalla completa; en SD
+  no hay sonido en la vista grande. Las capturas siguen tomándose del principal.
 - **Sonido**: botón 🔇/🔊 solo en las cámaras grandes y a pantalla completa, si la cámara envía audio. Todas empiezan
   en silencio y solo suena una a la vez; se calla al ocultar en la bandeja o cerrar la pantalla completa.
   El volumen, en el mezclador de Windows.

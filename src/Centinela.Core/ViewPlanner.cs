@@ -6,6 +6,13 @@ public sealed record ViewPlan(int Rows, int Columns, IReadOnlyList<TileSlot> Slo
 
 public static class ViewPlanner
 {
+    /// <summary>
+    /// The stream a slot plays: plans put big slots on the main stream, except for cameras marked
+    /// <see cref="Camera.LowQualityWhenBig"/>, which stay on the lighter substream.
+    /// </summary>
+    public static StreamKind StreamFor(Camera camera, StreamKind role) =>
+        role == StreamKind.Main && camera.LowQualityWhenBig ? StreamKind.Sub : role;
+
     public static ViewPlan Plan(IReadOnlyList<Camera> cameras, LayoutMode mode, GridMode gridMode, Guid? featuredCameraId,
         IReadOnlyList<Guid>? dualCameraIds = null)
     {
