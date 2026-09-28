@@ -18,6 +18,12 @@
                 <StackPanel Orientation="Horizontal">
                     <Ellipse x:Name="RecDot" Width="10" Height="10" Fill="Red" Margin="0,0,6,0" Visibility="Collapsed"/>
                     <TextBlock x:Name="NameLabel" Foreground="White"/>
+                    <Grid x:Name="MotionOffIndicator" Margin="6,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"
+                          ToolTip="Detección de movimiento: desactivada">
+                        <TextBlock Text="👁" Foreground="White" FontSize="11" Opacity="0.8"/>
+                        <Line X1="1" Y1="13" X2="13" Y2="2" Stroke="#E53935" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    </Grid>
                     <TextBlock x:Name="AudioIndicator" Text=" 🔊" Foreground="White" Visibility="Collapsed"/>
                 </StackPanel>
             </Border>
@@ -33,6 +39,7 @@
                         HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
                 <Button x:Name="AudioButton" Content="🔇" ToolTip="Activar sonido" Style="{StaticResource TileButton}" Click="Audio_Click" Visibility="Collapsed"
                         ToolTipService.ShowOnDisabled="True"/>
+                <Button x:Name="MotionButton" Content="👁" Style="{StaticResource TileButton}" Click="Motion_Click"/>
                 <Button x:Name="SnapshotButton" Content="📷" ToolTip="Captura" Style="{StaticResource TileButton}" Click="Snapshot_Click"/>
                 <Button x:Name="RecordButton" Content="⏺" ToolTip="Grabar" Style="{StaticResource TileButton}" Click="Record_Click"/>
                 <Button x:Name="EditButton" Content="✎" ToolTip="Editar" Style="{StaticResource TileButton}" Click="Edit_Click"/>

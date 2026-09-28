@@ -129,6 +129,7 @@ public partial class MainWindow
         tile.SetRecordingStatus(_recordings.StatusOf(camera.Id));
         tile.ShowStats = _settings.ShowStats;
         WireErrors(tile);
+        WireMotion(tile);
         return tile;
     }
 

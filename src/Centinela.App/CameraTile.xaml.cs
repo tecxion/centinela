@@ -43,7 +43,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         Kind = kind;
         _manage = manage;
         NameLabel.Text = camera.Name;
-        EditButton.Visibility = DeleteButton.Visibility = manage ? Visibility.Visible : Visibility.Collapsed;
+        EditButton.Visibility = DeleteButton.Visibility = MotionButton.Visibility = manage ? Visibility.Visible : Visibility.Collapsed;
         MouseEnter += (_, _) => Actions.Visibility = Visibility.Visible;
         MouseLeave += (_, _) =>
         {
@@ -73,6 +73,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
         {
             Item("Editar…", Edit_Click);
             Item("Duplicar…", (_, _) => DuplicateRequested?.Invoke(this));
+            // Not IsCheckable: the check mark is set by the owner (SetMotionEnabled); a click only asks for the toggle.
+            _motionItem = Item("Detección de movimiento", Motion_Click);
         }
         // Shown only while the tile is zoomed.
         ResetZoomItem = Item("Restablecer zoom", (_, _) => ResetZoom());
@@ -134,12 +136,19 @@ public sealed partial class CameraTile : UserControl, IDisposable
             _session.Start();
             return;
         }
-        // A shared session may already be playing, retrying or failed: show where it is now (subscribed first,
-        // so any later change is queued after this). Its errors were already reported by the window.
-        var current = _session.State;
-        if (current != SessionState.Playing && _session.LastErrorKind is { } lastError) ShowErrorKind(lastError);
-        ShowState(current == SessionState.Idle ? SessionState.Connecting : current);
-        UpdateAudioButton();
+        // A shared session may already be playing, retrying or failed. Show where it is once the owner has
+        // subscribed to this tile's events (StreamFailed must reach it), reading the state then: changes queued
+        // before that run first, later ones after. Its errors were already reported by the window.
+        ShowState(SessionState.Connecting);
+        var session = _session;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_disposed) return;
+            var current = session.State;
+            if (current != SessionState.Playing && session.LastErrorKind is { } lastError) ShowErrorKind(lastError);
+            ShowState(current == SessionState.Idle ? SessionState.Connecting : current);
+            UpdateAudioButton();
+        });
     }
 
     public Camera Camera { get; }
@@ -156,6 +165,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
     const string DragFormat = "Centinela.CameraId";
     static readonly Brush NormalBorder = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A));
     static readonly Brush DropBorder = Brushes.DodgerBlue;
+    static readonly Brush MotionBorder = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
+    bool _dropHover;
+    bool _motionActive;
     Point? _dragStart;
 
     public event Action<CameraTile>? FullscreenRequested;
@@ -179,6 +191,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
 
     readonly DispatcherTimer _clickTimer;
     readonly MenuItem _snapshotItem = null!, _recordItem = null!;
+    // Manage tiles only.
+    readonly MenuItem? _motionItem;
     /// <summary>"Restablecer zoom" in the context menu: collapsed until zoom support shows it.</summary>
     internal MenuItem ResetZoomItem { get; private set; } = null!;
 
@@ -334,13 +348,18 @@ public sealed partial class CameraTile : UserControl, IDisposable
     protected override void OnDragEnter(DragEventArgs e)
     {
         base.OnDragEnter(e);
-        if (_manage && e.Data.GetDataPresent(DragFormat)) Frame.BorderBrush = DropBorder;
+        if (_manage && e.Data.GetDataPresent(DragFormat))
+        {
+            _dropHover = true;
+            UpdateBorder();
+        }
     }
 
     protected override void OnDragLeave(DragEventArgs e)
     {
         base.OnDragLeave(e);
-        Frame.BorderBrush = NormalBorder;
+        _dropHover = false;
+        UpdateBorder();
     }
 
     protected override void OnDragOver(DragEventArgs e)
@@ -352,7 +371,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
     protected override void OnDrop(DragEventArgs e)
     {
         base.OnDrop(e);
-        Frame.BorderBrush = NormalBorder;
+        _dropHover = false;
+        UpdateBorder();
         if (_manage && e.Data.GetData(DragFormat) is string raw && Guid.TryParse(raw, out var source) && source != Camera.Id)
             SwapRequested?.Invoke(source, Camera.Id);
     }
@@ -527,6 +547,47 @@ public sealed partial class CameraTile : UserControl, IDisposable
         RecDot.StrokeThickness = paused ? 2 : 0;
         RecDot.Opacity = paused ? 0.7 : 1;
         RecDot.ToolTip = tooltip;
+    }
+
+    /// <summary>Raised when the user asks to turn this camera's motion detection on or off (manage tiles only).</summary>
+    public event Action<CameraTile>? MotionToggleRequested;
+
+    void Motion_Click(object sender, RoutedEventArgs e) => MotionToggleRequested?.Invoke(this);
+
+    /// <summary>Red frame while the camera has a motion event in progress.</summary>
+    public void SetMotionActive(bool active)
+    {
+        _motionActive = active;
+        UpdateBorder();
+    }
+
+    /// <summary>Shows whether detection is on: button tooltip, menu check and the crossed-out eye by the name.</summary>
+    public void SetMotionEnabled(bool enabled)
+    {
+        MotionButton.ToolTip = enabled ? "Detección de movimiento: activada" : "Detección de movimiento: desactivada";
+        MotionButton.Opacity = enabled ? 1 : 0.6;
+        if (_motionItem is not null) _motionItem.IsChecked = enabled;
+        MotionOffIndicator.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>Drop-target highlight over the motion frame over the normal border.</summary>
+    void UpdateBorder()
+    {
+        if (_dropHover)
+        {
+            Frame.BorderBrush = DropBorder;
+            Frame.BorderThickness = new Thickness(_motionActive ? 3 : 1);
+        }
+        else if (_motionActive)
+        {
+            Frame.BorderBrush = MotionBorder;
+            Frame.BorderThickness = new Thickness(3);
+        }
+        else
+        {
+            Frame.BorderBrush = NormalBorder;
+            Frame.BorderThickness = new Thickness(1);
+        }
     }
 
     DispatcherTimer? _statsTimer;

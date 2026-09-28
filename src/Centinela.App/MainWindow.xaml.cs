@@ -43,6 +43,7 @@ public partial class MainWindow : Window
         ShowStatsItem.IsChecked = _settings.ShowStats;
         InitErrors();
         InitTray();
+        InitMotion();
         InitUpdates();
         try
         {
@@ -51,7 +52,8 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // The window will never show: remove the tray icon so no ghost remains.
+            // The window will never show: remove the tray icon so no ghost remains, and stop detecting.
+            _motion.Dispose();
             _tray.Dispose();
             throw;
         }
@@ -85,6 +87,7 @@ public partial class MainWindow : Window
         window.Tile.SetRecordingStatus(_recordings.StatusOf(tile.Camera.Id));
         window.Tile.ShowStats = _settings.ShowStats;
         WireErrors(window.Tile);
+        WireMotion(window.Tile);
         window.Tile.AudioCapable = true;
         WireAudio(window.Tile);
         // OnClosed waits for the live session's shutdown like any other.
@@ -209,6 +212,7 @@ public partial class MainWindow : Window
         camera.Order = _cameras.Count == 0 ? 0 : _cameras.Max(c => c.Order) + 1;
         _cameras.Add(camera);
         SaveCameras();
+        _motion.Apply(_cameras);
         RebuildView();
     }
 
@@ -230,6 +234,8 @@ public partial class MainWindow : Window
         _errors.Forget(updated.Id);
         DisposeTilesOf(updated.Id);
         SaveCameras();
+        // Restarts detection on the new substream or sensitivity; other changes apply in place.
+        _motion.Apply(_cameras);
         RebuildView();
     }
 
@@ -249,6 +255,7 @@ public partial class MainWindow : Window
         _errors.Forget(tile.Camera.Id);
         DisposeTilesOf(tile.Camera.Id);
         SaveCameras();
+        _motion.Apply(_cameras);   // stops its detection, ending (and raising) an active event
         if (_settings.FeaturedCameraId == tile.Camera.Id)
         {
             _settings.FeaturedCameraId = null;
@@ -356,6 +363,9 @@ public partial class MainWindow : Window
             .Append(_recordings.ShutdownAsync())
             .Append(AutomaticBackupAsync())
             .Append(_manualExport)
+            // Ends active motion events now (on this thread) and releases detection's leases, stopping
+            // the sessions nothing else holds; awaited below with the rest.
+            .Append(_motion.ShutdownAsync())
             .ToArray();
         _tiles.Clear();
         _placeholders.Clear();

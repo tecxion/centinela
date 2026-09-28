@@ -93,6 +93,7 @@ public partial class MainWindow
         _cameras.Clear();
         _cameras.AddRange(merge.Cameras);
         SaveCameras();
+        _motion.Apply(_cameras);
         var summary = $"{merge.Added} añadidas, {merge.Updated} actualizadas, {merge.WithoutPassword} sin contraseña.";
         if (IsHiddenInTray)
         {
