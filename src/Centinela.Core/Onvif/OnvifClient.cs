@@ -66,6 +66,35 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
         return (main, sub);
     }
 
+    /// <summary>
+    /// Read-only: every video encoder configuration with what it accepts (options null when the camera does not
+    /// answer that query).
+    /// </summary>
+    public async Task<IReadOnlyList<(string Token, EncoderSettings Settings, EncoderOptions? Options)>> GetEncoderSettingsAsync(
+        CancellationToken ct = default)
+    {
+        var media = await GetMediaServiceUrlAsync(ct);
+        var configurations = EncoderSettingsParser.ParseOnvifConfigurations(
+            await SendAsync(media, $"<GetVideoEncoderConfigurations xmlns=\"{MediaNs}\"/>", ct));
+        var result = new List<(string, EncoderSettings, EncoderOptions?)>();
+        foreach (var (token, settings) in configurations)
+        {
+            EncoderOptions? options = null;
+            try
+            {
+                options = EncoderSettingsParser.ParseOnvifOptions(await SendAsync(media,
+                    $"<GetVideoEncoderConfigurationOptions xmlns=\"{MediaNs}\"><ConfigurationToken>{SecurityElement.Escape(token)}</ConfigurationToken></GetVideoEncoderConfigurationOptions>",
+                    ct));
+            }
+            catch (OnvifException ex) when (ex is not OnvifAuthException)
+            {
+                // Options are a nice-to-have: the settings alone still answer the question.
+            }
+            result.Add((token, settings, options));
+        }
+        return result;
+    }
+
     async Task<Uri> GetMediaServiceUrlAsync(CancellationToken ct)
     {
         try

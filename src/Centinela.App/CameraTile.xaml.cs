@@ -74,6 +74,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
         {
             Item("Editar…", Edit_Click);
             Item("Duplicar…", (_, _) => DuplicateRequested?.Invoke(this));
+            Item("Calidad de la cámara…", (_, _) => EncoderInfoRequested?.Invoke(this));
             // Not IsCheckable: the check mark is set by the owner (SetMotionEnabled); a click only asks for the toggle.
             _motionItem = Item("Detección de movimiento", Motion_Click);
             // Same pattern: checked by the owner (SetSmoothing).
@@ -207,6 +208,8 @@ public sealed partial class CameraTile : UserControl, IDisposable
 
     public event Action<CameraTile>? EditRequested;
     public event Action<CameraTile>? DuplicateRequested;
+    /// <summary>«Calidad de la cámara…»: the owner opens the read-only encoder report.</summary>
+    public event Action<CameraTile>? EncoderInfoRequested;
     public event Action<CameraTile>? DeleteRequested;
     public event Action<CameraTile>? RecordRequested;
     public event Action<string, string?>? Notify;

@@ -127,6 +127,11 @@ public partial class MainWindow
         WireAudio(tile);
         tile.EditRequested += EditCamera;
         tile.DuplicateRequested += DuplicateCamera;
+        tile.EncoderInfoRequested += t =>
+        {
+            var camera = _cameras.FirstOrDefault(c => c.Id == t.Camera.Id) ?? t.Camera;
+            new CameraQualityWindow(camera) { Owner = this }.Show();
+        };
         tile.DeleteRequested += DeleteCamera;
         tile.Notify += Notify;
         tile.FullscreenRequested += ShowFullscreen;
