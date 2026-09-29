@@ -258,8 +258,10 @@ public class CameraBackupTests
     [Fact]
     public void Low_quality_when_big_is_exported_and_imported()
     {
-        var json = CameraBackup.Export([new Camera { Name = "A", Brand = Brand.Tapo, Host = "h", LowQualityWhenBig = true }], null);
-        Assert.True(CameraBackup.Import(json, () => null).Cameras[0].LowQualityWhenBig);
+        var json = CameraBackup.Export([new Camera { Name = "A", Brand = Brand.Tapo, Host = "h", LowQualityWhenBig = true, Smoothing = true }], null);
+        var c = CameraBackup.Import(json, () => null).Cameras[0];
+        Assert.True(c.LowQualityWhenBig);
+        Assert.True(c.Smoothing);
     }
 
     [Fact]
@@ -267,6 +269,7 @@ public class CameraBackupTests
     {
         var c = CameraBackup.Import("""{ "format": "centinela-cameras", "version": 1, "cameras": [ { "name": "A", "brand": "Tapo", "host": "h" } ] }""", () => null).Cameras[0];
         Assert.False(c.LowQualityWhenBig);
+        Assert.False(c.Smoothing);
         Assert.Equal((false, MotionSensitivity.Medium, 60, true, true),
             (c.MotionEnabled, c.MotionSensitivity, c.MotionCooldownSeconds, c.ConnectionAlerts, c.MotionAlerts));
     }

@@ -46,7 +46,8 @@ public sealed unsafe partial class StreamSession : IDisposable
     int _statsFrames;
     double _fps;
     double _latencyEma = -1;
-    long _packetTimestamp;          // when the packet being decoded was read
+    long _packetTimestamp;          // when the packet being decoded was read (decoding thread)
+    volatile bool _connectionPlayed; // the current connection showed a frame (reader or playout thread)
     volatile StreamInfo? _info;     // null until known for the current connection
     bool _infoPublished;            // session thread only
     int _audioIndex = -1;           // current connection's audio stream, -1 = none
@@ -237,6 +238,8 @@ public sealed unsafe partial class StreamSession : IDisposable
         var pkt = ffmpeg.av_packet_alloc();
         var frame = ffmpeg.av_frame_alloc();
         var sw = ffmpeg.av_frame_alloc();
+        Playout? playout = null;
+        _connectionPlayed = false;
         try
         {
             fmt->interrupt_callback.callback = _interrupt;
@@ -274,24 +277,45 @@ public sealed unsafe partial class StreamSession : IDisposable
             if (_decode) dec = OpenDecoder(codec, stream->codecpar, hwDevice);
             if (_decode && _audioIndex >= 0) _audioParameters = fmt->streams[_audioIndex]->codecpar;
 
+            var awaitKeyframe = false; // after smoothing is switched off, until the decoder can show a clean image
             while (!_stopping)
             {
+                if (dec is not null) FollowSmoothing(ref playout, dec, frame, sw, ref awaitKeyframe);
+                if (playout is not null) ThrowIfPlayoutFailed(playout);
                 ArmDeadline(StallTimeoutMs);
-                FFmpegException.ThrowIfError(ffmpeg.av_read_frame(fmt, pkt), "read");
-                _packetTimestamp = Stopwatch.GetTimestamp();
+                var read = ffmpeg.av_read_frame(fmt, pkt);
+                if (playout?.Failure is not null)
+                {
+                    _deadlineHit = false; // the playout thread interrupted the read: its error is the real one
+                    ThrowIfPlayoutFailed(playout);
+                }
+                FFmpegException.ThrowIfError(read, "read");
+                var arrival = Stopwatch.GetTimestamp();
                 if (pkt->stream_index == videoIndex)
                 {
                     OnVideoPacket(stream, pkt);
                     if (dec is null) MarkPlaying(ref reachedPlaying);
-                    else DecodePacket(dec, pkt, frame, sw, ref reachedPlaying);
+                    else if (playout is not null) EnqueueVideo(playout, pkt, arrival);
+                    else if (!awaitKeyframe || (pkt->flags & ffmpeg.AV_PKT_FLAG_KEY) != 0)
+                    {
+                        awaitKeyframe = false;
+                        _packetTimestamp = arrival;
+                        DecodePacket(dec, pkt, frame, sw, present: true);
+                    }
                 }
                 else if (pkt->stream_index == _audioIndex && _audioParameters is not null && _audioSink is not null)
-                    OnAudioPacket(pkt);
+                {
+                    if (playout is not null) EnqueueAudio(playout, pkt, arrival);
+                    else OnAudioPacket(pkt);
+                }
                 ffmpeg.av_packet_unref(pkt);
             }
         }
         finally
         {
+            // The playout thread uses the decoder, frames and audio pump freed below.
+            StopPlayout(playout);
+            if (_connectionPlayed) reachedPlaying = true;
             FFmpegLog.Unregister((void*)logContext, logSink);
             StopAudioPump();
             OnConnectionClosed();
@@ -395,7 +419,11 @@ public sealed unsafe partial class StreamSession : IDisposable
         return ffmpeg.avcodec_default_get_format(context, formats);
     }
 
-    void DecodePacket(AVCodecContext* dec, AVPacket* pkt, AVFrame* frame, AVFrame* sw, ref bool reachedPlaying)
+    /// <summary>
+    /// Reader thread, or the playout thread while smoothing. <paramref name="present"/> false decodes without
+    /// showing (a smoothed view catching up).
+    /// </summary>
+    void DecodePacket(AVCodecContext* dec, AVPacket* pkt, AVFrame* frame, AVFrame* sw, bool present)
     {
         var again = ffmpeg.AVERROR(ffmpeg.EAGAIN);
         var err = ffmpeg.avcodec_send_packet(dec, pkt);
@@ -414,9 +442,12 @@ public sealed unsafe partial class StreamSession : IDisposable
                 return;
             }
             _decodeErrors = 0;
-            PresentFrame(frame, sw);
+            if (present)
+            {
+                PresentFrame(frame, sw);
+                MarkPlaying();
+            }
             ffmpeg.av_frame_unref(frame);
-            MarkPlaying(ref reachedPlaying);
         }
     }
 
@@ -476,7 +507,8 @@ public sealed unsafe partial class StreamSession : IDisposable
             _statsWindowStart = now;
         }
         Interlocked.Exchange(ref _lastFrameTimestamp, now);
-        Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero));
+        Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero, SmoothingSeconds,
+            Volatile.Read(ref _rebuffers)));
     }
 
     void KeepForSnapshot(AVFrame* src)
@@ -492,6 +524,12 @@ public sealed unsafe partial class StreamSession : IDisposable
     void MarkPlaying(ref bool reachedPlaying)
     {
         reachedPlaying = true;
+        MarkPlaying();
+    }
+
+    void MarkPlaying()
+    {
+        _connectionPlayed = true;
         if (_state == SessionState.Playing) return;
         _lastError = null;
         // Lines logged before playback (non-fatal warnings) must not reclassify a later stall.

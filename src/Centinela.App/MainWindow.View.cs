@@ -122,6 +122,8 @@ public partial class MainWindow
         SetBig(tile, big);
         tile.SetLowQuality(camera.LowQualityWhenBig);
         tile.QualityToggleRequested += ToggleQuality;
+        tile.SetSmoothing(camera.Smoothing);
+        tile.SmoothingToggleRequested += ToggleSmoothing;
         WireAudio(tile);
         tile.EditRequested += EditCamera;
         tile.DuplicateRequested += DuplicateCamera;
@@ -164,6 +166,19 @@ public partial class MainWindow
         SaveCameras();
         foreach (var tile in TilesOf(camera.Id)) tile.SetLowQuality(camera.LowQualityWhenBig);
         RebuildView();
+    }
+
+    /// <summary>
+    /// «Suavizar imagen»: flips the camera's smoothing, remembers it and applies it live to every session
+    /// showing it (own main-stream sessions through their tiles, shared substream sessions directly).
+    /// </summary>
+    void ToggleSmoothing(CameraTile shown)
+    {
+        if (_cameras.FirstOrDefault(c => c.Id == shown.Camera.Id) is not { } camera) return;
+        camera.Smoothing = !camera.Smoothing;
+        SaveCameras();
+        foreach (var tile in TilesOf(camera.Id)) tile.SetSmoothing(camera.Smoothing);
+        foreach (var session in _streams.SessionsFor(camera.Id)) session.Smoothing = camera.Smoothing;
     }
 
     void RetirePlaceholder(CameraTile tile)

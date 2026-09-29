@@ -128,4 +128,15 @@ public class BackupMergeTests
         Assert.Equal(1, result.Updated);
         Assert.True(result.Cameras[0].LowQualityWhenBig);
     }
+
+    [Fact]
+    public void Merge_copies_smoothing_and_counts_it_as_a_change()
+    {
+        var existing = new Camera { Name = "A", Host = "h", Port = 554 };
+        var incoming = existing.Clone();
+        incoming.Smoothing = true;
+        var result = BackupMerge.Merge([existing], [incoming]);
+        Assert.Equal(1, result.Updated);
+        Assert.True(result.Cameras[0].Smoothing);
+    }
 }

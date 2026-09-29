@@ -78,6 +78,12 @@ public sealed class SharedStreams : IDisposable
         get { lock (_gate) return _entries.Count; }
     }
 
+    /// <summary>The live sessions opened under <paramref name="key"/> (any url), e.g. to change a setting on them.</summary>
+    public IReadOnlyList<StreamSession> SessionsFor(Guid key)
+    {
+        lock (_gate) return _entries.Values.Where(e => e.Id.Item1 == key).Select(e => e.Session).ToList();
+    }
+
     /// <summary>Stops every session (app exit): returns after RequestStop, disposal runs off-thread.</summary>
     public void Dispose()
     {

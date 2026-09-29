@@ -3,6 +3,26 @@ using Centinela.Media.Tests.Rtsp;
 
 namespace Centinela.Media.Tests;
 
+public sealed class SharedStreamsSessionsForTests
+{
+    [Fact]
+    public void SessionsFor_lists_only_the_live_sessions_of_that_key()
+    {
+        FFmpegLoader.Initialize();
+        using var streams = new SharedStreams();
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        // Unreachable URLs: the sessions only need to exist.
+        var leaseA = streams.Acquire(a, "rtsp://127.0.0.1:1/a", false, 0, 0);
+        var leaseB = streams.Acquire(b, "rtsp://127.0.0.1:1/b", false, 0, 0);
+        Assert.Equal([leaseA.Session], streams.SessionsFor(a));
+        leaseA.ReleaseAsync().Wait(TimeSpan.FromSeconds(5));
+        Assert.Empty(streams.SessionsFor(a));
+        Assert.Single(streams.SessionsFor(b));
+        leaseB.ReleaseAsync().Wait(TimeSpan.FromSeconds(5));
+    }
+}
+
 [Collection("rtsp")]
 public sealed class SharedStreamsTests(RtspTestServer server)
 {

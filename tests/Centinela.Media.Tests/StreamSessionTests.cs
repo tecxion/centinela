@@ -168,4 +168,43 @@ public sealed class StreamSessionTests(RtspTestServer server, ITestOutputHelper 
         Assert.InRange(stats.LatencyMs, 0.01, 1000);
         Assert.True(stats.SinceLastFrame < TimeSpan.FromSeconds(1));
     }
+
+    [SkippableFact]
+    public void Smoothing_is_off_by_default()
+    {
+        using var session = Open(server.Url("open"));
+        session.Start();
+        Assert.True(TestUtil.WaitFor(() => session.State == SessionState.Playing, Ten), session.LastError);
+        Thread.Sleep(1500);
+        Assert.False(session.Smoothing);
+        Assert.Equal(0, session.Stats.SmoothingSeconds);
+        Assert.True(session.Stats.LatencyMs < 300, $"latency {session.Stats.LatencyMs} ms");
+    }
+
+    [SkippableFact]
+    public void Smoothing_paces_frames_behind_the_delay_and_switches_off_live()
+    {
+        using var session = Open(server.Url("open"));
+        var reported = new List<double>();
+        session.SmoothingChanged += s => { lock (reported) reported.Add(s); };
+        session.Smoothing = true;
+        session.Start();
+        Assert.True(TestUtil.WaitFor(() => session.State == SessionState.Playing, Ten), session.LastError);
+        Thread.Sleep(3000);
+        var stats = session.Stats;
+        output.WriteLine($"smoothed: fps={stats.Fps:0.0} latency={stats.LatencyMs:0.0}ms delay={stats.SmoothingSeconds}s dry={stats.Rebuffers}");
+        Assert.InRange(stats.Fps, 20, 30);
+        Assert.InRange(stats.LatencyMs, 700, 2000);
+        Assert.Equal(1.0, stats.SmoothingSeconds);
+
+        // Off again without reconnecting: back to frames as they arrive.
+        session.Smoothing = false;
+        Thread.Sleep(3000);
+        stats = session.Stats;
+        output.WriteLine($"direct: fps={stats.Fps:0.0} latency={stats.LatencyMs:0.0}ms");
+        Assert.Equal(0, stats.SmoothingSeconds);
+        Assert.True(stats.LatencyMs < 300, $"latency {stats.LatencyMs} ms");
+        Assert.InRange(stats.Fps, 20, 30);
+        lock (reported) Assert.Equal([1.0, 0], reported);
+    }
 }

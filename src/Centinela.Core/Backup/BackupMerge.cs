@@ -45,6 +45,7 @@ public static class BackupMerge
             match.ConnectionAlerts = incoming.ConnectionAlerts;
             match.MotionAlerts = incoming.MotionAlerts;
             match.LowQualityWhenBig = incoming.LowQualityWhenBig;
+            match.Smoothing = incoming.Smoothing;
             // Only real changes count: an identical re-import must not restart any live view or recording.
             if (!addedIds.Contains(match.Id) && Differs(before, match)) updatedIds.Add(match.Id);
             touched[match.Id] = match;
@@ -58,7 +59,7 @@ public static class BackupMerge
         || a.MotionEnabled != b.MotionEnabled || a.MotionSensitivity != b.MotionSensitivity
         || a.MotionCooldownSeconds != b.MotionCooldownSeconds
         || a.ConnectionAlerts != b.ConnectionAlerts || a.MotionAlerts != b.MotionAlerts
-        || a.LowQualityWhenBig != b.LowQualityWhenBig
+        || a.LowQualityWhenBig != b.LowQualityWhenBig || a.Smoothing != b.Smoothing
         || !SameUrl(a.MainUrlOverride, b.MainUrlOverride) || !SameUrl(a.SubUrlOverride, b.SubUrlOverride);
 
     static bool SameUrl(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);

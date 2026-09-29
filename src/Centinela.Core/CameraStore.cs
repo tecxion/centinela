@@ -78,7 +78,7 @@ public sealed class CameraStore(string filePath)
             SubUrlOverride = sub, UseUdp = c.UseUdp, Order = c.Order,
             MotionEnabled = c.MotionEnabled, MotionSensitivity = c.MotionSensitivity,
             MotionCooldownSeconds = c.MotionCooldownSeconds, ConnectionAlerts = c.ConnectionAlerts, MotionAlerts = c.MotionAlerts,
-            LowQualityWhenBig = c.LowQualityWhenBig,
+            LowQualityWhenBig = c.LowQualityWhenBig, Smoothing = c.Smoothing,
         };
     }
 
@@ -97,7 +97,7 @@ public sealed class CameraStore(string filePath)
         MotionSensitivity = Enum.IsDefined(d.MotionSensitivity) ? d.MotionSensitivity : MotionSensitivity.Medium,
         MotionCooldownSeconds = Camera.NormalizeCooldown(d.MotionCooldownSeconds),
         ConnectionAlerts = d.ConnectionAlerts, MotionAlerts = d.MotionAlerts,
-        LowQualityWhenBig = d.LowQualityWhenBig,
+        LowQualityWhenBig = d.LowQualityWhenBig, Smoothing = d.Smoothing,
     };
 
     static string Protect(string plain) => plain.Length == 0
@@ -140,5 +140,6 @@ public sealed class CameraStore(string filePath)
         public bool ConnectionAlerts { get; set; } = true;
         public bool MotionAlerts { get; set; } = true;
         public bool LowQualityWhenBig { get; set; }
+        public bool Smoothing { get; set; }
     }
 }

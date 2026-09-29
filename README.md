@@ -20,6 +20,11 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
   grande de esa cámara entre el flujo principal (HD) y el secundario (SD), más ligero y fluido si la conexión
   (p. ej. wifi lejana) no da para el principal. Se guarda por cámara y también vale a pantalla completa; en SD
   no hay sonido en la vista grande. Las capturas siguen tomándose del principal.
+- **Suavizar imagen** (clic derecho en la cámara, desactivado de serie): para una cámara con wifi irregular que
+  va a tirones. Las imágenes se muestran con 1–2 s de retraso pero repartidas a su ritmo (el que Centinela mide
+  en la llegada; las marcas de tiempo de algunas cámaras saltan), sin «avance rápido» tras un parón. Se aplica
+  al momento, sin reconectar, y se guarda por cámara; un ⏱ junto al nombre lo indica y las estadísticas añaden
+  «suav. N s · cortes N» (cortes = veces que el colchón se vació). El sonido va con el mismo retraso.
 - **Sonido**: botón 🔇/🔊 solo en las cámaras grandes y a pantalla completa, si la cámara envía audio. Todas empiezan
   en silencio y solo suena una a la vez; se calla al ocultar en la bandeja o cerrar la pantalla completa.
   El volumen, en el mezclador de Windows.

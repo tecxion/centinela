@@ -25,6 +25,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
     readonly Action<StreamError>? _onError;
     readonly Action<StreamInfo>? _onInfo;
     readonly Action<string>? _onAudioFailed;
+    readonly Action<double>? _onSmoothing;
     readonly bool _manage;
     Task? _shutdown;
     WriteableBitmap? _bitmap;
@@ -75,6 +76,9 @@ public sealed partial class CameraTile : UserControl, IDisposable
             Item("Duplicar…", (_, _) => DuplicateRequested?.Invoke(this));
             // Not IsCheckable: the check mark is set by the owner (SetMotionEnabled); a click only asks for the toggle.
             _motionItem = Item("Detección de movimiento", Motion_Click);
+            // Same pattern: checked by the owner (SetSmoothing).
+            _smoothingItem = Item("Suavizar imagen (1–2 s de retraso)", (_, _) => SmoothingToggleRequested?.Invoke(this));
+            _smoothingItem.ToolTip = "Para cámaras con wifi irregular: la imagen va con retraso pero sin tirones.";
         }
         // Shown only while the tile is zoomed.
         ResetZoomItem = Item("Restablecer zoom", (_, _) => ResetZoom());
@@ -119,6 +123,11 @@ public sealed partial class CameraTile : UserControl, IDisposable
         _session.ErrorOccurred += _onError;
         _session.InfoAvailable += _onInfo;
         _session.AudioFailed += _onAudioFailed;
+        _onSmoothing = seconds => Dispatcher.BeginInvoke(() => ShowSmoothing(seconds));
+        _session.SmoothingChanged += _onSmoothing;
+        // A shared session gets the camera's setting from the window when it is created.
+        if (_lease is null) _session.Smoothing = camera.Smoothing;
+        ShowSmoothing(_session.SmoothingSeconds);
         SizeChanged += (_, _) =>
         {
             if (_zoom.IsZoomed) ApplyZoom(); // re-clamps to the new size and updates the decode box
@@ -233,6 +242,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
     readonly MenuItem _snapshotItem = null!, _recordItem = null!;
     // Manage tiles only.
     readonly MenuItem? _motionItem;
+    readonly MenuItem? _smoothingItem;
     /// <summary>"Restablecer zoom" in the context menu: collapsed until zoom support shows it.</summary>
     internal MenuItem ResetZoomItem { get; private set; } = null!;
 
@@ -597,6 +607,25 @@ public sealed partial class CameraTile : UserControl, IDisposable
 
     void Motion_Click(object sender, RoutedEventArgs e) => MotionToggleRequested?.Invoke(this);
 
+    /// <summary>Raised when the user asks to turn this camera's smoothing on or off (manage tiles only).</summary>
+    public event Action<CameraTile>? SmoothingToggleRequested;
+
+    /// <summary>The camera's smoothing setting: menu check, and the own session (shared ones are set by the owner).</summary>
+    public void SetSmoothing(bool enabled)
+    {
+        if (_smoothingItem is not null) _smoothingItem.IsChecked = enabled;
+        if (_lease is null && _session is not null && !_disposed) _session.Smoothing = enabled;
+    }
+
+    /// <summary>⏱ next to the name while the view is smoothed, with its current delay.</summary>
+    void ShowSmoothing(double seconds)
+    {
+        if (_disposed) return;
+        SmoothingIndicator.Visibility = seconds > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SmoothingIndicator.ToolTip = string.Create(new CultureInfo("es-ES"),
+            $"Imagen suavizada: {seconds:0.##} s de retraso para que se vea sin tirones.");
+    }
+
     /// <summary>Red frame while the camera has a motion event in progress.</summary>
     public void SetMotionActive(bool active)
     {
@@ -670,7 +699,10 @@ public sealed partial class CameraTile : UserControl, IDisposable
             return;
         }
         var s = _session.Stats;
-        StatsLabel.Text = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")}";
+        StatsLabel.Text = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")}"
+            + (s.SmoothingSeconds > 0
+                ? string.Create(CultureInfo.InvariantCulture, $" · suav. {s.SmoothingSeconds:0.##} s · cortes {s.Rebuffers}")
+                : "");
         StatsLabel.Foreground = s.SinceLastFrame > TimeSpan.FromSeconds(1) ? Brushes.Orange : Brushes.White;
     }
 
@@ -739,6 +771,7 @@ public sealed partial class CameraTile : UserControl, IDisposable
             session.ErrorOccurred -= _onError;
             session.InfoAvailable -= _onInfo;
             session.AudioFailed -= _onAudioFailed;
+            session.SmoothingChanged -= _onSmoothing;
         }
         if (_lease is not null)
         {

@@ -28,7 +28,11 @@ public partial class MainWindow
         var useUdp = camera.UseUdp;
         try
         {
-            return _streams.Acquire(camera.Id, url, useUdp, width, height, session => WireSharedErrors(session, camera.Id, url, useUdp));
+            return _streams.Acquire(camera.Id, url, useUdp, width, height, session =>
+            {
+                session.Smoothing = camera.Smoothing;
+                WireSharedErrors(session, camera.Id, url, useUdp);
+            });
         }
         catch (ObjectDisposedException)
         {

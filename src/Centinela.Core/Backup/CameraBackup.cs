@@ -65,6 +65,7 @@ public static class CameraBackup
                     ConnectionAlerts = c.ConnectionAlerts,
                     MotionAlerts = c.MotionAlerts,
                     LowQualityWhenBig = c.LowQualityWhenBig,
+                    Smoothing = c.Smoothing,
                 };
             }).ToList(),
         };
@@ -125,6 +126,7 @@ public static class CameraBackup
                 ConnectionAlerts = entry.ConnectionAlerts,
                 MotionAlerts = entry.MotionAlerts,
                 LowQualityWhenBig = entry.LowQualityWhenBig,
+                Smoothing = entry.Smoothing,
             });
         }
         return new BackupImport(cameras, key is not null);
@@ -238,5 +240,6 @@ public static class CameraBackup
         public bool ConnectionAlerts { get; set; } = true;
         public bool MotionAlerts { get; set; } = true;
         public bool LowQualityWhenBig { get; set; }
+        public bool Smoothing { get; set; }
     }
 }
