@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Centinela.Core.Platform;
 
 namespace Centinela.Core;
 
@@ -18,16 +19,19 @@ public static class AppPaths
 
     public static bool IsDataDirectoryOverridden => Override is not null;
 
+    /// <summary>This system's folders (Windows: AppData, Vídeos…; macOS: Application Support, Películas…; Linux: XDG).</summary>
+    public static UserFolders Folders => PlatformFolders.Current;
+
     public static string DataDirectory =>
-        Override ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolder);
+        Override ?? Folders.Data;
 
-    public static string RecordingsDirectory => UserFolder(Environment.SpecialFolder.MyVideos, "recordings");
+    public static string RecordingsDirectory => UserFolder(Folders.Videos, "recordings");
 
-    public static string SnapshotsDirectory => UserFolder(Environment.SpecialFolder.MyPictures, "snapshots");
+    public static string SnapshotsDirectory => UserFolder(Folders.Pictures, "snapshots");
 
     public static string LogsDirectory => Path.Combine(DataDirectory, "logs");
 
-    public static string DefaultBackupDirectory => UserFolder(Environment.SpecialFolder.MyDocuments, "backup");
+    public static string DefaultBackupDirectory => UserFolder(Folders.Documents, "backup");
 
     /// <summary>
     /// Empty normally; with the override, "." plus 8 hex digits of the override folder's hash, so a test
@@ -44,8 +48,8 @@ public static class AppPaths
         }
     }
 
-    static string UserFolder(Environment.SpecialFolder folder, string overrideName) =>
-        Override is { } root ? Path.Combine(root, overrideName) : Path.Combine(Environment.GetFolderPath(folder), AppFolder);
+    static string UserFolder(string folder, string overrideName) =>
+        Override is { } root ? Path.Combine(root, overrideName) : Path.Combine(folder, AppFolder);
 
     public static string SanitizeFileName(string name)
     {

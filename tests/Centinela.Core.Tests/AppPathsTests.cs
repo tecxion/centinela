@@ -16,8 +16,7 @@ public class AppPathsTests
     public void DataDirectory_honors_override_variable_when_set()
     {
         var original = Environment.GetEnvironmentVariable(AppPaths.DataDirectoryVariable);
-        var defaultPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Centinela");
+        var defaultPath = AppPaths.Folders.Data;
         try
         {
             Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, @"C:\scratch\centinela-data");
@@ -46,9 +45,9 @@ public class AppPathsTests
             Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, null);
             Assert.False(AppPaths.IsDataDirectoryOverridden);
             Assert.Equal("", AppPaths.InstanceSuffix);
-            Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Centinela"), AppPaths.RecordingsDirectory);
-            Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Centinela"), AppPaths.SnapshotsDirectory);
-            Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Centinela"), AppPaths.DefaultBackupDirectory);
+            Assert.Equal(Path.Combine(AppPaths.Folders.Videos, "Centinela"), AppPaths.RecordingsDirectory);
+            Assert.Equal(Path.Combine(AppPaths.Folders.Pictures, "Centinela"), AppPaths.SnapshotsDirectory);
+            Assert.Equal(Path.Combine(AppPaths.Folders.Documents, "Centinela"), AppPaths.DefaultBackupDirectory);
 
             Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, root);
             Assert.True(AppPaths.IsDataDirectoryOverridden);
