@@ -185,7 +185,10 @@ public partial class DiscoveryDialog : Window
         StatusText.Text = $"Detectando redes: preguntando a {zone.Count:N0} direcciones (unos 20–30 s)…";
         try
         {
+            // Networks that exist but have no ONVIF camera (servers, guests…) are found by pinging their router.
+            var existing = NetworkScan.FindNetworksAsync(WsDiscovery.LocalAddresses(), detect.Token);
             var found = await WsDiscovery.SweepAsync(zone, new Progress<double>(p => DetectProgress.Value = p), detect.Token);
+            var networks = await existing;
             if (_closed) return;
             var groups = found.GroupBy(d => ProbeTargets.NetworkOf(d.Host)).Where(g => g.Key is not null).ToList();
             foreach (var group in groups)
@@ -193,10 +196,16 @@ public partial class DiscoveryDialog : Window
                 var item = AddNetwork(group.Key!, "", isChecked: false, canUncheck: true, saved: true);
                 item.Note = $"detectada: {group.Count()} cámara(s)";
             }
+            var empty = networks.Where(n => !_localNetworks.Contains(n) && groups.All(g => g.Key != n)).ToList();
+            foreach (var network in empty)
+            {
+                var item = AddNetwork(network, "", isChecked: false, canUncheck: true, saved: true);
+                if (!_knownHosts.Any(h => ProbeTargets.NetworkOf(h) == network)) item.Note = "sin cámaras ONVIF";
+            }
             ShowDevices(found);
-            StatusText.Text = groups.Count == 0
-                ? "No se encontraron cámaras en otras redes."
-                : $"Redes con cámaras: {string.Join(", ", groups.Select(g => g.Key))}. Márcalas para incluirlas en las próximas búsquedas. {Summary()}";
+            StatusText.Text = groups.Count == 0 && empty.Count == 0
+                ? "No se encontraron otras redes."
+                : $"{groups.Count} red(es) con cámaras y {empty.Count} sin cámaras ONVIF. Marca las que quieras incluir en las próximas búsquedas. {Summary()}";
         }
         catch (OperationCanceledException)
         {

@@ -306,7 +306,8 @@ Para abrir `%AppData%`, pulsa <kbd>Win</kbd>+<kbd>R</kbd>, escribe `%AppData%\Ce
   o una red de invitados o VLAN para cámaras). La búsqueda normal no cruza el router. En *Redes donde buscar*:
   - pulsa **📡 Detectar otras redes**: Centinela pregunta a todas las direcciones de tu zona de red (p. ej. de
     `192.168.0.x` a `192.168.255.x`; unos 20–30 s, con barra de progreso), muestra las cámaras que encuentre y
-    añade sus redes a la lista, sin marcar;
+    añade sus redes a la lista, sin marcar. También añade las demás redes que existan (su router responde al
+    ping) como «sin cámaras ONVIF», por si alguna cámara tiene ONVIF apagado;
   - marca las redes que quieras (o **Marcar todas**) y pulsa **🔍 Buscar**. Las redes marcadas se recuerdan para
     la próxima vez, y las de las cámaras que ya tienes aparecen marcadas solas;
   - si conoces la red, escríbela (`192.168.2.0/24`, `192.168.2.*` o `192.168.2.1-50`) y pulsa **Añadir red**.
