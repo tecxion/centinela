@@ -147,7 +147,8 @@ Direcciones que usa Centinela (no hace falta escribirlas, las pone solo según l
 ## Primeros pasos
 
 1. Pulsa **🔍 Buscar en red** para encontrar tus cámaras, o **➕ Añadir cámara** para escribir sus datos a mano
-   (nombre, marca, IP, usuario y contraseña).
+   (nombre, marca, IP, usuario y contraseña). Si las cámaras están en otra red que el PC, escríbela en
+   *Buscar también en* (p. ej. `192.168.2.0/24`).
 2. En la ventana de la cámara pulsa **Probar**: comprueba la calidad alta y la baja y te dice resolución, códec y
    si tiene audio, o qué falla («Contraseña incorrecta», «Sin conexión»…).
 3. Guarda. La cámara aparece en la ventana principal.
@@ -300,8 +301,13 @@ Para abrir `%AppData%`, pulsa <kbd>Win</kbd>+<kbd>R</kbd>, escribe `%AppData%\Ce
 <details>
 <summary><strong>La búsqueda en red no encuentra una cámara</strong></summary>
 
-Algunas cámaras no responden a la búsqueda ONVIF, sobre todo si está desactivada. Añádela con
-**➕ Añadir cámara** escribiendo su IP.
+- **¿Están las cámaras en otra red que el PC?** (por ejemplo, PC en `192.168.1.x` y cámaras en `192.168.2.x`,
+  o una red de invitados o VLAN para cámaras). La búsqueda normal no cruza el router: escribe la red de las
+  cámaras en **Buscar también en** (`192.168.2.0/24`, `192.168.2.*` o `192.168.2.1-50`) y pulsa *Buscar de
+  nuevo*. Centinela rellena ese campo con las redes de las cámaras que ya tienes añadidas.
+- Algunas cámaras no responden a la búsqueda ONVIF, sobre todo si está desactivada. Añádela con
+  **➕ Añadir cámara** escribiendo su IP.
+- Las cámaras que ya tienes aparecen igualmente, marcadas como *Ya añadida*.
 </details>
 
 <details>

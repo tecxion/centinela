@@ -4,9 +4,19 @@
         Title="Buscar cámaras en la red" Width="620" Height="460"
         WindowStartupLocation="CenterOwner">
     <DockPanel Margin="16">
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button x:Name="SearchButton" Content="🔍 Buscar de nuevo" Padding="10,4" Click="Search_Click"/>
-            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Buscar también en" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="NetworksBox" Grid.Column="1"
+                         ToolTip="Redes de cámaras distintas de la del PC (la búsqueda normal no cruza el router). Ej.: 10.20.30.0/24, 192.168.2.*, 10.0.0.1-50"/>
+            </Grid>
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="SearchButton" Content="🔍 Buscar de nuevo" Padding="10,4" Click="Search_Click"/>
+                <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
             <Grid>

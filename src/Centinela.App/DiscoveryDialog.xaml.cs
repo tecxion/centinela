@@ -13,6 +13,8 @@ public partial class DiscoveryDialog : Window
     {
         InitializeComponent();
         _knownHosts = new HashSet<string>(knownHosts, StringComparer.OrdinalIgnoreCase);
+        // The networks of the cameras already added: found again even when they sit on another subnet.
+        NetworksBox.Text = ProbeTargets.FromHosts(_knownHosts);
         Loaded += async (_, _) => await SearchAsync();
         Closed += (_, _) => _closed = true;
     }
@@ -25,17 +27,27 @@ public partial class DiscoveryDialog : Window
 
     async Task SearchAsync()
     {
+        IReadOnlyList<System.Net.IPAddress> targets;
+        try
+        {
+            targets = ProbeTargets.Parse(NetworksBox.Text);
+        }
+        catch (FormatException ex)
+        {
+            StatusText.Text = ex.Message;
+            return;
+        }
         SearchButton.IsEnabled = false;
         StatusText.Text = "Buscando cámaras ONVIF en la red…";
         try
         {
-            var devices = await WsDiscovery.ProbeAsync(TimeSpan.FromSeconds(3));
+            var devices = await WsDiscovery.ProbeAsync(TimeSpan.FromSeconds(3), targets);
             DeviceList.ItemsSource = devices
                 .Select(d => new Row(d, d.Host, d.Name ?? "", d.Hardware ?? "", _knownHosts.Contains(d.Host) ? "Ya añadida" : ""))
                 .ToList();
             StatusText.Text = devices.Count == 0
-                ? "No se encontró ninguna. Puede que no tengan ONVIF activado: añádelas a mano."
-                : $"{devices.Count} dispositivo(s) encontrados.";
+                ? "No se encontró ninguna. Si tus cámaras están en otra red, escríbela arriba (p. ej. 10.20.30.0/24); si no, puede que no tengan ONVIF activado: añádelas a mano."
+                : $"{devices.Count} dispositivo(s) encontrados, {devices.Count(d => _knownHosts.Contains(d.Host))} ya añadido(s).";
         }
         catch (Exception ex)
         {
