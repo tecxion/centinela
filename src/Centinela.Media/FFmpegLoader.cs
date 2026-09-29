@@ -1,3 +1,4 @@
+using Centinela.Core.Platform;
 using FFmpeg.AutoGen;
 
 namespace Centinela.Media;
@@ -15,10 +16,10 @@ public static class FFmpegLoader
         {
             if (_loaded) return;
             var dir = directory ?? DefaultDirectory;
-            var avcodec = Path.Combine(dir, $"avcodec-{ffmpeg.LibraryVersionMap["avcodec"]}.dll");
+            var avcodec = Path.Combine(dir, FFmpegLibraries.FileName(OsInfo.Current, "avcodec", ffmpeg.LibraryVersionMap["avcodec"]));
             if (!File.Exists(avcodec))
                 throw new FileNotFoundException(
-                    $"No se encuentran las DLLs de FFmpeg en '{dir}'. Ejecuta tools/get-ffmpeg.ps1 y recompila.", avcodec);
+                    $"No se encuentran las librerías de FFmpeg en '{dir}'. Ejecuta el script de tools/ que las descarga y recompila.", avcodec);
 
             ffmpeg.RootPath = dir;
             DynamicallyLoadedBindings.Initialize();

@@ -161,7 +161,7 @@ public sealed unsafe partial class StreamSession : IDisposable
     void Run()
     {
         AVBufferRef* hwDevice = null;
-        if (_decode && ffmpeg.av_hwdevice_ctx_create(&hwDevice, AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA, null, null, 0) < 0)
+        if (_decode && ffmpeg.av_hwdevice_ctx_create(&hwDevice, HardwareAcceleration.Current.Device, null, null, 0) < 0)
             hwDevice = null;
         var backoff = 1;
         try
@@ -415,7 +415,7 @@ public sealed unsafe partial class StreamSession : IDisposable
     static AVPixelFormat GetFormat(AVCodecContext* context, AVPixelFormat* formats)
     {
         for (var p = formats; *p != AVPixelFormat.AV_PIX_FMT_NONE; p++)
-            if (*p == AVPixelFormat.AV_PIX_FMT_D3D11) return *p;
+            if (*p == HardwareAcceleration.Current.Format) return *p;
         return ffmpeg.avcodec_default_get_format(context, formats);
     }
 
@@ -461,9 +461,9 @@ public sealed unsafe partial class StreamSession : IDisposable
 
     void PresentFrame(AVFrame* frame, AVFrame* sw)
     {
-        var hardware = frame->format == (int)AVPixelFormat.AV_PIX_FMT_D3D11;
+        var hardware = frame->format == (int)HardwareAcceleration.Current.Format;
         var src = frame;
-        if (frame->format == (int)AVPixelFormat.AV_PIX_FMT_D3D11)
+        if (frame->format == (int)HardwareAcceleration.Current.Format)
         {
             ffmpeg.av_frame_unref(sw);
             var err = ffmpeg.av_hwframe_transfer_data(sw, frame, 0);

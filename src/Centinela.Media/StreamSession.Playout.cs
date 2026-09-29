@@ -251,7 +251,7 @@ public sealed unsafe partial class StreamSession
         [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
         static extern uint TimeEndPeriod(uint milliseconds);
 
-        public static void Begin() => TimeBeginPeriod(1);
-        public static void End() => TimeEndPeriod(1);
+        public static void Begin() { if (OperatingSystem.IsWindows()) TimeBeginPeriod(1); }
+        public static void End() { if (OperatingSystem.IsWindows()) TimeEndPeriod(1); }
     }
 }
