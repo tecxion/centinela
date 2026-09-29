@@ -10,7 +10,7 @@ namespace Centinela.App;
 
 public partial class MainWindow : Window
 {
-    readonly CameraStore _store = new(CameraStore.DefaultPath);
+    readonly CameraStore _store = new(CameraStore.DefaultPath, new Centinela.Platform.Windows.DpapiSecretStore());
     readonly SettingsStore _settingsStore = new(SettingsStore.DefaultPath);
     readonly AppSettings _settings;
     readonly List<Camera> _cameras;

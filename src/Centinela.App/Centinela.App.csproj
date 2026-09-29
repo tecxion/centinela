@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Centinela.Core\Centinela.Core.csproj" />
     <ProjectReference Include="..\Centinela.Media\Centinela.Media.csproj" />
+    <ProjectReference Include="..\Centinela.Platform\Centinela.Platform.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

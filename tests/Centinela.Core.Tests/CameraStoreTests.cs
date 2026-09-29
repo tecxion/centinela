@@ -1,4 +1,5 @@
 using Centinela.Core;
+using Centinela.Core.Platform;
 
 namespace Centinela.Core.Tests;
 
@@ -6,6 +7,7 @@ public sealed class CameraStoreTests : IDisposable
 {
     readonly string _dir = Path.Combine(Path.GetTempPath(), "centinela-tests-" + Guid.NewGuid());
     string FilePath => Path.Combine(_dir, "cameras.json");
+    readonly FakeSecretStore _secrets = new();
 
     public void Dispose()
     {
@@ -21,15 +23,15 @@ public sealed class CameraStoreTests : IDisposable
 
     [Fact]
     public void Load_returns_empty_when_file_missing() =>
-        Assert.Empty(new CameraStore(FilePath).Load());
+        Assert.Empty(new CameraStore(FilePath, _secrets).Load());
 
     [Fact]
     public void Round_trip_preserves_all_fields()
     {
         var original = Sample(3);
-        new CameraStore(FilePath).Save([original]);
+        new CameraStore(FilePath, _secrets).Save([original]);
 
-        var loaded = Assert.Single(new CameraStore(FilePath).Load());
+        var loaded = Assert.Single(new CameraStore(FilePath, _secrets).Load());
         Assert.Equal(original.Id, loaded.Id);
         Assert.Equal(original.Name, loaded.Name);
         Assert.Equal(original.Brand, loaded.Brand);
@@ -46,7 +48,7 @@ public sealed class CameraStoreTests : IDisposable
     [Fact]
     public void Password_is_not_stored_in_plaintext()
     {
-        new CameraStore(FilePath).Save([Sample(0)]);
+        new CameraStore(FilePath, _secrets).Save([Sample(0)]);
         var json = File.ReadAllText(FilePath);
         Assert.DoesNotContain("SuperSecreta123", json);
         Assert.Contains("passwordProtected", json);
@@ -55,8 +57,8 @@ public sealed class CameraStoreTests : IDisposable
     [Fact]
     public void Load_returns_cameras_sorted_by_order()
     {
-        new CameraStore(FilePath).Save([Sample(2), Sample(0), Sample(1)]);
-        Assert.Equal(new[] { 0, 1, 2 }, new CameraStore(FilePath).Load().Select(c => c.Order));
+        new CameraStore(FilePath, _secrets).Save([Sample(2), Sample(0), Sample(1)]);
+        Assert.Equal(new[] { 0, 1, 2 }, new CameraStore(FilePath, _secrets).Load().Select(c => c.Order));
     }
 
     static string CameraJson(string passwordProtected) => $$"""
@@ -80,7 +82,7 @@ public sealed class CameraStoreTests : IDisposable
     {
         Directory.CreateDirectory(_dir);
         File.WriteAllText(FilePath, CameraJson("AAAA"));
-        var loaded = Assert.Single(new CameraStore(FilePath).Load());
+        var loaded = Assert.Single(new CameraStore(FilePath, _secrets).Load());
         Assert.Equal("Cam", loaded.Name);
         Assert.Equal("", loaded.Password);
     }
@@ -90,7 +92,7 @@ public sealed class CameraStoreTests : IDisposable
     {
         Directory.CreateDirectory(_dir);
         File.WriteAllText(FilePath, CameraJson("not base64!"));
-        var loaded = Assert.Single(new CameraStore(FilePath).Load());
+        var loaded = Assert.Single(new CameraStore(FilePath, _secrets).Load());
         Assert.Equal("Cam", loaded.Name);
         Assert.Equal("", loaded.Password);
     }
@@ -102,7 +104,7 @@ public sealed class CameraStoreTests : IDisposable
         const string content = "{ not json";
         File.WriteAllText(FilePath, content);
 
-        Assert.Empty(new CameraStore(FilePath).Load());
+        Assert.Empty(new CameraStore(FilePath, _secrets).Load());
 
         Assert.False(File.Exists(FilePath));
         var moved = Assert.Single(Directory.GetFiles(_dir, "cameras.json.bad-*"));
@@ -117,13 +119,13 @@ public sealed class CameraStoreTests : IDisposable
             Name = "Otra", Brand = Brand.Custom, MainUrlOverride = "rtsp://bob:s3cr%40t@h/x",
             SubUrlOverride = "rtsp://bob:s3cr%40t@h/y",
         };
-        new CameraStore(FilePath).Save([camera]);
+        new CameraStore(FilePath, _secrets).Save([camera]);
 
         var json = File.ReadAllText(FilePath);
         Assert.DoesNotContain("s3cr", json);
         Assert.DoesNotContain("bob:", json);
 
-        var loaded = Assert.Single(new CameraStore(FilePath).Load());
+        var loaded = Assert.Single(new CameraStore(FilePath, _secrets).Load());
         Assert.Equal("bob", loaded.User);
         Assert.Equal("s3cr@t", loaded.Password);
         Assert.Equal("rtsp://h/x", loaded.MainUrlOverride);
@@ -136,10 +138,10 @@ public sealed class CameraStoreTests : IDisposable
     {
         var camera = Sample(0);
         camera.MainUrlOverride = "rtsp://other:pw@h:554/main";
-        new CameraStore(FilePath).Save([camera]);
+        new CameraStore(FilePath, _secrets).Save([camera]);
 
         Assert.DoesNotContain("other:pw", File.ReadAllText(FilePath));
-        var loaded = Assert.Single(new CameraStore(FilePath).Load());
+        var loaded = Assert.Single(new CameraStore(FilePath, _secrets).Load());
         Assert.Equal("admin", loaded.User);
         Assert.Equal("SuperSecreta123", loaded.Password);
         Assert.Equal("rtsp://h:554/main", loaded.MainUrlOverride);
@@ -148,10 +150,10 @@ public sealed class CameraStoreTests : IDisposable
     [Fact]
     public void Locked_file_loads_empty_and_is_left_untouched()
     {
-        new CameraStore(FilePath).Save([Sample(0)]);
+        new CameraStore(FilePath, _secrets).Save([Sample(0)]);
         var before = File.ReadAllText(FilePath);
         using (new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.None))
-            Assert.Empty(new CameraStore(FilePath).Load());
+            Assert.Empty(new CameraStore(FilePath, _secrets).Load());
 
         Assert.Equal(before, File.ReadAllText(FilePath));
         Assert.Empty(Directory.GetFiles(_dir, "cameras.json.bad-*"));
@@ -164,7 +166,7 @@ public sealed class CameraStoreTests : IDisposable
         const string content = "{ not json";
         File.WriteAllText(FilePath, content);
         using (new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-            Assert.Empty(new CameraStore(FilePath).Load());
+            Assert.Empty(new CameraStore(FilePath, _secrets).Load());
 
         Assert.Equal(content, File.ReadAllText(FilePath));
         Assert.Empty(Directory.GetFiles(_dir, "cameras.json.bad-*"));
@@ -175,14 +177,14 @@ public sealed class CameraStoreTests : IDisposable
     {
         Directory.CreateDirectory(_dir);
         File.WriteAllText(FilePath, CameraJson("").Replace("\"brand\": \"Imou\"", "\"brand\": 7"));
-        Assert.Equal(Brand.Custom, Assert.Single(new CameraStore(FilePath).Load()).Brand);
+        Assert.Equal(Brand.Custom, Assert.Single(new CameraStore(FilePath, _secrets).Load()).Brand);
     }
 
     [Fact]
     public void Motion_and_alert_fields_round_trip()
     {
         var path = Path.Combine(_dir, "c.json");
-        var store = new CameraStore(path);
+        var store = new CameraStore(path, _secrets);
         store.Save([new Camera { Name = "A", Host = "h", MotionEnabled = true, MotionSensitivity = MotionSensitivity.High,
             MotionCooldownSeconds = 300, ConnectionAlerts = false, MotionAlerts = false }]);
         var c = Assert.Single(store.Load());
@@ -194,7 +196,7 @@ public sealed class CameraStoreTests : IDisposable
     public void Low_quality_when_big_round_trips_and_defaults_to_off()
     {
         var path = Path.Combine(_dir, "q.json");
-        var store = new CameraStore(path);
+        var store = new CameraStore(path, _secrets);
         store.Save([new Camera { Name = "A", Host = "h", LowQualityWhenBig = true, Smoothing = true, OriginalEncoders = "t=1x2@3:4" },
             new Camera { Name = "B", Host = "h2" }]);
         var cams = store.Load();
@@ -216,7 +218,7 @@ public sealed class CameraStoreTests : IDisposable
               { "id": "6f1c6a36-4a6e-4a53-9a0f-1d0e0b0a0c02", "name": "Rara", "brand": "Tapo", "host": "h2", "port": 554, "user": "u", "order": 1,
                 "motionCooldownSeconds": 45, "motionSensitivity": 7 } ]
             """);
-        var cams = new CameraStore(path).Load();
+        var cams = new CameraStore(path, _secrets).Load();
         Assert.Equal((false, MotionSensitivity.Medium, 60, true, true),
             (cams[0].MotionEnabled, cams[0].MotionSensitivity, cams[0].MotionCooldownSeconds, cams[0].ConnectionAlerts, cams[0].MotionAlerts));
         Assert.Equal((MotionSensitivity.Medium, 60), (cams[1].MotionSensitivity, cams[1].MotionCooldownSeconds));
@@ -231,8 +233,27 @@ public sealed class CameraStoreTests : IDisposable
             [ { "id": "6f1c6a36-4a6e-4a53-9a0f-1d0e0b0a0c03", "name": "Nueva", "brand": "Marciana", "host": "h", "port": 554,
                 "user": "u", "order": 0, "motionEnabled": true, "motionSensitivity": "Extreme" } ]
             """);
-        var c = Assert.Single(new CameraStore(path).Load());
+        var c = Assert.Single(new CameraStore(path, _secrets).Load());
         Assert.Equal((Brand.Custom, MotionSensitivity.Medium, true), (c.Brand, c.MotionSensitivity, c.MotionEnabled));
         Assert.Empty(Directory.GetFiles(_dir, "unknown.json.bad-*"));
+    }
+
+    [Fact]
+    public void Passwords_go_through_the_secret_store()
+    {
+        new CameraStore(FilePath, _secrets).Save([Sample(0)]);
+        Assert.Contains("\"passwordProtected\": \"fake:", File.ReadAllText(FilePath));
+        Assert.Equal("SuperSecreta123", Assert.Single(new CameraStore(FilePath, _secrets).Load()).Password);
+    }
+
+    [Fact]
+    public void Saving_without_a_camera_forgets_its_secret_and_keeps_the_others()
+    {
+        var kept = Sample(0);
+        var removed = Sample(1);
+        var store = new CameraStore(FilePath, _secrets);
+        store.Save([kept, removed]);
+        store.Save([kept]);
+        Assert.Equal([removed.Id], _secrets.Forgotten);
     }
 }

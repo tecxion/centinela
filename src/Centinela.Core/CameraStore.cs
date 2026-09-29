@@ -1,11 +1,10 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Centinela.Core.Platform;
 
 namespace Centinela.Core;
 
-public sealed class CameraStore(string filePath)
+public sealed class CameraStore(string filePath, ISecretStore secrets)
 {
     static readonly JsonSerializerOptions Json = new()
     {
@@ -53,10 +52,32 @@ public sealed class CameraStore(string filePath)
 
     public void Save(IEnumerable<Camera> cameras)
     {
+        var list = cameras.ToList();
+        var previous = ReadStoredSecrets();
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
         var tmp = filePath + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(cameras.Select(ToDto).ToList(), Json));
+        File.WriteAllText(tmp, JsonSerializer.Serialize(list.Select(ToDto).ToList(), Json));
         File.Move(tmp, filePath, overwrite: true);
+
+        // A camera that is no longer in the list takes its password with it (keychain entries, etc.).
+        var kept = list.Select(c => c.Id).ToHashSet();
+        foreach (var (id, stored) in previous)
+            if (!kept.Contains(id) && stored.Length > 0) secrets.Forget(id, stored);
+    }
+
+    /// <summary>Id → stored password value of the file as it is now; empty when missing or unreadable.</summary>
+    Dictionary<Guid, string> ReadStoredSecrets()
+    {
+        try
+        {
+            if (!File.Exists(filePath)) return [];
+            var dtos = JsonSerializer.Deserialize<List<CameraDto>>(File.ReadAllText(filePath), Json) ?? [];
+            return dtos.GroupBy(d => d.Id).ToDictionary(g => g.Key, g => g.First().PasswordProtected ?? "");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return [];
+        }
     }
 
     /// <summary>
@@ -64,7 +85,7 @@ public sealed class CameraStore(string filePath)
     /// and, when the camera has no user of its own, kept in User / PasswordProtected instead
     /// (<see cref="StreamUrlBuilder.Build"/> puts them back into the URL).
     /// </summary>
-    static CameraDto ToDto(Camera c)
+    CameraDto ToDto(Camera c)
     {
         var main = StripCredentials(c.MainUrlOverride, out var mainCredentials);
         var sub = StripCredentials(c.SubUrlOverride, out var subCredentials);
@@ -74,7 +95,7 @@ public sealed class CameraStore(string filePath)
         return new()
         {
             Id = c.Id, Name = c.Name, Brand = c.Brand, Host = c.Host, Port = c.Port, User = user,
-            PasswordProtected = Protect(password), MainUrlOverride = main,
+            PasswordProtected = secrets.Protect(c.Id, password), MainUrlOverride = main,
             SubUrlOverride = sub, UseUdp = c.UseUdp, Order = c.Order,
             MotionEnabled = c.MotionEnabled, MotionSensitivity = c.MotionSensitivity,
             MotionCooldownSeconds = c.MotionCooldownSeconds, ConnectionAlerts = c.ConnectionAlerts, MotionAlerts = c.MotionAlerts,
@@ -88,10 +109,10 @@ public sealed class CameraStore(string filePath)
         return url is null ? null : StreamUrlBuilder.StripCredentials(url.Trim(), out credentials);
     }
 
-    static Camera FromDto(CameraDto d) => new()
+    Camera FromDto(CameraDto d) => new()
     {
         Id = d.Id, Name = d.Name, Brand = Enum.IsDefined(d.Brand) ? d.Brand : Brand.Custom, Host = d.Host, Port = d.Port, User = d.User,
-        Password = Unprotect(d.PasswordProtected), MainUrlOverride = d.MainUrlOverride,
+        Password = secrets.Unprotect(d.Id, d.PasswordProtected ?? "") ?? "", MainUrlOverride = d.MainUrlOverride,
         SubUrlOverride = d.SubUrlOverride, UseUdp = d.UseUdp, Order = d.Order,
         MotionEnabled = d.MotionEnabled,
         MotionSensitivity = Enum.IsDefined(d.MotionSensitivity) ? d.MotionSensitivity : MotionSensitivity.Medium,
@@ -99,25 +120,6 @@ public sealed class CameraStore(string filePath)
         ConnectionAlerts = d.ConnectionAlerts, MotionAlerts = d.MotionAlerts,
         LowQualityWhenBig = d.LowQualityWhenBig, Smoothing = d.Smoothing, OriginalEncoders = d.OriginalEncoders,
     };
-
-    static string Protect(string plain) => plain.Length == 0
-        ? ""
-        : Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(plain), null, DataProtectionScope.CurrentUser));
-
-    static string Unprotect(string? protectedValue)
-    {
-        if (string.IsNullOrEmpty(protectedValue)) return "";
-        try
-        {
-            return Encoding.UTF8.GetString(
-                ProtectedData.Unprotect(Convert.FromBase64String(protectedValue), null, DataProtectionScope.CurrentUser));
-        }
-        catch (Exception e) when (e is CryptographicException or FormatException)
-        {
-            // Undecryptable (e.g. file from another Windows user): the camera just loses its password.
-            return "";
-        }
-    }
 
     sealed class CameraDto
     {
