@@ -6,13 +6,13 @@ namespace Centinela.App;
 
 public partial class App : Application
 {
-    static Centinela.Core.Platform.ISingleInstance _instance = null!;
+    internal static Centinela.Platform.PlatformServices Platform { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        _instance = new Centinela.Platform.Windows.WindowsSingleInstance(AppPaths.InstanceSuffix);
-        if (!_instance.TryClaim())
+        Platform = Centinela.Platform.PlatformServices.Create(Environment.ProcessPath!);
+        if (!Platform.SingleInstance.TryClaim())
         {
             // The running instance shows its window; this one has nothing to do.
             Shutdown(0);
@@ -45,7 +45,7 @@ public partial class App : Application
             var startHidden = e.Args.Contains("--tray");
             var window = new MainWindow(startHidden);
             if (!startHidden) window.Show();
-            _instance.ListenForActivation(() => Dispatcher.BeginInvoke(window.ShowFromTray));
+            Platform.SingleInstance.ListenForActivation(() => Dispatcher.BeginInvoke(window.ShowFromTray));
         }
         catch (Exception ex)
         {

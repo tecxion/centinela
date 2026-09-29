@@ -8,17 +8,17 @@ namespace Centinela.App;
 public partial class MainWindow
 {
     TrayController _tray = null!;
-    IAutoStart _autoStart = null!;
+    IAutoStart? _autoStart;
     bool _exitRequested;
 
     public bool IsHiddenInTray { get; private set; }
 
     void InitTray()
     {
-        _autoStart = new Centinela.Platform.Windows.WindowsAutoStart(new Centinela.Platform.Windows.RegistryRunKey(), Environment.ProcessPath!);
+        _autoStart = App.Platform.AutoStart;
         if (AutoStartAvailable)
         {
-            try { _autoStart.Migrate(); }
+            try { _autoStart!.Migrate(); }
             catch (Exception) { /* the old entry just stays; the tray check shows the real state */ }
         }
         _tray = new TrayController(IsAutoStartEnabled(), autoStartAvailable: AutoStartAvailable);
@@ -39,8 +39,8 @@ public partial class MainWindow
             if (enabled == IsAutoStartEnabled()) return;
             try
             {
-                if (enabled) _autoStart.Enable();
-                else _autoStart.Disable();
+                if (enabled) _autoStart!.Enable();
+                else _autoStart!.Disable();
             }
             catch (Exception ex)
             {
@@ -60,12 +60,12 @@ public partial class MainWindow
     }
 
     /// <summary>A CENTINELA_DATA_DIR (test) run never reads or writes the Windows Run key.</summary>
-    static bool AutoStartAvailable => !AppPaths.IsDataDirectoryOverridden;
+    bool AutoStartAvailable => _autoStart is not null;
 
     bool IsAutoStartEnabled()
     {
         if (!AutoStartAvailable) return false;
-        try { return _autoStart.IsEnabled; }
+        try { return _autoStart!.IsEnabled; }
         catch (Exception) { return false; }
     }
 
