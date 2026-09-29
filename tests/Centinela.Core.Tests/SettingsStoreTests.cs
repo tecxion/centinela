@@ -22,6 +22,16 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Discovery_networks_round_trip_and_null_becomes_empty()
+    {
+        new SettingsStore(FilePath).Save(new AppSettings { DiscoveryNetworks = ["10.20.30.0/24", "192.168.2.1-50"] });
+        Assert.Equal(["10.20.30.0/24", "192.168.2.1-50"], new SettingsStore(FilePath).Load().DiscoveryNetworks);
+
+        File.WriteAllText(FilePath, """{ "discoveryNetworks": null }""");
+        Assert.Empty(new SettingsStore(FilePath).Load().DiscoveryNetworks);
+    }
+
+    [Fact]
     public void Round_trip()
     {
         new SettingsStore(FilePath).Save(new AppSettings

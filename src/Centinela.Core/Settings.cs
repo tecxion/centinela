@@ -34,6 +34,8 @@ public sealed class AppSettings
     public bool QuietHoursEnabled { get; set; }
     public string QuietFrom { get; set; } = "23:00";
     public string QuietTo { get; set; } = "07:00";
+    /// <summary>Extra networks (a.b.c.0/24) ticked in «Buscar en red», besides this PC's and the cameras' own.</summary>
+    public List<string> DiscoveryNetworks { get; set; } = [];
 
     /// <summary>Exactly "HH:mm" (00:00–23:59).</summary>
     public static bool TryParseTime(string? text, out TimeSpan time) =>
@@ -67,6 +69,7 @@ public sealed class SettingsStore(string filePath)
         if (!Enum.IsDefined(settings.GridMode)) settings.GridMode = GridMode.Auto;
         if (!Enum.IsDefined(settings.LayoutMode)) settings.LayoutMode = LayoutMode.Grid;
         settings.DualCameraIds ??= [];
+        settings.DiscoveryNetworks ??= [];
         if (settings.DualNextReplace is not (0 or 1)) settings.DualNextReplace = 0;
         if (!AppSettings.TryParseTime(settings.QuietFrom, out _)) settings.QuietFrom = "23:00";
         if (!AppSettings.TryParseTime(settings.QuietTo, out _)) settings.QuietTo = "07:00";

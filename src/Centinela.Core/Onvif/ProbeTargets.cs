@@ -11,17 +11,38 @@ namespace Centinela.Core.Onvif;
 public static class ProbeTargets
 {
     /// <summary>More than this is refused: probing is meant for a few home subnets, not for scanning.</summary>
-    public const int MaxAddresses = 4096;
+    public const int MaxAddresses = 16384;
     const int MinPrefix = 22;
 
     /// <summary>The distinct /24 networks of the given hosts (IPv4 literals only), as <c>a.b.c.0/24</c>.</summary>
-    public static string FromHosts(IEnumerable<string> hosts) =>
-        string.Join(", ", hosts
-            .Select(h => IPAddress.TryParse(h.Trim(), out var ip) && ip.AddressFamily == AddressFamily.InterNetwork ? ip.GetAddressBytes() : null)
-            .OfType<byte[]>()
-            .Select(b => $"{b[0]}.{b[1]}.{b[2]}.0/24")
-            .Distinct()
-            .OrderBy(s => s, StringComparer.Ordinal));
+    public static string FromHosts(IEnumerable<string> hosts) => string.Join(", ", NetworksOf(hosts));
+
+    /// <summary>The distinct /24 networks (<c>a.b.c.0/24</c>) of the given hosts, sorted; non-IPv4 hosts are skipped.</summary>
+    public static IReadOnlyList<string> NetworksOf(IEnumerable<string> hosts) =>
+        hosts.Select(NetworkOf).OfType<string>().Distinct().OrderBy(SortKey).ToList();
+
+    /// <summary>The /24 network of an IPv4 literal as <c>a.b.c.0/24</c>, or null.</summary>
+    public static string? NetworkOf(string host) =>
+        IPAddress.TryParse(host.Trim(), out var ip) && ip.AddressFamily == AddressFamily.InterNetwork
+            ? $"{ip.GetAddressBytes()[0]}.{ip.GetAddressBytes()[1]}.{ip.GetAddressBytes()[2]}.0/24"
+            : null;
+
+    /// <summary>
+    /// Every host (.1–.254) of every /24 in the /16 around <paramref name="local"/>: where home and small-office
+    /// networks put their other subnets (192.168.x, 10.a.x). 65 024 addresses, for «Detectar otras redes».
+    /// </summary>
+    public static IReadOnlyList<IPAddress> Zone(IPAddress local)
+    {
+        var b = local.GetAddressBytes();
+        var result = new List<IPAddress>(256 * 254);
+        for (var third = 0; third < 256; third++)
+            for (var fourth = 1; fourth < 255; fourth++)
+                result.Add(new IPAddress([b[0], b[1], (byte)third, (byte)fourth]));
+        return result;
+    }
+
+    static uint SortKey(string network) =>
+        TryAddress(network.Split('/')[0], out var value) ? value : uint.MaxValue;
 
     /// <summary>
     /// The addresses described by <paramref name="text"/>, without network and broadcast addresses of ranges.

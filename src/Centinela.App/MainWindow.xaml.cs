@@ -221,8 +221,14 @@ public partial class MainWindow : Window
 
     void Discover_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new DiscoveryDialog(_cameras.Select(c => c.Host)) { Owner = this };
-        if (dialog.ShowDialog() == true && dialog.Result is { } found) AddCamera(found);
+        var dialog = new DiscoveryDialog(_cameras.Select(c => c.Host), _settings.DiscoveryNetworks) { Owner = this };
+        var added = dialog.ShowDialog() == true;
+        if (!dialog.SavedNetworks.SequenceEqual(_settings.DiscoveryNetworks))
+        {
+            _settings.DiscoveryNetworks = [.. dialog.SavedNetworks];
+            SaveSettingsQuietly();
+        }
+        if (added && dialog.Result is { } found) AddCamera(found);
     }
 
     void EditCamera(CameraTile tile)

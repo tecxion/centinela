@@ -147,8 +147,9 @@ Direcciones que usa Centinela (no hace falta escribirlas, las pone solo según l
 ## Primeros pasos
 
 1. Pulsa **🔍 Buscar en red** para encontrar tus cámaras, o **➕ Añadir cámara** para escribir sus datos a mano
-   (nombre, marca, IP, usuario y contraseña). Si las cámaras están en otra red que el PC, escríbela en
-   *Buscar también en* (p. ej. `192.168.2.0/24`).
+   (nombre, marca, IP, usuario y contraseña). La búsqueda mira siempre la red de tu PC; si tus cámaras están en
+   otra red y no sabes cuál, pulsa **📡 Detectar otras redes** (ver
+   [La búsqueda en red no encuentra una cámara](#solución-de-problemas)).
 2. En la ventana de la cámara pulsa **Probar**: comprueba la calidad alta y la baja y te dice resolución, códec y
    si tiene audio, o qué falla («Contraseña incorrecta», «Sin conexión»…).
 3. Guarda. La cámara aparece en la ventana principal.
@@ -302,9 +303,13 @@ Para abrir `%AppData%`, pulsa <kbd>Win</kbd>+<kbd>R</kbd>, escribe `%AppData%\Ce
 <summary><strong>La búsqueda en red no encuentra una cámara</strong></summary>
 
 - **¿Están las cámaras en otra red que el PC?** (por ejemplo, PC en `192.168.1.x` y cámaras en `192.168.2.x`,
-  o una red de invitados o VLAN para cámaras). La búsqueda normal no cruza el router: escribe la red de las
-  cámaras en **Buscar también en** (`192.168.2.0/24`, `192.168.2.*` o `192.168.2.1-50`) y pulsa *Buscar de
-  nuevo*. Centinela rellena ese campo con las redes de las cámaras que ya tienes añadidas.
+  o una red de invitados o VLAN para cámaras). La búsqueda normal no cruza el router. En *Redes donde buscar*:
+  - pulsa **📡 Detectar otras redes**: Centinela pregunta a todas las direcciones de tu zona de red (p. ej. de
+    `192.168.0.x` a `192.168.255.x`; unos 20–30 s, con barra de progreso), muestra las cámaras que encuentre y
+    añade sus redes a la lista, sin marcar;
+  - marca las redes que quieras (o **Marcar todas**) y pulsa **🔍 Buscar**. Las redes marcadas se recuerdan para
+    la próxima vez, y las de las cámaras que ya tienes aparecen marcadas solas;
+  - si conoces la red, escríbela (`192.168.2.0/24`, `192.168.2.*` o `192.168.2.1-50`) y pulsa **Añadir red**.
 - Algunas cámaras no responden a la búsqueda ONVIF, sobre todo si está desactivada. Añádela con
   **➕ Añadir cámara** escribiendo su IP.
 - Las cámaras que ya tienes aparecen igualmente, marcadas como *Ya añadida*.

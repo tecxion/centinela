@@ -38,7 +38,25 @@ public class ProbeTargetsTests
     [Fact]
     public void Too_many_addresses_in_total_are_refused() =>
         Assert.Throws<FormatException>(() => ProbeTargets.Parse(
-            string.Join(",", Enumerable.Range(0, 20).Select(i => $"10.0.{i}.0/24"))));
+            string.Join(",", Enumerable.Range(0, 70).Select(i => $"10.0.{i}.0/24"))));
+
+    [Fact]
+    public void Zone_is_every_host_of_every_24_in_the_16()
+    {
+        var zone = ProbeTargets.Zone(System.Net.IPAddress.Parse("192.168.1.37"));
+        Assert.Equal(256 * 254, zone.Count);
+        Assert.Equal("192.168.0.1", zone[0].ToString());
+        Assert.Equal("192.168.255.254", zone[^1].ToString());
+        Assert.DoesNotContain(zone, a => a.GetAddressBytes()[3] is 0 or 255);
+    }
+
+    [Fact]
+    public void Network_of_a_host_is_its_24()
+    {
+        Assert.Equal("10.20.30.0/24", ProbeTargets.NetworkOf("10.20.30.118"));
+        Assert.Null(ProbeTargets.NetworkOf("camara.local"));
+        Assert.Equal(["9.0.0.0/24", "10.0.0.0/24"], ProbeTargets.NetworksOf(["10.0.0.5", "9.0.0.1", "10.0.0.7"]));
+    }
 
     [Fact]
     public void Networks_of_known_cameras_are_their_distinct_24s() =>
