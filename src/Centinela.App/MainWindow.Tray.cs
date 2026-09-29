@@ -1,5 +1,6 @@
 using System.Windows;
 using Centinela.Core;
+using Centinela.Core.Platform;
 
 namespace Centinela.App;
 
@@ -7,17 +8,17 @@ namespace Centinela.App;
 public partial class MainWindow
 {
     TrayController _tray = null!;
-    AutoStart _autoStart = null!;
+    IAutoStart _autoStart = null!;
     bool _exitRequested;
 
     public bool IsHiddenInTray { get; private set; }
 
     void InitTray()
     {
-        _autoStart = new AutoStart(new RegistryRunKey(), Environment.ProcessPath!);
+        _autoStart = new Centinela.Platform.Windows.WindowsAutoStart(new Centinela.Platform.Windows.RegistryRunKey(), Environment.ProcessPath!);
         if (AutoStartAvailable)
         {
-            try { _autoStart.MigrateLegacy(); }
+            try { _autoStart.Migrate(); }
             catch (Exception) { /* the old entry just stays; the tray check shows the real state */ }
         }
         _tray = new TrayController(IsAutoStartEnabled(), autoStartAvailable: AutoStartAvailable);

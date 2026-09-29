@@ -1,8 +1,8 @@
-using Centinela.Core;
+using Centinela.Platform.Windows;
 
-namespace Centinela.Core.Tests;
+namespace Centinela.Platform.Tests;
 
-public class AutoStartTests
+public class WindowsAutoStartTests
 {
     sealed class FakeRunKey : IRunKey
     {
@@ -16,7 +16,7 @@ public class AutoStartTests
     public void Enable_writes_quoted_command_with_tray_flag_and_disable_removes_it()
     {
         var key = new FakeRunKey();
-        var auto = new AutoStart(key, @"C:\Apps\Centinela\Centinela.exe");
+        var auto = new WindowsAutoStart(key, @"C:\Apps\Centinela\Centinela.exe");
         Assert.False(auto.IsEnabled);
         auto.Enable();
         Assert.Equal("\"C:\\Apps\\Centinela\\Centinela.exe\" --tray", key.Values["Centinela"]);
@@ -31,7 +31,7 @@ public class AutoStartTests
     {
         var key = new FakeRunKey();
         key.Set("Centinela", "\"D:\\old\\Centinela.exe\" --tray");
-        Assert.False(new AutoStart(key, @"C:\new\Centinela.exe").IsEnabled);
+        Assert.False(new WindowsAutoStart(key, @"C:\new\Centinela.exe").IsEnabled);
     }
 
     [Fact]
@@ -39,11 +39,11 @@ public class AutoStartTests
     {
         var key = new FakeRunKey();
         key.Set("CamaraWin", "\"D:\\old\\CamaraWin.exe\" --tray");
-        var auto = new AutoStart(key, @"C:\new\Centinela.exe");
-        Assert.True(auto.MigrateLegacy());
+        var auto = new WindowsAutoStart(key, @"C:\new\Centinela.exe");
+        Assert.True(auto.Migrate());
         Assert.False(key.Values.ContainsKey("CamaraWin"));
         Assert.True(auto.IsEnabled);
-        Assert.False(auto.MigrateLegacy());
+        Assert.False(auto.Migrate());
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class AutoStartTests
     {
         var key = new FakeRunKey();
         key.Set("CamaraWin", "x");
-        new AutoStart(key, @"C:\new\Centinela.exe").Disable();
+        new WindowsAutoStart(key, @"C:\new\Centinela.exe").Disable();
         Assert.Empty(key.Values);
     }
 }
