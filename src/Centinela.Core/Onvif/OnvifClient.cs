@@ -96,6 +96,18 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
         return result;
     }
 
+    /// <summary>
+    /// Writes a new resolution, frame rate and bitrate to one encoder configuration (persistent on the camera),
+    /// starting from its current full configuration so nothing else changes. Throws <see cref="OnvifException"/>
+    /// with the camera's reason when it refuses.
+    /// </summary>
+    public async Task SetEncoderAsync(string token, EncoderChange change, CancellationToken ct = default)
+    {
+        var media = await GetMediaServiceUrlAsync(ct);
+        var current = await SendAsync(media, $"<GetVideoEncoderConfigurations xmlns=\"{MediaNs}\"/>", ct);
+        await SendAsync(media, EncoderChangeBuilder.BuildSetConfiguration(current, token, change), ct);
+    }
+
     async Task<Uri> GetMediaServiceUrlAsync(CancellationToken ct)
     {
         try
@@ -160,7 +172,9 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
             || text.Contains("NotAuthorized", StringComparison.Ordinal))
             throw new OnvifAuthException("Usuario o contraseña ONVIF incorrectos.");
         if (!response.IsSuccessStatusCode)
-            throw new OnvifException($"ONVIF respondió {(int)response.StatusCode}.");
+            throw new OnvifException(EncoderChangeBuilder.FaultReason(text) is { Length: > 0 } reason
+                ? $"ONVIF respondió {(int)response.StatusCode}: {reason}"
+                : $"ONVIF respondió {(int)response.StatusCode}.");
         return text;
     }
 

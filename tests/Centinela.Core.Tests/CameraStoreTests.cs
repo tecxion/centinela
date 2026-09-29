@@ -195,12 +195,15 @@ public sealed class CameraStoreTests : IDisposable
     {
         var path = Path.Combine(_dir, "q.json");
         var store = new CameraStore(path);
-        store.Save([new Camera { Name = "A", Host = "h", LowQualityWhenBig = true, Smoothing = true }, new Camera { Name = "B", Host = "h2" }]);
+        store.Save([new Camera { Name = "A", Host = "h", LowQualityWhenBig = true, Smoothing = true, OriginalEncoders = "t=1x2@3:4" },
+            new Camera { Name = "B", Host = "h2" }]);
         var cams = store.Load();
         Assert.True(cams.Single(c => c.Name == "A").LowQualityWhenBig);
         Assert.True(cams.Single(c => c.Name == "A").Smoothing);
         Assert.False(cams.Single(c => c.Name == "B").LowQualityWhenBig);
         Assert.False(cams.Single(c => c.Name == "B").Smoothing);
+        Assert.Equal("t=1x2@3:4", cams.Single(c => c.Name == "A").OriginalEncoders);
+        Assert.Null(cams.Single(c => c.Name == "B").OriginalEncoders);
     }
 
     [Fact]

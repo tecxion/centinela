@@ -30,6 +30,11 @@ public sealed class Camera
     public bool LowQualityWhenBig { get; set; }
     /// <summary>Live view played 1–2 s behind but evenly paced: for a link that delivers in stalls and bursts.</summary>
     public bool Smoothing { get; set; }
+    /// <summary>
+    /// Encoder values the camera had before Centinela first changed them (<see cref="Onvif.EncoderSnapshot"/>
+    /// text), for «Restaurar»; null until a change is applied. Device state: not part of camera copies.
+    /// </summary>
+    public string? OriginalEncoders { get; set; }
 
     public static readonly int[] AllowedCooldowns = [30, 60, 300, 900];
     public static int NormalizeCooldown(int seconds) => AllowedCooldowns.Contains(seconds) ? seconds : 60;

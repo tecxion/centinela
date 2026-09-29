@@ -20,6 +20,11 @@ Visor de cámaras IP para Windows con **latencia mínima**. Muestra cámaras **T
   grande de esa cámara entre el flujo principal (HD) y el secundario (SD), más ligero y fluido si la conexión
   (p. ej. wifi lejana) no da para el principal. Se guarda por cámara y también vale a pantalla completa; en SD
   no hay sonido en la vista grande. Las capturas siguen tomándose del principal.
+- **Calidad de la cámara…** (clic derecho): informa de la resolución, fps y bitrate de cada flujo y de lo que
+  admite (por ONVIF y por la API de Dahua/Imou) y, si la cámara lo acepta por ONVIF, permite cambiarlos
+  («Recomendados (wifi pobre)»: ~720p/10 fps/768 kbps y ~360p/10 fps/256 kbps). Solo escribe al pulsar
+  «Aplicar…» y confirmar; el cambio queda en la cámara. Los valores de antes del primer cambio se guardan con la
+  cámara («Valores originales»). Bajar el bitrate es lo que más ayuda a una cámara con wifi pobre.
 - **Suavizar imagen** (clic derecho en la cámara, desactivado de serie): para una cámara con wifi irregular que
   va a tirones. Las imágenes se muestran con 1–2 s de retraso pero repartidas a su ritmo (el que Centinela mide
   en la llegada; las marcas de tiempo de algunas cámaras saltan), sin «avance rápido» tras un parón. Se aplica
