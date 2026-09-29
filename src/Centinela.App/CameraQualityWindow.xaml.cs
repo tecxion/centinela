@@ -14,6 +14,8 @@ namespace Centinela.App;
 /// </summary>
 public partial class CameraQualityWindow : Window
 {
+    static readonly TimeSpan OnvifTimeout = TimeSpan.FromSeconds(20);
+    static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(8);
     readonly Camera _camera;
     CancellationTokenSource? _query;
 
@@ -29,7 +31,7 @@ public partial class CameraQualityWindow : Window
     async Task QueryAsync()
     {
         _query?.Cancel();
-        var query = _query = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var query = _query = new CancellationTokenSource(TimeSpan.FromSeconds(120));
         RetryButton.IsEnabled = false;
         var report = new StringBuilder();
         void Line(string text = "")
@@ -51,22 +53,29 @@ public partial class CameraQualityWindow : Window
 
         var baseUrl = new Uri($"http://{host}/");
         var deviceUrl = new Uri(baseUrl, "/onvif/device_service");
-        using var http = OnvifClient.CreateHttpClient(deviceUrl, _camera.User, _camera.Password);
+        // Generous: a camera on weak Wi-Fi may take seconds per answer, and each authenticated call is two
+        // round trips (Digest challenge, then the request again).
+        using var http = OnvifClient.CreateHttpClient(deviceUrl, _camera.User, _camera.Password, OnvifTimeout);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        string Took() => string.Create(CultureInfo.GetCultureInfo("es-ES"), $"{watch.Elapsed.TotalSeconds:0.0} s");
 
         Line("── ONVIF ──");
         try
         {
             var client = new OnvifClient(http, deviceUrl, _camera.User, _camera.Password);
+            watch.Restart();
             try
             {
                 var info = await client.GetDeviceInformationAsync(query.Token);
-                Line($"Dispositivo: {info.Manufacturer} {info.Model}");
+                Line($"Dispositivo: {info.Manufacturer} {info.Model}  ({Took()})");
             }
             catch (OnvifException ex) when (ex is not OnvifAuthException)
             {
                 Line($"Dispositivo: no responde ({ex.Message})");
             }
+            watch.Restart();
             var configurations = await client.GetEncoderSettingsAsync(query.Token);
+            Line($"Ajustes de vídeo leídos en {Took()}:");
             if (configurations.Count == 0) Line("No informa de ninguna configuración de vídeo.");
             foreach (var (token, settings, options) in configurations)
             {
@@ -82,19 +91,20 @@ public partial class CameraQualityWindow : Window
         }
         catch (Exception ex) when (ex is OnvifException or HttpRequestException or TaskCanceledException or System.Xml.XmlException)
         {
-            Line($"No se pudo consultar: {Explain(ex)}");
+            Line($"No se pudo consultar tras {Took()}: {Explain(ex)}");
         }
         Line();
 
         Line("── API Dahua/Imou ──");
+        using var api = OnvifClient.CreateHttpClient(deviceUrl, _camera.User, _camera.Password, ApiTimeout);
         try
         {
-            var streams = await DahuaApi.GetEncodeAsync(http, baseUrl, query.Token);
+            var streams = await DahuaApi.GetEncodeAsync(api, baseUrl, query.Token);
             if (streams.Count == 0) Line("Responde, pero sin ajustes de vídeo reconocibles.");
             foreach (var stream in streams) Line(Describe(stream));
             try
             {
-                var caps = await DahuaApi.GetEncodeCapsAsync(http, baseUrl, query.Token);
+                var caps = await DahuaApi.GetEncodeCapsAsync(api, baseUrl, query.Token);
                 if (caps.Count > 0)
                 {
                     Line("Capacidades:");
@@ -109,6 +119,7 @@ public partial class CameraQualityWindow : Window
         catch (Exception ex) when (ex is OnvifException or HttpRequestException or TaskCanceledException)
         {
             Line($"No se pudo consultar: {Explain(ex)}");
+            Line("(Muchas Imou traen esta API desactivada; basta con que responda ONVIF.)");
         }
         Line();
         Line("No se ha cambiado nada en la cámara.");

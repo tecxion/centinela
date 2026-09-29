@@ -29,10 +29,11 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
     /// HttpClient that also answers HTTP Digest challenges (some Dahua/Imou firmwares). It never answers
     /// Basic (or any other scheme), so the password is never sent in cleartext over plain HTTP.
     /// </summary>
-    public static HttpClient CreateHttpClient(Uri deviceServiceUrl, string user, string password) =>
+    /// <param name="timeout">Per request, including the Digest retry; 5 s by default.</param>
+    public static HttpClient CreateHttpClient(Uri deviceServiceUrl, string user, string password, TimeSpan? timeout = null) =>
         new(new HttpClientHandler { Credentials = CreateDigestCredentials(deviceServiceUrl, user, password), PreAuthenticate = false })
         {
-            Timeout = TimeSpan.FromSeconds(5),
+            Timeout = timeout ?? TimeSpan.FromSeconds(5),
         };
 
     /// <summary>Credentials offered only for HTTP Digest challenges from the device's host (any port).</summary>
