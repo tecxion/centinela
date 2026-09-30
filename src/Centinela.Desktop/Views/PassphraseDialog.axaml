@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Centinela.Desktop.Views.PassphraseDialog"
+        Title="Clave de la copia" Width="360" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="/Assets/centinela.ico">
+    <StackPanel Margin="16">
+        <TextBlock Text="Clave" />
+        <TextBox x:Name="First" PasswordChar="●" Margin="0,4,0,8" />
+        <StackPanel x:Name="ConfirmPanel">
+            <TextBlock Text="Repite la clave" />
+            <TextBox x:Name="Second" PasswordChar="●" Margin="0,4,0,8" />
+        </StackPanel>
+        <TextBlock x:Name="Error" Foreground="Red" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Aceptar" IsDefault="True" Width="90" Margin="0,0,8,0" Click="Ok_Click" />
+            <Button Content="Cancelar" IsCancel="True" Width="90" Click="Cancel_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

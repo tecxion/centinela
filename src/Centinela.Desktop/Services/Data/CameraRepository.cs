@@ -40,6 +40,14 @@ sealed class CameraRepository(CameraStore store)
 
     public void Remove(Guid id) => _cameras.RemoveAll(c => c.Id == id);
 
+    /// <summary>Replaces the whole list, in the given order (an import); does not save.</summary>
+    public void ReplaceAll(IEnumerable<Camera> cameras)
+    {
+        var list = cameras.ToList();
+        _cameras.Clear();
+        _cameras.AddRange(list);
+    }
+
     public bool Save()
     {
         try

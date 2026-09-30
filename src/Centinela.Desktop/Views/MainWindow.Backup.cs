@@ -1,29 +1,117 @@
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Centinela.Core;
+using Centinela.Desktop.Services.Backup;
 
 namespace Centinela.Desktop.Views;
 
-/// <summary>«Carpeta de copia automática…» in the Archivo menu.</summary>
+/// <summary>The Archivo menu's copies: «Importar JSON…», «Exportar JSON…» and «Carpeta de copia automática…».</summary>
 public partial class MainWindow
 {
-    async void BackupFolder_Click(object? sender, RoutedEventArgs e)
+    static readonly FilePickerFileType[] BackupFileTypes = [new("Copia de Centinela") { Patterns = ["*.json"] }];
+
+    // Import/export derive keys with PBKDF2 off the UI thread; one operation at a time.
+    bool _backupBusy;
+    // The latest manual export (only one runs at a time); the exit wait includes it.
+    Task _manualExport = Task.CompletedTask;
+
+    async void Import_Click(object? sender, RoutedEventArgs e)
     {
-        // A folder that does not exist yet (or a malformed setting) gives null: the picker then opens where it likes.
-        IStorageFolder? start;
+        if (_backupBusy) return;
+        _backupBusy = true;
         try
         {
-            start = await StorageProvider.TryGetFolderFromPathAsync(_vm.BackupFolder);
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Importar",
+                FileTypeFilter = BackupFileTypes,
+                SuggestedStartLocation = await BackupStartAsync(),
+            });
+            if (_closing || files.Count == 0 || files[0].TryGetLocalPath() is not { } path) return;
+            var reader = new BackupReader(
+                () => PassphraseDialog.AskAsync(this, confirm: false),
+                question => MessageDialog.ConfirmAsync(this, question),
+                message => _vm.Notify(message, null));
+            var result = await reader.ReadAsync(path);
+            if (_closing) return;
+            if (result.Error is { } error)
+            {
+                await MessageDialog.ShowAsync(this, error);
+                return;
+            }
+            if (result.Import is not { } imported) return;
+            var summary = _vm.ApplyImport(imported, DisposeTilesOf);
+            await MessageDialog.ShowAsync(this, summary);
         }
-        catch (Exception)
+        finally
         {
-            start = null;
+            _backupBusy = false;
         }
+    }
+
+    async void Export_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_backupBusy) return;
+        _backupBusy = true;
+        try
+        {
+            var options = new ExportDialog();
+            if (!await options.ShowDialog<bool>(this) || _closing) return;
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Exportar",
+                SuggestedFileName = $"centinela-camaras-{DateTime.Now:yyyy-MM-dd}.json",
+                DefaultExtension = "json",
+                FileTypeChoices = BackupFileTypes,
+                SuggestedStartLocation = await BackupStartAsync(),
+            });
+            if (_closing || file?.TryGetLocalPath() is not { } path) return;
+            var snapshot = _vm.Cameras.All.Select(c => c.Clone()).ToList();
+            var passphrase = options.IncludePasswords ? options.Passphrase : null;
+            _vm.Notify(passphrase is null ? "Exportando…" : "Cifrando la copia…", null);
+            try
+            {
+                // Atomic, and tracked so that exiting meanwhile waits for it instead of cutting the file short.
+                var export = Task.Run(() => BackupWriter.WriteAtomic(path, CameraBackup.Export(snapshot, passphrase)));
+                _manualExport = export;
+                await export;
+                if (_closing) return;
+                _vm.Notify($"Copia exportada: {path}", path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (_closing) return;
+                _vm.Notify("", null);
+                await MessageDialog.ShowAsync(this, ex.Message);
+            }
+        }
+        finally
+        {
+            _backupBusy = false;
+        }
+    }
+
+    async void BackupFolder_Click(object? sender, RoutedEventArgs e)
+    {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "Carpeta de copia automática",
-            SuggestedStartLocation = start,
+            SuggestedStartLocation = await BackupStartAsync(),
         });
         if (_closing || folders.Count == 0 || folders[0].TryGetLocalPath() is not { } path) return;
         _vm.SetBackupFolder(path);
+    }
+
+    /// <summary>The backup folder for the pickers; null when it does not exist yet (or the setting is malformed).</summary>
+    async Task<IStorageFolder?> BackupStartAsync()
+    {
+        try
+        {
+            return await StorageProvider.TryGetFolderFromPathAsync(_vm.BackupFolder);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 }

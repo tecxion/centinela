@@ -186,9 +186,9 @@ public partial class MainWindow : Window
     {
         _closing = true;
         foreach (var owned in OwnedWindows.ToList()) owned.Close();
-        // Tiles, recordings and the automatic copy finish in parallel; one bounded wait so recordings get their trailer.
+        // Tiles, recordings, the automatic copy and a manual export finish in parallel; one bounded wait so recordings get their trailer.
         var shutdowns = _tiles.ShutdownAll().Concat(_pendingShutdowns)
-            .Append(_vm.Recordings.ShutdownAsync()).Append(_vm.Backup.IdleAsync()).ToArray();
+            .Append(_vm.Recordings.ShutdownAsync()).Append(_vm.Backup.IdleAsync()).Append(_manualExport).ToArray();
         // Stop whatever else still holds a shared session now, so it winds down in parallel.
         _leases.Dispose();
         try
