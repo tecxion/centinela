@@ -16,3 +16,10 @@ static class StatsBrush
     public static readonly IValueConverter Converter =
         new FuncValueConverter<bool, IBrush>(stale => stale ? Brushes.Orange : Brushes.White);
 }
+
+/// <summary>The motion button is dimmed while detection is off.</summary>
+static class MotionOpacity
+{
+    public static readonly IValueConverter Converter =
+        new FuncValueConverter<bool, double>(enabled => enabled ? 1 : 0.6);
+}

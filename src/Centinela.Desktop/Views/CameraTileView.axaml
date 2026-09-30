@@ -5,23 +5,88 @@
              x:Class="Centinela.Desktop.Views.CameraTileView"
              x:DataType="vm:TileViewModel"
              Background="Black" DragDrop.AllowDrop="True">
+    <UserControl.Styles>
+        <!-- Recording dot: solid while recording, hollow while the recording session (re)connects. -->
+        <Style Selector="Ellipse#RecDot.hollow">
+            <Setter Property="Fill" Value="Transparent" />
+            <Setter Property="StrokeThickness" Value="2" />
+            <Setter Property="Opacity" Value="0.7" />
+        </Style>
+        <!-- Big tiles: buttons bottom-centre in a dark pill, clear of the stats and zoom labels. -->
+        <Style Selector="Border#Actions.big">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+            <Setter Property="Margin" Value="0,0,0,24" />
+            <Setter Property="Padding" Value="6" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="#C0000000" />
+        </Style>
+    </UserControl.Styles>
     <Border x:Name="Frame" BorderBrush="#2A2A2A" BorderThickness="1">
         <Grid>
             <video:VideoSurface x:Name="Video" Opacity="{Binding IsPlaying, Converter={x:Static video:VideoOpacity.Converter}}" />
-            <TextBlock Text="{Binding StatusText}" Foreground="#DDDDDD" FontSize="14" TextWrapping="Wrap"
-                       TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="{Binding StatusText}" Foreground="#DDDDDD" FontSize="14" TextWrapping="Wrap"
+                           TextAlignment="Center" HorizontalAlignment="Center" />
+                <Button Content="Editar" Padding="12,4" Margin="0,48,0,0" HorizontalAlignment="Center"
+                        IsVisible="{Binding ShowFixButton}" Click="Edit_Click" />
+            </StackPanel>
             <Border Background="#80000000" Padding="6,2" CornerRadius="0,0,4,0"
                     HorizontalAlignment="Left" VerticalAlignment="Top">
                 <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="RecDot" Width="10" Height="10" Fill="Red" Stroke="Red" StrokeThickness="0"
+                             Margin="0,0,6,0" VerticalAlignment="Center" IsVisible="{Binding RecDotVisible}"
+                             Classes.hollow="{Binding RecDotHollow}" ToolTip.Tip="{Binding RecDotToolTip}" />
                     <TextBlock Text="{Binding Name}" Foreground="White" />
+                    <Grid Margin="6,0,0,0" VerticalAlignment="Center" IsVisible="{Binding !MotionEnabled}"
+                          ToolTip.Tip="Detección de movimiento: desactivada">
+                        <TextBlock Text="👁" Foreground="White" FontSize="11" Opacity="0.8" />
+                        <Line StartPoint="1,13" EndPoint="13,2" Stroke="#E53935" StrokeThickness="1.6"
+                              StrokeLineCap="Round" />
+                    </Grid>
                     <TextBlock Text=" ⏱" Foreground="White" IsVisible="{Binding SmoothingVisible}"
                                ToolTip.Tip="{Binding SmoothingToolTip}" />
+                    <TextBlock Text=" 🔊" Foreground="White" IsVisible="{Binding AudioOn}" />
                 </StackPanel>
             </Border>
             <Border Background="#80000000" Padding="6,1" CornerRadius="0,4,0,0"
                     HorizontalAlignment="Left" VerticalAlignment="Bottom" IsVisible="{Binding ShowStats}">
                 <TextBlock Text="{Binding StatsText}" FontSize="11" FontFamily="Consolas,Menlo,monospace"
                            Foreground="{Binding StatsStale, Converter={x:Static video:StatsBrush.Converter}}" />
+            </Border>
+            <Border Background="#80000000" Padding="6,1" CornerRadius="4,0,0,0"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom" IsVisible="{Binding IsZoomed}">
+                <TextBlock Text="{Binding ZoomText}" Foreground="White" FontSize="11" />
+            </Border>
+            <!-- Thumbnails: top-right corner; big tiles move it bottom-centre (Border#Actions.big). Shown on hover. -->
+            <Border x:Name="Actions" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Top" IsVisible="False"
+                    Classes.big="{Binding Big}">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{Binding QualityText}" ToolTip.Tip="{Binding QualityToolTip}" Click="Quality_Click"
+                            Classes.tile="{Binding !Big}" Classes.tile-large="{Binding Big}"
+                            IsVisible="{Binding QualityButtonVisible}"
+                            FontFamily="Segoe UI" FontWeight="Bold" FontSize="12" />
+                    <Button Content="{Binding AudioText}" ToolTip.Tip="{Binding AudioToolTip}" Click="Audio_Click"
+                            Classes.tile="{Binding !Big}" Classes.tile-large="{Binding Big}"
+                            IsVisible="{Binding AudioButtonVisible}" IsEnabled="{Binding AudioEnabled}"
+                            ToolTip.ShowOnDisabled="True" />
+                    <Button Content="👁" ToolTip.Tip="{Binding MotionToolTip}" Click="Motion_Click"
+                            Classes.tile="{Binding !Big}" Classes.tile-large="{Binding Big}"
+                            IsVisible="{Binding Manage}"
+                            Opacity="{Binding MotionEnabled, Converter={x:Static video:MotionOpacity.Converter}}" />
+                    <Button Content="📷" ToolTip.Tip="Captura" Click="Snapshot_Click"
+                            Classes.tile="{Binding !Big}" Classes.tile-large="{Binding Big}"
+                            IsEnabled="{Binding CanSnapshot}" />
+                    <Button Content="{Binding RecordText}" ToolTip.Tip="{Binding RecordToolTip}" Click="Record_Click"
+                            Classes.tile="{Binding !Big}" Classes.tile-large="{Binding Big}"
+                            IsEnabled="{Binding HasSession}" />
+                    <Button Content="✎" ToolTip.Tip="Editar" Click="Edit_Click"
+                            Classes.tile="{Binding !Big}" Classes.tile-large="{Binding Big}"
+                            IsVisible="{Binding Manage}" />
+                    <Button Content="🗑" ToolTip.Tip="Eliminar" Click="Delete_Click"
+                            Classes.tile="{Binding !Big}" Classes.tile-large="{Binding Big}"
+                            IsVisible="{Binding Manage}" />
+                </StackPanel>
             </Border>
         </Grid>
     </Border>

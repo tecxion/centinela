@@ -42,6 +42,7 @@ partial class CameraTileView : UserControl
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
         SizeChanged += (_, _) => UpdateTargetSize();
+        InitActions();
     }
 
     public TileViewModel ViewModel { get; } = null!;

@@ -18,6 +18,7 @@ sealed partial class TileViewModel : ObservableObject
     readonly Action<SessionState>? _onState;
     readonly Action<StreamError>? _onError;
     readonly Action<double>? _onSmoothing;
+    readonly Action<StreamInfo>? _onInfo;
     StreamErrorKind? _errorKind;
     Task? _shutdown;
     bool _disposed;
@@ -64,9 +65,11 @@ sealed partial class TileViewModel : ObservableObject
         _onState = state => UiThread.Post(() => ShowState(state));
         _onError = error => UiThread.Post(() => ShowError(error));
         _onSmoothing = seconds => UiThread.Post(() => ShowSmoothing(seconds));
+        _onInfo = _ => UiThread.Post(UpdateAudio);
         Session.StateChanged += _onState;
         Session.ErrorOccurred += _onError;
         Session.SmoothingChanged += _onSmoothing;
+        Session.InfoAvailable += _onInfo;
         ShowSmoothing(Session.SmoothingSeconds);
         StatusText = "Conectando…";
     }
@@ -98,6 +101,7 @@ sealed partial class TileViewModel : ObservableObject
         var current = session.State;
         if (current != SessionState.Playing && session.LastErrorKind is { } lastError) _errorKind = lastError;
         ShowState(current == SessionState.Idle ? SessionState.Connecting : current);
+        UpdateAudio();
     }
 
     /// <summary>The decode box in device pixels; ignored until the tile has a real size.</summary>
@@ -132,16 +136,22 @@ sealed partial class TileViewModel : ObservableObject
         StatsStale = s.SinceLastFrame > TimeSpan.FromSeconds(1);
     }
 
-    void ShowState(SessionState state)
+    /// <summary>Internal for the tests; session states arrive through <see cref="UiThread"/>.</summary>
+    internal void ShowState(SessionState state)
     {
         if (_disposed) return;
-        if (state == SessionState.AuthFailed) _errorKind = StreamErrorKind.AuthFailed;
+        if (state == SessionState.AuthFailed)
+        {
+            _errorKind = StreamErrorKind.AuthFailed;
+            ShowFixButton = Manage;
+        }
         StatusText = TileStatus.Text(state, _errorKind, Camera);
         IsPlaying = state == SessionState.Playing;
         if (state is SessionState.Reconnecting or SessionState.AuthFailed) StreamFailed?.Invoke(this);
         if (state == SessionState.Playing)
         {
             _errorKind = null;
+            ShowFixButton = false;
             if (_lease is null) Playing?.Invoke(this);
         }
     }
@@ -150,6 +160,7 @@ sealed partial class TileViewModel : ObservableObject
     {
         if (_disposed) return;
         _errorKind = error.Kind;
+        ShowFixButton = Manage && error.Kind == StreamErrorKind.AuthFailed;
         StatusText = TileStatus.Text(Session?.State ?? SessionState.Reconnecting, _errorKind, Camera);
         if (_lease is null) ErrorReported?.Invoke(this, error);
     }
@@ -174,7 +185,9 @@ sealed partial class TileViewModel : ObservableObject
             session.StateChanged -= _onState;
             session.ErrorOccurred -= _onError;
             session.SmoothingChanged -= _onSmoothing;
+            session.InfoAvailable -= _onInfo;
         }
+        AudioOn = false;
         if (_lease is not null) return _shutdown = _lease.ReleaseAsync();
         Session?.RequestStop();
         return _shutdown = Session is null ? Task.CompletedTask : Task.Run(Session.Dispose);

@@ -4,5 +4,6 @@
              RequestedThemeVariant="Dark">
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Centinela/Styles/TileButtons.axaml" />
     </Application.Styles>
 </Application>
