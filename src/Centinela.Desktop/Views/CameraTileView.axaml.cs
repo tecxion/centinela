@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Centinela.Desktop.Video;
 using Centinela.Desktop.ViewModels;
 
 namespace Centinela.Desktop.Views;
@@ -43,6 +44,7 @@ partial class CameraTileView : UserControl
         AddHandler(DragDrop.DropEvent, OnDrop);
         SizeChanged += (_, _) => UpdateTargetSize();
         InitActions();
+        InitZoom();
     }
 
     public TileViewModel ViewModel { get; } = null!;
@@ -63,7 +65,8 @@ partial class CameraTileView : UserControl
     void UpdateTargetSize()
     {
         var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
-        ViewModel.SetTargetSize((int)(Bounds.Width * scaling), (int)(Bounds.Height * scaling));
+        var size = ZoomPanBehavior.DecodeSize(Bounds.Size, scaling, _zoom.Scale);
+        ViewModel.SetTargetSize(size.Width, size.Height);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -74,17 +77,20 @@ partial class CameraTileView : UserControl
         {
             _clickTimer.Stop();
             _pressAt = null;
+            EndPan(e.Pointer);
             FullscreenRequested?.Invoke(this);
             e.Handled = true;
             return;
         }
         _pressAt = e.GetPosition(this);
         _pressEvent = e;
+        BeginPan(e);
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        EndPan(e.Pointer);
         // _pressAt is cleared when a drag starts or on double-click, so reaching here with it set means a plain click.
         if (_pressAt is null) return;
         _pressAt = null;
@@ -104,6 +110,7 @@ partial class CameraTileView : UserControl
     protected override async void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (PanMove(e)) return;
         if (!ViewModel.Manage || _pressAt is not { } start || _pressEvent is not { } press) return;
         var delta = e.GetPosition(this) - start;
         if (Math.Abs(delta.X) < 4 && Math.Abs(delta.Y) < 4) return;
@@ -142,6 +149,7 @@ partial class CameraTileView : UserControl
     {
         _clickTimer.Stop();
         _statsTimer.Stop();
+        _zoom.EndPan();
         base.OnDetachedFromVisualTree(e);
     }
 }

@@ -95,6 +95,13 @@ public partial class MainWindow : Window
         base.OnKeyDown(e);
         if (e.Key == Key.F11) ToggleFullscreen();
         else if (e.Key == Key.Escape && WindowState == WindowState.FullScreen) ToggleFullscreen();
+        else if (e.Key is Key.D0 or Key.NumPad0
+                 && _tiles.All.FirstOrDefault(t => t.IsPointerOver && t.ViewModel.IsZoomed) is { } tile)
+        {
+            // Key 0: back to the whole image of the tile under the pointer.
+            tile.ResetZoom();
+            e.Handled = true;
+        }
     }
 
     void ToggleFullscreen()

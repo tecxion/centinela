@@ -8,6 +8,7 @@ namespace Centinela.Desktop.Views;
 public partial class FullscreenWindow : Window
 {
     readonly TileViewModel _tile = null!;
+    readonly CameraTileView _view = null!;
 
     public FullscreenWindow() => InitializeComponent();
 
@@ -20,9 +21,9 @@ public partial class FullscreenWindow : Window
             Big = true,
             ShowStats = showStats,
         };
-        var view = new CameraTileView(_tile);
-        view.FullscreenRequested += _ => Close();
-        Content = view;
+        _view = new CameraTileView(_tile);
+        _view.FullscreenRequested += _ => Close();
+        Content = _view;
         _tile.Start();
     }
 
@@ -30,6 +31,7 @@ public partial class FullscreenWindow : Window
     {
         base.OnKeyDown(e);
         if (e.Key == Key.Escape) Close();
+        else if (e.Key is Key.D0 or Key.NumPad0) _view.ResetZoom();
     }
 
     /// <summary>Stops the live session; the owner tracks it until exit.</summary>

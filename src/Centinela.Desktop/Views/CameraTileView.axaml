@@ -23,7 +23,8 @@
         </Style>
     </UserControl.Styles>
     <Border x:Name="Frame" BorderBrush="#2A2A2A" BorderThickness="1">
-        <Grid>
+        <!-- Clips the zoomed video to the tile. -->
+        <Grid x:Name="VideoHost" ClipToBounds="True">
             <video:VideoSurface x:Name="Video" Opacity="{Binding IsPlaying, Converter={x:Static video:VideoOpacity.Converter}}" />
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="{Binding StatusText}" Foreground="#DDDDDD" FontSize="14" TextWrapping="Wrap"

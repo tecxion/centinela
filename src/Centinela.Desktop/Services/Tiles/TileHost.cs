@@ -59,6 +59,8 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
             RemoveAndShutdown(unpainted);
             _tiles[key] = previous;
             previous.ViewModel.Big = slot.Big;
+            // Zoom was turned off while it covered; Big may not have changed, so set it back explicitly.
+            previous.ViewModel.EnableZoom = slot.Big;
             Position(previous, slot, z: 0);
             return;
         }
@@ -77,6 +79,9 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
                 RemoveAndShutdown(placeholder);
                 return;
             }
+            // It only covers the new tile until that one has a frame: not zoomed, and no zoom.
+            placeholder.ResetZoom();
+            placeholder.ViewModel.EnableZoom = false;
             Position(placeholder, slot, z: 1);
             _placeholders[tile] = placeholder;
             tile.FirstFrameShown += Retire;

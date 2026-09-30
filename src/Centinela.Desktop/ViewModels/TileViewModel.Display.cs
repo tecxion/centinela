@@ -47,6 +47,12 @@ sealed partial class TileViewModel
     [ObservableProperty] private bool _isZoomed;
     [ObservableProperty] private string _zoomText = "";
 
+    /// <summary>
+    /// Wheel zoom and drag-to-pan: follows <see cref="Big"/> (big tiles and fullscreen); the owner turns it off for a
+    /// tile that only covers its replacement. Turning it off resets the zoom (the view does).
+    /// </summary>
+    [ObservableProperty] private bool _enableZoom;
+
     /// <summary>Raised on the UI thread when a new connection has no audio track while this tile's audio is on.</summary>
     public event Action<TileViewModel>? AudioLost;
 
@@ -82,7 +88,18 @@ sealed partial class TileViewModel
     public bool HasSession => Session is not null;
     public bool CanSnapshot => HasSession && !SnapshotBusy;
 
-    partial void OnBigChanged(bool value) => OnPropertyChanged(nameof(QualityButtonVisible));
+    partial void OnBigChanged(bool value)
+    {
+        OnPropertyChanged(nameof(QualityButtonVisible));
+        EnableZoom = value;
+    }
+
+    /// <summary>The zoom label and the «Restablecer zoom» item, from the zoom support.</summary>
+    public void ShowZoom(bool zoomed, double scale)
+    {
+        IsZoomed = zoomed;
+        ZoomText = string.Format(Spanish, "{0:0.#}×", scale);
+    }
 
     /// <summary>Shows which stream the camera uses when big: HD (main) or SD (substream).</summary>
     public void SetLowQuality(bool low) => LowQuality = low;

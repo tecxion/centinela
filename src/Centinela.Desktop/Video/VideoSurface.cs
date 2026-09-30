@@ -24,8 +24,13 @@ sealed class VideoSurface : Control
     /// <summary>Raised once, after the first frame has been painted.</summary>
     public event Action? FirstFrameShown;
 
-    /// <summary>Where the image sits inside the control (letterboxed).</summary>
+    /// <summary>Where the image sits inside the control (letterboxed); empty until the first frame.</summary>
     public Rect ContentRect { get; private set; }
+
+    /// <summary>Raised when <see cref="ContentRect"/> changes (control resized or new frame size).</summary>
+    public event Action? ContentRectChanged;
+
+    public VideoSurface() => SizeChanged += (_, _) => UpdateContentRect();
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -51,6 +56,7 @@ sealed class VideoSurface : Control
     {
         if (Session is { } session && session.Mailbox.TryRead(ref _sequence, CopyFrame))
         {
+            UpdateContentRect();
             InvalidateVisual();
             if (!_firstFrame)
             {
@@ -83,9 +89,24 @@ sealed class VideoSurface : Control
     {
         if (_bitmap is not { } bitmap) return;
         var source = new Rect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height);
-        var scale = Math.Min(Bounds.Width / source.Width, Bounds.Height / source.Height);
-        var size = new Size(source.Width * scale, source.Height * scale);
-        ContentRect = new Rect(new Point((Bounds.Width - size.Width) / 2, (Bounds.Height - size.Height) / 2), size);
-        context.DrawImage(bitmap, source, ContentRect);
+        context.DrawImage(bitmap, source, Letterbox(source.Size, Bounds.Size));
+    }
+
+    void UpdateContentRect()
+    {
+        var rect = _bitmap is { } bitmap
+            ? Letterbox(new Size(bitmap.PixelSize.Width, bitmap.PixelSize.Height), Bounds.Size)
+            : default;
+        if (rect == ContentRect) return;
+        ContentRect = rect;
+        ContentRectChanged?.Invoke();
+    }
+
+    /// <summary>The largest rectangle with the image's aspect ratio that fits the control, centred.</summary>
+    static Rect Letterbox(Size image, Size bounds)
+    {
+        var scale = Math.Min(bounds.Width / image.Width, bounds.Height / image.Height);
+        var size = new Size(image.Width * scale, image.Height * scale);
+        return new Rect(new Point((bounds.Width - size.Width) / 2, (bounds.Height - size.Height) / 2), size);
     }
 }
