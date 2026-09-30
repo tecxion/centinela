@@ -2,8 +2,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Centinela.Desktop.App"
              RequestedThemeVariant="Dark">
+    <Application.Resources>
+        <!-- Graphite grey around the cameras; each camera's own area stays black, like a monitor. -->
+        <SolidColorBrush x:Key="AppBackground" Color="#2D2D30" />
+        <SolidColorBrush x:Key="BarBackground" Color="#3A3A3E" />
+    </Application.Resources>
     <Application.Styles>
         <FluentTheme />
+        <!-- Every window and dialog; a window that sets its own background (fullscreen: black) keeps it. -->
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{StaticResource AppBackground}" />
+        </Style>
         <StyleInclude Source="avares://Centinela/Styles/TileButtons.axaml" />
     </Application.Styles>
 </Application>

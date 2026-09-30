@@ -3,14 +3,14 @@
         xmlns:vm="using:Centinela.Desktop.ViewModels"
         x:Class="Centinela.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="Centinela" Width="1280" Height="800" Background="#111111"
+        Title="Centinela" Width="1280" Height="800"
         Icon="/Assets/centinela.ico">
     <Window.Styles>
         <!-- A toolbar separator: a thin vertical line. -->
         <Style Selector="Border.separator">
             <Setter Property="Width" Value="1" />
             <Setter Property="Margin" Value="3,2" />
-            <Setter Property="Background" Value="#444444" />
+            <Setter Property="Background" Value="#5A5A60" />
         </Style>
     </Window.Styles>
     <DockPanel>
@@ -47,7 +47,7 @@
             <Button Content="📁 Grabaciones" Click="OpenRecordings_Click" />
             <Button Content="{Binding RecordAllText}" Click="RecordAll_Click" />
         </StackPanel>
-        <Border x:Name="BottomBar" DockPanel.Dock="Bottom" Padding="8,3" Background="#1E1E1E">
+        <Border x:Name="BottomBar" DockPanel.Dock="Bottom" Padding="8,3" Background="{StaticResource BarBackground}">
             <!-- Clicking the message shows its file or folder, when it has one. -->
             <TextBlock Text="{Binding StatusText}" Cursor="Hand" Background="Transparent" HorizontalAlignment="Left"
                        PointerReleased="StatusText_PointerReleased" />
