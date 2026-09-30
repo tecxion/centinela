@@ -7,6 +7,9 @@ namespace Centinela.Desktop.ViewModels;
 /// <summary>The text over a tile's video for its session state and last error (kept while retrying).</summary>
 static class TileStatus
 {
+    /// <summary>The stream is failing: a placeholder covering the tile must go (reconnecting or bad credentials).</summary>
+    public static bool IsFailing(SessionState state) => state is SessionState.Reconnecting or SessionState.AuthFailed;
+
     public static string Text(SessionState state, StreamErrorKind? error, Camera camera)
     {
         if (state == SessionState.Playing) return "";

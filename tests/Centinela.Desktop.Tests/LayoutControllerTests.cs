@@ -46,9 +46,14 @@ public class LayoutControllerTests
         var cams = Cameras(5);
         var settings = new AppSettings { LayoutMode = LayoutMode.Dual };
         var layout = new LayoutController(cams, settings);
+        Assert.Equal([cams[0].Id, cams[1].Id], layout.BigCameraIds());
+        // The left one has gone longest without changing: it is replaced first, then the right one.
         Assert.True(layout.Click(cams[4].Id));
-        Assert.Contains(cams[4].Id, layout.BigCameraIds());
-        Assert.Equal(2, layout.BigCameraIds().Count);
+        Assert.Equal([cams[4].Id, cams[1].Id], layout.BigCameraIds());
+        Assert.True(layout.Click(cams[3].Id));
+        Assert.Equal([cams[4].Id, cams[3].Id], layout.BigCameraIds());
+        Assert.True(layout.Click(cams[2].Id));
+        Assert.Equal([cams[2].Id, cams[3].Id], layout.BigCameraIds());
     }
 
     [Fact]

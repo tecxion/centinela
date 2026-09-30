@@ -1,4 +1,5 @@
 using Centinela.Core;
+using Centinela.Desktop.Services.Cameras;
 using Centinela.Desktop.Services.Data;
 using Centinela.Desktop.Services.Layout;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -106,10 +107,13 @@ sealed partial class MainViewModel : ObservableObject
 
     /// <summary>
     /// Stores the camera saved in «Editar cámara» (the window has retired its tiles): its URL may have changed, so
-    /// its recording stops with a notice; then saves and rebuilds the view.
+    /// its recording stops with a notice; then saves and rebuilds the view. The options the dialog does not edit
+    /// are kept as they are stored now (they may have changed in another window while it was open).
     /// </summary>
-    public void ReplaceCamera(Camera updated)
+    public void ReplaceCamera(Camera edited)
     {
+        if (Cameras.Find(edited.Id) is not { } current) return;
+        var updated = EditedCamera.Merge(edited, current);
         if (Recordings.IsRecording(updated.Id)) Recordings.StopWithNotice(updated.Id);
         Cameras.Replace(updated);
         Cameras.Save();

@@ -58,11 +58,47 @@ public sealed class AddEditCameraTests : IDisposable
         Assert.True(form.TryApply(CameraForm.FieldsOf(a) with { Name = "Patio", Host = "10.0.0.9" }, out _, out _, out _));
         vm.ReplaceCamera(form.Result);
 
-        Assert.Same(form.Result, cameras.Find(a.Id));
+        Assert.Equal("Patio", cameras.Find(a.Id)!.Name);
         Assert.Equal("A", a.Name);
         var saved = NewCameras().All;
         Assert.Equal(["Patio", "B"], saved.Select(c => c.Name));
         Assert.Equal("10.0.0.9", saved[0].Host);
         Assert.Equal(1, rebuilds);
+    }
+
+    [Fact]
+    public void Options_changed_elsewhere_while_editing_are_kept()
+    {
+        var cameras = NewCameras();
+        var a = new Camera { Name = "A", Host = "a" };
+        cameras.Add(a);
+        cameras.Save();
+        var vm = NewViewModel(cameras);
+        var form = new CameraForm(a);
+
+        // Toggled from another window while the dialog was open.
+        a.Smoothing = true;
+        a.MotionEnabled = true;
+        a.LowQualityWhenBig = true;
+        Assert.True(form.TryApply(CameraForm.FieldsOf(a) with { Name = "Patio" }, out _, out _, out _));
+        vm.ReplaceCamera(form.Result);
+
+        var saved = NewCameras().All.Single();
+        Assert.Equal("Patio", saved.Name);
+        Assert.True(saved.Smoothing);
+        Assert.True(saved.MotionEnabled);
+        Assert.True(saved.LowQualityWhenBig);
+    }
+
+    [Fact]
+    public void Edit_of_a_camera_deleted_meanwhile_does_nothing()
+    {
+        var cameras = NewCameras();
+        var vm = NewViewModel(cameras);
+        var rebuilds = 0;
+        vm.ViewChanged += () => rebuilds++;
+        vm.ReplaceCamera(new Camera { Name = "Gone", Host = "g" });
+        Assert.Empty(cameras.All);
+        Assert.Equal(0, rebuilds);
     }
 }

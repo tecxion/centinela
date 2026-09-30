@@ -87,14 +87,24 @@ sealed partial class TileViewModel : ObservableObject
     /// <summary>True once <see cref="ShutdownAsync"/> was called: the tile is gone.</summary>
     public bool IsShutDown => _disposed;
 
-    /// <summary>Raised on the UI thread each time the stream reports reconnecting or failed authentication.</summary>
+    /// <summary>
+    /// Raised on the UI thread each time the stream reports reconnecting or failed authentication. A shared session
+    /// already failing raises it inside <see cref="Start"/>: subscribe before starting, or check <see cref="IsFailing"/>.
+    /// </summary>
     public event Action<TileViewModel>? StreamFailed;
     /// <summary>Raised on the UI thread each time an own (not shared) stream reaches Playing.</summary>
     public event Action<TileViewModel>? Playing;
     /// <summary>Raised on the UI thread for each error of an own stream (shared ones are reported by the window).</summary>
     public event Action<TileViewModel, StreamError>? ErrorReported;
 
-    /// <summary>Starts an own session; a shared one shows where it already is.</summary>
+    /// <summary>True while the stream is reconnecting or its credentials failed.</summary>
+    public bool IsFailing => Session is { } session && TileStatus.IsFailing(session.State);
+
+    /// <summary>
+    /// Starts an own session; a shared one shows where it already is. Subscribe to <see cref="StreamFailed"/> (and
+    /// <see cref="Playing"/>, <see cref="ErrorReported"/>) before calling it: a shared session that is already
+    /// failing raises <see cref="StreamFailed"/> from here, synchronously.
+    /// </summary>
     public void Start()
     {
         if (Session is not { } session) return;
@@ -152,7 +162,7 @@ sealed partial class TileViewModel : ObservableObject
         }
         StatusText = TileStatus.Text(state, _errorKind, Camera);
         IsPlaying = state == SessionState.Playing;
-        if (state is SessionState.Reconnecting or SessionState.AuthFailed) StreamFailed?.Invoke(this);
+        if (TileStatus.IsFailing(state)) StreamFailed?.Invoke(this);
         if (state == SessionState.Playing)
         {
             _errorKind = null;

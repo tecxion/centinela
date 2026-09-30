@@ -18,6 +18,8 @@ partial class CameraTileView : UserControl
     readonly DispatcherTimer _statsTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     Point? _pressAt;
     PointerPressedEventArgs? _pressEvent;
+    // The window the tile is placed in; its scaling (DPI) is part of the decode size.
+    TopLevel? _topLevel;
 
     public CameraTileView() => InitializeComponent();
 
@@ -37,7 +39,6 @@ partial class CameraTileView : UserControl
         {
             if (e.PropertyName == nameof(TileViewModel.ShowStats)) UpdateStatsTimer();
         };
-        UpdateStatsTimer();
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
         AddHandler(DragDrop.DragLeaveEvent, (_, _) => SetDropHover(false));
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
@@ -56,9 +57,10 @@ partial class CameraTileView : UserControl
     /// <summary>Raised once, after the first video frame has been painted.</summary>
     public event Action<CameraTileView>? FirstFrameShown;
 
+    /// <summary>Stats refresh only while shown and placed; placing the tile again restarts it.</summary>
     void UpdateStatsTimer()
     {
-        if (ViewModel.ShowStats) _statsTimer.Start();
+        if (ViewModel.ShowStats && VisualRoot is not null) _statsTimer.Start();
         else _statsTimer.Stop();
     }
 
@@ -91,9 +93,11 @@ partial class CameraTileView : UserControl
     {
         base.OnPointerReleased(e);
         EndPan(e.Pointer);
-        // _pressAt is cleared when a drag starts or on double-click, so reaching here with it set means a plain click.
+        // _pressAt is cleared when a drag starts or on double-click, so reaching here with it set means a plain
+        // click, unless the button was released outside the tile.
         if (_pressAt is null) return;
         _pressAt = null;
+        if (!TileClick.ReleasedInside(Bounds.Size, e.GetPosition(this))) return;
         _clickTimer.Interval = TopLevel.GetTopLevel(this)?.PlatformSettings?.GetDoubleTapTime(PointerType.Mouse)
             ?? TimeSpan.FromMilliseconds(500);
         _clickTimer.Stop();
@@ -145,8 +149,22 @@ partial class CameraTileView : UserControl
         Frame.BorderBrush = hover ? DropBorder : NormalBorder;
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        // Placed again (e.g. back from a placeholder or moved to another window): stats and DPI as they are now.
+        UpdateStatsTimer();
+        _topLevel = TopLevel.GetTopLevel(this);
+        if (_topLevel is not null) _topLevel.ScalingChanged += OnScalingChanged;
+        UpdateTargetSize();
+    }
+
+    void OnScalingChanged(object? sender, EventArgs e) => UpdateTargetSize();
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (_topLevel is not null) _topLevel.ScalingChanged -= OnScalingChanged;
+        _topLevel = null;
         _clickTimer.Stop();
         _statsTimer.Stop();
         _zoom.EndPan();

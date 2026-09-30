@@ -17,6 +17,7 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
     static readonly TimeSpan PlaceholderTimeout = TimeSpan.FromSeconds(5);
     readonly Dictionary<(Guid Id, StreamKind Kind), CameraTileView> _tiles = [];
     readonly Dictionary<CameraTileView, CameraTileView> _placeholders = []; // new tile → placeholder
+    readonly Dictionary<CameraTileView, DispatcherTimer> _timeouts = []; // new tile → its placeholder's 5 s limit
 
     /// <summary>A tile's shutdown began (task, camera name); the owner waits for these on exit.</summary>
     public event Action<Task, string>? ShutdownStarted;
@@ -58,7 +59,7 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
         if (!otherWanted && _tiles.TryGetValue(otherKey, out var unpainted)
             && _placeholders.TryGetValue(unpainted, out var previous) && previous.ViewModel.Kind == slot.Stream)
         {
-            _placeholders.Remove(unpainted);
+            Unlink(unpainted);
             _tiles.Remove(otherKey);
             RemoveAndShutdown(unpainted);
             _tiles[key] = previous;
@@ -78,7 +79,9 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
         // Same camera already on screen with the other stream: keep it over the new tile until that one has a frame.
         if (!otherWanted && _tiles.Remove(otherKey, out var placeholder))
         {
-            if (tile.ViewModel.Session is null)
+            // No session, or already failing when created (a shared session that was reconnecting: its StreamFailed
+            // was raised inside Start, before this could subscribe): nothing to wait for.
+            if (tile.ViewModel.Session is null || tile.ViewModel.IsFailing)
             {
                 RemoveAndShutdown(placeholder);
                 return;
@@ -98,15 +101,23 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
                 timeout.Stop();
                 Retire(tile);
             };
+            _timeouts[tile] = timeout;
             timeout.Start();
         }
     }
 
     void Retire(CameraTileView tile)
     {
+        if (Unlink(tile) is { } placeholder) RemoveAndShutdown(placeholder);
+    }
+
+    /// <summary>Stops waiting for <paramref name="tile"/> to paint; returns the placeholder that covered it, if any.</summary>
+    CameraTileView? Unlink(CameraTileView tile)
+    {
         tile.FirstFrameShown -= Retire;
         tile.ViewModel.StreamFailed -= RetireFailed;
-        if (_placeholders.Remove(tile, out var placeholder)) RemoveAndShutdown(placeholder);
+        if (_timeouts.Remove(tile, out var timeout)) timeout.Stop();
+        return _placeholders.Remove(tile, out var placeholder) ? placeholder : null;
     }
 
     // Named (not a lambda) so Retire can unsubscribe it, as the WPF RetirePlaceholder did.
@@ -140,7 +151,7 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
     void DisposeTile((Guid, StreamKind) key)
     {
         if (!_tiles.Remove(key, out var tile)) return;
-        if (_placeholders.Remove(tile, out var placeholder)) RemoveAndShutdown(placeholder);
+        if (Unlink(tile) is { } placeholder) RemoveAndShutdown(placeholder);
         RemoveAndShutdown(tile);
     }
 
@@ -163,6 +174,8 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
         var shutdowns = All.Select(t => t.ViewModel.ShutdownAsync()).ToList();
         _tiles.Clear();
         _placeholders.Clear();
+        foreach (var timeout in _timeouts.Values) timeout.Stop();
+        _timeouts.Clear();
         grid.Children.Clear();
         return shutdowns;
     }

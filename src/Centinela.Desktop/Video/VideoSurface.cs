@@ -18,6 +18,9 @@ sealed class VideoSurface : Control
     long _sequence;
     bool _attached;
     bool _firstFrame;
+    // One animation-frame request at a time; a request made before the last detach is stale (its generation changed).
+    bool _frameRequested;
+    int _generation;
 
     StreamSession? _session;
 
@@ -30,6 +33,7 @@ sealed class VideoSurface : Control
             if (value == _session) return;
             _session = value;
             _sequence = 0;
+            RequestFrame();
         }
     }
 
@@ -54,18 +58,29 @@ sealed class VideoSurface : Control
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _attached = false;
+        _frameRequested = false;
+        _generation++;
         _bitmap?.Dispose();
         _bitmap = null;
         base.OnDetachedFromVisualTree(e);
     }
 
+    /// <summary>Asks for the next screen refresh; not while detached, without a session or with a request pending.</summary>
     void RequestFrame()
     {
-        if (_attached) TopLevel.GetTopLevel(this)?.RequestAnimationFrame(_ => OnFrame());
+        if (!_attached || _session is null || _frameRequested) return;
+        if (TopLevel.GetTopLevel(this) is not { } topLevel) return;
+        _frameRequested = true;
+        var generation = _generation;
+        topLevel.RequestAnimationFrame(_ => OnFrame(generation));
     }
 
-    void OnFrame()
+    void OnFrame(int generation)
     {
+        // Requested before a detach: the current placement (if any) has its own request.
+        if (generation != _generation) return;
+        _frameRequested = false;
+        if (!_attached) return;
         if (_session is { } session && session.Mailbox.TryRead(ref _sequence, CopyFrame))
         {
             UpdateContentRect();

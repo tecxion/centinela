@@ -36,4 +36,14 @@ public class TileStatusTests
     [Fact]
     public void Playing_clears_any_error() =>
         Assert.Equal("", TileStatus.Text(SessionState.Playing, StreamErrorKind.Unreachable, Cam));
+
+    [Theory]
+    [InlineData(SessionState.Reconnecting, true)]
+    [InlineData(SessionState.AuthFailed, true)]
+    [InlineData(SessionState.Idle, false)]
+    [InlineData(SessionState.Connecting, false)]
+    [InlineData(SessionState.Playing, false)]
+    [InlineData(SessionState.Stopped, false)]
+    public void Failing_states_retire_a_placeholder(SessionState state, bool expected) =>
+        Assert.Equal(expected, TileStatus.IsFailing(state));
 }
