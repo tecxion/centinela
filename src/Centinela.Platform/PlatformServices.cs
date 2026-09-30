@@ -14,6 +14,7 @@ public sealed class PlatformServices
     /// <summary>Null when starting with the system is not offered (test data folder, or not supported here).</summary>
     public IAutoStart? AutoStart { get; init; }
     public required ISingleInstance SingleInstance { get; init; }
+    public required IFileManager Files { get; init; }
 
     public static PlatformServices Create(string exePath)
     {
@@ -26,12 +27,18 @@ public sealed class PlatformServices
                 Secrets = testSecrets ?? new DpapiSecretStore(),
                 AutoStart = testRun ? null : new WindowsAutoStart(new RegistryRunKey(), exePath),
                 SingleInstance = new WindowsSingleInstance(AppPaths.InstanceSuffix),
+                Files = new ExplorerFileManager(),
             };
         }
         if (testRun)
         {
             // Lets the cross-platform parts run in CI on macOS/Linux before their own services exist.
-            return new PlatformServices { Secrets = testSecrets!, SingleInstance = new NoSingleInstance() };
+            return new PlatformServices
+            {
+                Secrets = testSecrets!,
+                SingleInstance = new NoSingleInstance(),
+                Files = new ShellFileManager(),
+            };
         }
         throw new PlatformNotSupportedException("Centinela todavía no funciona en este sistema (llega en la v1.4).");
     }
