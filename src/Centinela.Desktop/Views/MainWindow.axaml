@@ -37,6 +37,7 @@
         </Menu>
         <StackPanel x:Name="TopBar" DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,4" Spacing="6">
             <Button Content="➕ Añadir cámara" Click="AddCamera_Click" />
+            <Button Content="🔍 Buscar en red" Click="Discover_Click" />
             <Border Classes="separator" />
             <TextBlock Text="Vista:" VerticalAlignment="Center" />
             <ComboBox MinWidth="240" ItemsSource="{Binding LayoutLabels}" SelectedIndex="{Binding LayoutIndex}" />
