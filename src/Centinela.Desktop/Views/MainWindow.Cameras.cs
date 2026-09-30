@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Centinela.Core;
+using Centinela.Core.Onvif;
 using Centinela.Desktop.Services.Cameras;
 
 namespace Centinela.Desktop.Views;
@@ -30,6 +31,7 @@ public partial class MainWindow
         tile.EditRequested += t => _ = EditCameraAsync(t);
         tile.DuplicateRequested += t => _ = DuplicateCameraAsync(t);
         tile.DeleteRequested += t => _ = DeleteCameraAsync(t);
+        tile.EncoderInfoRequested += ShowQuality;
         _actions.Show(tile.ViewModel);
     }
 
@@ -82,6 +84,25 @@ public partial class MainWindow
         // The URL may change: its tiles and fullscreen views restart with the new settings.
         DisposeTilesOf(camera.Id);
         _vm.ReplaceCamera(dialog.Result);
+    }
+
+    /// <summary>«Calidad de la cámara…», without blocking: the camera as it is now, over the window showing the tile.</summary>
+    void ShowQuality(CameraTileView tile)
+    {
+        var camera = _vm.Cameras.CurrentOr(tile.ViewModel.Camera);
+        var id = camera.Id;
+        new CameraQualityWindow(camera, text => SaveOriginals(id, text)).Show(OwnerFor(tile));
+    }
+
+    /// <summary>
+    /// Keeps the encoder values found before Centinela's first change on the stored camera (it may have been edited
+    /// or replaced since the window opened); never overwrites originals already kept.
+    /// </summary>
+    void SaveOriginals(Guid cameraId, string originals)
+    {
+        if (_vm.Cameras.Find(cameraId) is not { } camera || EncoderSnapshot.Parse(camera.OriginalEncoders).Count > 0) return;
+        camera.OriginalEncoders = originals;
+        _vm.Cameras.Save();
     }
 
     /// <summary>The dialog opens over the window showing the tile (a fullscreen view or this one).</summary>

@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Centinela.Desktop.Views.CameraQualityWindow"
+        Title="Calidad de la cámara" Width="760" Height="640" MinHeight="480"
+        WindowStartupLocation="CenterOwner" Icon="/Assets/centinela.ico">
+    <DockPanel Margin="12">
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"
+                   Text="Consulta a la cámara qué resolución, fps y bitrate usa cada flujo (por ONVIF y por la API de Dahua/Imou, con el usuario y la contraseña guardados) y, si lo admite, permite cambiarlos por ONVIF." />
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Spacing="8">
+            <Button x:Name="RetryButton" Content="Consultar otra vez" Padding="10,4" Click="Retry_Click" />
+            <Button Content="Copiar" Padding="10,4" Click="Copy_Click"
+                    ToolTip.Tip="Copia el informe (no incluye la contraseña)" />
+            <Button Content="Cerrar" Padding="10,4" IsCancel="True" Click="Close_Click" />
+        </StackPanel>
+        <!-- «Cambiar calidad (ONVIF)» (a GroupBox in the Windows version). -->
+        <Border x:Name="EditBox" DockPanel.Dock="Bottom" BorderBrush="Gray" BorderThickness="1" CornerRadius="4"
+                Padding="8" Margin="0,10,0,0" IsEnabled="False">
+            <StackPanel>
+                <TextBlock Text="Cambiar calidad (ONVIF)" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <Grid x:Name="Editors" />
+                <TextBlock TextWrapping="Wrap" Foreground="#666" Margin="0,8,0,0"
+                           Text="El cambio se guarda en la cámara: afecta también a la app Imou y a sus grabaciones. La imagen se corta unos segundos al aplicarlo. Menos resolución, fps y bitrate = menos datos por la wifi." />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0" Spacing="8">
+                    <Button Content="Recomendados (wifi pobre)" Padding="10,4" Click="Recommended_Click"
+                            ToolTip.Tip="Rellena valores ligeros; no cambia nada hasta pulsar Aplicar" />
+                    <Button x:Name="RestoreButton" Content="Valores originales" Padding="10,4" Click="Restore_Click"
+                            ToolTip.Tip="Rellena los valores que tenía la cámara antes de que Centinela la cambiara por primera vez" />
+                    <Button x:Name="ApplyButton" Content="Aplicar…" Padding="14,4" Click="Apply_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <TextBox x:Name="Report" IsReadOnly="True" FontFamily="Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace"
+                 FontSize="12" TextWrapping="NoWrap" AcceptsReturn="True"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+    </DockPanel>
+</Window>
