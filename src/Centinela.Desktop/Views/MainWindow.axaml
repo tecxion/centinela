@@ -23,6 +23,13 @@
                 <MenuItem Header="Mostrar _estadísticas" ToggleType="CheckBox"
                           IsChecked="{Binding ShowStats, Mode=TwoWay}" />
             </MenuItem>
+            <MenuItem Header="A_yuda">
+                <MenuItem Header="_Manual" Click="Manual_Click" />
+                <MenuItem Header="_Licencia" Click="License_Click" />
+                <MenuItem Header="_Soporte" Click="Support_Click" />
+                <Separator />
+                <MenuItem Header="_Acerca de Centinela" Click="About_Click" />
+            </MenuItem>
         </Menu>
         <StackPanel x:Name="TopBar" DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,4" Spacing="6">
             <Button Content="➕ Añadir cámara" Click="AddCamera_Click" />

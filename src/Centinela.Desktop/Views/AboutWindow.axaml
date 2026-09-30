@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Centinela.Desktop.Views.AboutWindow"
+        Title="Acerca de Centinela" SizeToContent="WidthAndHeight" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="/Assets/centinela.ico">
+    <StackPanel Margin="24" MinWidth="320">
+        <Image Source="/Assets/centinela.png" Width="48" Height="48" HorizontalAlignment="Center"
+               RenderOptions.BitmapInterpolationMode="HighQuality" />
+        <TextBlock x:Name="VersionText" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0" />
+        <TextBlock Text="Visor de cámaras IP" HorizontalAlignment="Center" Foreground="Gray" />
+        <TextBlock Text="Licencia MIT" HorizontalAlignment="Center" Margin="0,12,0,0" />
+        <HyperlinkButton x:Name="RepoLink" HorizontalAlignment="Center" Margin="0,4,0,0" Padding="0" Click="RepoLink_Click" />
+        <HyperlinkButton Content="Soporte: www.tecxart.es" HorizontalAlignment="Center" Margin="0,4,0,0" Padding="0"
+                         Click="SupportLink_Click" />
+        <Button Content="Cerrar" Width="90" Margin="0,16,0,0" HorizontalAlignment="Center" HorizontalContentAlignment="Center"
+                IsCancel="True" IsDefault="True" Click="Close_Click" />
+    </StackPanel>
+</Window>
