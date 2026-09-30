@@ -53,9 +53,6 @@ sealed partial class TileViewModel
     /// </summary>
     [ObservableProperty] private bool _enableZoom;
 
-    /// <summary>Raised on the UI thread when a new connection has no audio track while this tile's audio is on.</summary>
-    public event Action<TileViewModel>? AudioLost;
-
     public string QualityText => LowQuality ? "SD" : "HD";
 
     public string QualityToolTip => LowQuality
@@ -115,28 +112,5 @@ sealed partial class TileViewModel
     {
         SmoothingOn = enabled;
         if (_lease is null && Session is not null && !_disposed) Session.Smoothing = enabled;
-    }
-
-    /// <summary>Audio button and indicator for audio on or off. Shared sessions never play audio.</summary>
-    internal void ApplyAudioOn(bool on)
-    {
-        AudioOn = on && !_disposed && _lease is null;
-        // A disabled button keeps the tooltip that explains why.
-        if (AudioEnabled) AudioToolTip = AudioOn ? "Silenciar" : "Activar sonido";
-    }
-
-    public void DisableAudio(string reason)
-    {
-        AudioEnabled = false;
-        AudioToolTip = reason;
-    }
-
-    /// <summary>Reads the session's audio track; UI thread.</summary>
-    void UpdateAudio()
-    {
-        if (_disposed) return;
-        HasAudio = Session?.Info?.AudioCodec is not null;
-        // Reconnected to a stream without audio: nothing will sound, so the owner returns the tile to muted.
-        if (AudioOn && !HasAudio) AudioLost?.Invoke(this);
     }
 }

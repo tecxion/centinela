@@ -19,6 +19,8 @@ public partial class FullscreenWindow : Window
         _tile = new TileViewModel(camera, ViewPlanner.StreamFor(camera, StreamKind.Main), manage: false, leases: null)
         {
             Big = true,
+            // Its own session (never a shared lease), so it may play whichever stream it shows.
+            AudioCapable = true,
             ShowStats = showStats,
         };
         _view = new CameraTileView(_tile);

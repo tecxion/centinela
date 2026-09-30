@@ -21,6 +21,12 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
     /// <summary>A tile's shutdown began (task, camera name); the owner waits for these on exit.</summary>
     public event Action<Task, string>? ShutdownStarted;
 
+    /// <summary>
+    /// The tile must stop sounding: it leaves the grid, is no longer big, or only covers its replacement. Raised
+    /// before the tile changes.
+    /// </summary>
+    public event Action<TileViewModel>? AudioReleaseRequested;
+
     public IEnumerable<CameraTileView> All => _tiles.Values.Concat(_placeholders.Values);
 
     public IEnumerable<CameraTileView> TilesOf(Guid cameraId) => All.Where(t => t.ViewModel.Camera.Id == cameraId);
@@ -43,7 +49,7 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
         var otherKey = (slot.CameraId, slot.Stream == StreamKind.Main ? StreamKind.Sub : StreamKind.Main);
         if (_tiles.TryGetValue(key, out var existing))
         {
-            existing.ViewModel.Big = slot.Big;
+            SetBig(existing, slot.Big);
             Position(existing, slot, z: 0);
             if (_placeholders.TryGetValue(existing, out var covering)) Position(covering, slot, z: 1);
             return;
@@ -58,7 +64,7 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
             _tiles.Remove(otherKey);
             RemoveAndShutdown(unpainted);
             _tiles[key] = previous;
-            previous.ViewModel.Big = slot.Big;
+            SetBig(previous, slot.Big);
             // Zoom was turned off while it covered; Big may not have changed, so set it back explicitly.
             previous.ViewModel.EnableZoom = slot.Big;
             Position(previous, slot, z: 0);
@@ -79,6 +85,8 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
                 RemoveAndShutdown(placeholder);
                 return;
             }
+            // A demoted camera must not keep sounding from under the thumbnail that replaces it.
+            AudioReleaseRequested?.Invoke(placeholder.ViewModel);
             // It only covers the new tile until that one has a frame: not zoomed, and no zoom.
             placeholder.ResetZoom();
             placeholder.ViewModel.EnableZoom = false;
@@ -109,6 +117,19 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
         if (_placeholders.Keys.FirstOrDefault(t => t.ViewModel == failed) is { } tile) Retire(tile);
     }
 
+    /// <summary>
+    /// Big tiles zoom and, on their own main-stream session, may play audio. A tile that stays on screen as a
+    /// thumbnail drops the audio (its zoom is reset by the view).
+    /// </summary>
+    void SetBig(CameraTileView tile, bool big)
+    {
+        var viewModel = tile.ViewModel;
+        if (!big) AudioReleaseRequested?.Invoke(viewModel);
+        viewModel.Big = big;
+        // Shared (substream) sessions never play audio: the sink would reach every viewer of the lease.
+        viewModel.AudioCapable = big && viewModel.Kind == StreamKind.Main;
+    }
+
     static void Position(Control tile, PlacedTile slot, int z)
     {
         Grid.SetRow(tile, slot.Row);
@@ -133,6 +154,7 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
 
     void RemoveAndShutdown(CameraTileView tile)
     {
+        AudioReleaseRequested?.Invoke(tile.ViewModel);
         grid.Children.Remove(tile);
         ShutdownStarted?.Invoke(tile.ViewModel.ShutdownAsync(), tile.ViewModel.Camera.Name);
     }

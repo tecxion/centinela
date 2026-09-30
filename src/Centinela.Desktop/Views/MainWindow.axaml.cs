@@ -38,6 +38,7 @@ public partial class MainWindow : Window
         _tiles = new TileHost(TileGrid, factory, cameras.Find);
         _tiles.ShutdownStarted += Track;
         InitRecording();
+        InitAudio();
         _vm.ViewChanged += Rebuild;
         _vm.PropertyChanged += (_, e) =>
         {
@@ -62,13 +63,19 @@ public partial class MainWindow : Window
         tile.SwapRequested += _vm.Drop;
         tile.FullscreenRequested += t => ShowFullscreen(t.ViewModel.Camera);
         WireRecording(tile);
+        WireAudio(tile);
     }
 
     void ShowFullscreen(Camera shown)
     {
         var window = new FullscreenWindow(_vm.Cameras.CurrentOr(shown), _vm.ShowStats);
         WireRecording(window.Tile);
-        window.Closed += (_, _) => Track(window.ShutdownAsync(), shown.Name);
+        WireAudio(window.Tile);
+        window.Closed += (_, _) =>
+        {
+            _audio.Release(window.Tile.ViewModel);
+            Track(window.ShutdownAsync(), shown.Name);
+        };
         window.Show(this);
     }
 
@@ -184,6 +191,7 @@ public partial class MainWindow : Window
         {
             // Failures cannot be shown any more; exit anyway.
         }
+        _audio.Dispose();
         base.OnClosed(e);
     }
 }

@@ -13,7 +13,13 @@ sealed class TileFactory(StreamLeases leases, Func<bool> showStats)
 
     public CameraTileView Create(Camera camera, StreamKind stream, bool big)
     {
-        var viewModel = new TileViewModel(camera, stream, manage: true, leases) { Big = big, ShowStats = showStats() };
+        var viewModel = new TileViewModel(camera, stream, manage: true, leases)
+        {
+            Big = big,
+            // Shared (substream) sessions never play audio: the sink would reach every viewer of the lease.
+            AudioCapable = big && stream == StreamKind.Main,
+            ShowStats = showStats(),
+        };
         var view = new CameraTileView(viewModel);
         Created?.Invoke(view);
         viewModel.Start();

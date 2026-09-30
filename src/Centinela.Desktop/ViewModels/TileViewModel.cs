@@ -19,6 +19,7 @@ sealed partial class TileViewModel : ObservableObject
     readonly Action<StreamError>? _onError;
     readonly Action<double>? _onSmoothing;
     readonly Action<StreamInfo>? _onInfo;
+    readonly Action<string>? _onAudioFailed;
     StreamErrorKind? _errorKind;
     Task? _shutdown;
     bool _disposed;
@@ -66,10 +67,12 @@ sealed partial class TileViewModel : ObservableObject
         _onError = error => UiThread.Post(() => ShowError(error));
         _onSmoothing = seconds => UiThread.Post(() => ShowSmoothing(seconds));
         _onInfo = _ => UiThread.Post(UpdateAudio);
+        _onAudioFailed = OnAudioFailed;
         Session.StateChanged += _onState;
         Session.ErrorOccurred += _onError;
         Session.SmoothingChanged += _onSmoothing;
         Session.InfoAvailable += _onInfo;
+        Session.AudioFailed += _onAudioFailed;
         ShowSmoothing(Session.SmoothingSeconds);
         StatusText = "Conectando…";
     }
@@ -188,7 +191,9 @@ sealed partial class TileViewModel : ObservableObject
             session.ErrorOccurred -= _onError;
             session.SmoothingChanged -= _onSmoothing;
             session.InfoAvailable -= _onInfo;
+            session.AudioFailed -= _onAudioFailed;
         }
+        if (_lease is null) Session?.SetAudioSink(null);
         AudioOn = false;
         if (_lease is not null) return _shutdown = _lease.ReleaseAsync();
         Session?.RequestStop();
