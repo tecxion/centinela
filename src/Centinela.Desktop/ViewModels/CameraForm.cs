@@ -24,6 +24,9 @@ sealed class CameraForm(Camera camera)
     /// <summary>Port the override URLs currently point at.</summary>
     public int UrlPort { get; private set; } = camera.Port;
 
+    /// <summary>Shown when the stored password cannot be read on this system (<see cref="Camera.PasswordMissing"/>).</summary>
+    public const string PasswordNote = "La contraseña guardada no se puede leer en este equipo: escríbela de nuevo.";
+
     public static CameraFields FieldsOf(Camera camera) => new(
         camera.Brand, camera.Name, camera.Host, camera.Port.ToString(), camera.User, camera.Password,
         camera.MainUrlOverride ?? "", camera.SubUrlOverride ?? "", camera.UseUdp);
@@ -67,6 +70,7 @@ sealed class CameraForm(Camera camera)
         _camera.Port = port;
         _camera.User = fields.User.Trim();
         _camera.Password = fields.Password;
+        if (fields.Password.Length > 0) _camera.UnreadablePassword = null;
         _camera.MainUrlOverride = mainUrl.Length == 0 ? null : mainUrl;
         _camera.SubUrlOverride = subUrl.Length == 0 ? null : subUrl;
         _camera.UseUdp = fields.UseUdp;

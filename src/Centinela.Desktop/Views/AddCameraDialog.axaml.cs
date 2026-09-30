@@ -29,6 +29,8 @@ public partial class AddCameraDialog : Window
         SubUrlBox.Text = fields.SubUrl;
         UdpBox.IsChecked = fields.UseUdp;
         BrandBox.SelectedIndex = (int)fields.Brand;
+        // After the brand hint: the brand's hint replaces this note as soon as the brand changes.
+        if (_form.Result.PasswordMissing) HintText.Text = CameraForm.PasswordNote;
 
         _test.LinesChanged += () => TestResult.Text = $"{_test.MainLine}\n{_test.SubLine}";
         _test.StatusChanged += () => TestStatus.Text = _test.Status;

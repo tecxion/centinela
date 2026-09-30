@@ -52,17 +52,22 @@ public sealed class CameraStore(string filePath, ISecretStore secrets)
 
     public void Save(IEnumerable<Camera> cameras)
     {
-        var list = cameras.ToList();
+        var dtos = cameras.Select(ToDto).ToList();
         var previous = ReadStoredSecrets();
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
         var tmp = filePath + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(list.Select(ToDto).ToList(), Json));
+        File.WriteAllText(tmp, JsonSerializer.Serialize(dtos, Json));
         File.Move(tmp, filePath, overwrite: true);
 
         // A camera that is no longer in the list takes its password with it (keychain entries, etc.).
-        var kept = list.Select(c => c.Id).ToHashSet();
+        var kept = dtos.Select(d => d.Id).ToHashSet();
         foreach (var (id, stored) in previous)
             if (!kept.Contains(id) && stored.Length > 0) secrets.Forget(id, stored);
+
+        // A camera that stays but whose password was cleared forgets its stored secret too.
+        foreach (var d in dtos)
+            if (previous.TryGetValue(d.Id, out var stored) && stored.Length > 0 && string.IsNullOrEmpty(d.PasswordProtected))
+                secrets.Forget(d.Id, stored);
     }
 
     /// <summary>Id → stored password value of the file as it is now; empty when missing or unreadable.</summary>
@@ -95,7 +100,8 @@ public sealed class CameraStore(string filePath, ISecretStore secrets)
         return new()
         {
             Id = c.Id, Name = c.Name, Brand = c.Brand, Host = c.Host, Port = c.Port, User = user,
-            PasswordProtected = secrets.Protect(c.Id, password), MainUrlOverride = main,
+            PasswordProtected = password.Length == 0 && c.UnreadablePassword is { } raw ? raw : secrets.Protect(c.Id, password),
+            MainUrlOverride = main,
             SubUrlOverride = sub, UseUdp = c.UseUdp, Order = c.Order,
             MotionEnabled = c.MotionEnabled, MotionSensitivity = c.MotionSensitivity,
             MotionCooldownSeconds = c.MotionCooldownSeconds, ConnectionAlerts = c.ConnectionAlerts, MotionAlerts = c.MotionAlerts,
@@ -109,17 +115,22 @@ public sealed class CameraStore(string filePath, ISecretStore secrets)
         return url is null ? null : StreamUrlBuilder.StripCredentials(url.Trim(), out credentials);
     }
 
-    Camera FromDto(CameraDto d) => new()
+    Camera FromDto(CameraDto d)
     {
-        Id = d.Id, Name = d.Name, Brand = Enum.IsDefined(d.Brand) ? d.Brand : Brand.Custom, Host = d.Host, Port = d.Port, User = d.User,
-        Password = secrets.Unprotect(d.Id, d.PasswordProtected ?? "") ?? "", MainUrlOverride = d.MainUrlOverride,
-        SubUrlOverride = d.SubUrlOverride, UseUdp = d.UseUdp, Order = d.Order,
-        MotionEnabled = d.MotionEnabled,
-        MotionSensitivity = Enum.IsDefined(d.MotionSensitivity) ? d.MotionSensitivity : MotionSensitivity.Medium,
-        MotionCooldownSeconds = Camera.NormalizeCooldown(d.MotionCooldownSeconds),
-        ConnectionAlerts = d.ConnectionAlerts, MotionAlerts = d.MotionAlerts,
-        LowQualityWhenBig = d.LowQualityWhenBig, Smoothing = d.Smoothing, OriginalEncoders = d.OriginalEncoders,
-    };
+        var stored = d.PasswordProtected ?? "";
+        var password = secrets.Unprotect(d.Id, stored);
+        return new()
+        {
+            Id = d.Id, Name = d.Name, Brand = Enum.IsDefined(d.Brand) ? d.Brand : Brand.Custom, Host = d.Host, Port = d.Port, User = d.User,
+            Password = password ?? "", UnreadablePassword = password is null ? stored : null, MainUrlOverride = d.MainUrlOverride,
+            SubUrlOverride = d.SubUrlOverride, UseUdp = d.UseUdp, Order = d.Order,
+            MotionEnabled = d.MotionEnabled,
+            MotionSensitivity = Enum.IsDefined(d.MotionSensitivity) ? d.MotionSensitivity : MotionSensitivity.Medium,
+            MotionCooldownSeconds = Camera.NormalizeCooldown(d.MotionCooldownSeconds),
+            ConnectionAlerts = d.ConnectionAlerts, MotionAlerts = d.MotionAlerts,
+            LowQualityWhenBig = d.LowQualityWhenBig, Smoothing = d.Smoothing, OriginalEncoders = d.OriginalEncoders,
+        };
+    }
 
     sealed class CameraDto
     {

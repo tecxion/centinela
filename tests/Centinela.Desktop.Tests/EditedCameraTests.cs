@@ -44,7 +44,7 @@ public class EditedCameraTests
     [
         nameof(Camera.Id), nameof(Camera.Name), nameof(Camera.Brand), nameof(Camera.Host), nameof(Camera.Port),
         nameof(Camera.User), nameof(Camera.Password), nameof(Camera.MainUrlOverride), nameof(Camera.SubUrlOverride),
-        nameof(Camera.UseUdp),
+        nameof(Camera.UseUdp), nameof(Camera.UnreadablePassword),
     ];
 
     static readonly string[] FromStored =

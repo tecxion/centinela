@@ -36,6 +36,16 @@ public sealed class Camera
     /// </summary>
     public string? OriginalEncoders { get; set; }
 
+    /// <summary>
+    /// The stored password value (cameras.json) when this system could not read it — a DPAPI value from another PC,
+    /// a keychain reference copied from a Mac… — so that saving writes it back unchanged instead of erasing it.
+    /// Null when the password was read (or there is none). Cleared when the user types a new password.
+    /// </summary>
+    public string? UnreadablePassword { get; set; }
+
+    /// <summary>The camera has a stored password this system cannot read: the user must type it again.</summary>
+    public bool PasswordMissing => UnreadablePassword is not null;
+
     public static readonly int[] AllowedCooldowns = [30, 60, 300, 900];
     public static int NormalizeCooldown(int seconds) => AllowedCooldowns.Contains(seconds) ? seconds : 60;
 
@@ -47,6 +57,7 @@ public sealed class Camera
         var copy = Clone();
         copy.Id = Guid.NewGuid();
         copy.Name = $"{Name} (copia)";
+        copy.UnreadablePassword = null;
         return copy;
     }
 }

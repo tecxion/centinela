@@ -143,4 +143,23 @@ public sealed class CameraFormTests
         Assert.Equal("Pon la URL RTSP en «Avanzado» sin usuario ni contraseña (rtsp://IP:puerto/ruta). Escribe las credenciales en los campos Usuario y Contraseña: se guardan cifradas.",
             CameraForm.HintFor(Brand.Custom));
     }
+    [Fact]
+    public void Typing_a_password_replaces_the_unreadable_one()
+    {
+        var form = new CameraForm(new Camera { UnreadablePassword = "keychain:x" });
+        Assert.True(form.TryApply(Valid() with { Password = "nueva" }, out _, out _, out _));
+        Assert.Null(form.Result.UnreadablePassword);
+    }
+
+    [Fact]
+    public void An_empty_password_keeps_the_unreadable_one()
+    {
+        var form = new CameraForm(new Camera { UnreadablePassword = "keychain:x" });
+        Assert.True(form.TryApply(Valid() with { Password = "" }, out _, out _, out _));
+        Assert.Equal("keychain:x", form.Result.UnreadablePassword);
+    }
+
+    [Fact]
+    public void Password_note_text() =>
+        Assert.Equal("La contraseña guardada no se puede leer en este equipo: escríbela de nuevo.", CameraForm.PasswordNote);
 }

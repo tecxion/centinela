@@ -256,4 +256,48 @@ public sealed class CameraStoreTests : IDisposable
         store.Save([kept]);
         Assert.Equal([removed.Id], _secrets.Forgotten);
     }
+    [Fact]
+    public void An_unreadable_password_is_kept_as_it_was_when_saving()
+    {
+        var id = Guid.NewGuid();
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(FilePath, $$"""[{"id":"{{id}}","name":"Patio","host":"h","passwordProtected":"keychain:{{id}}"}]""");
+        var store = new CameraStore(FilePath, _secrets);
+
+        var loaded = Assert.Single(store.Load());
+        Assert.Equal("", loaded.Password);
+        Assert.True(loaded.PasswordMissing);
+        loaded.Name = "Patio 2";
+        store.Save([loaded]);
+
+        Assert.Contains($"\"passwordProtected\": \"keychain:{id}\"", File.ReadAllText(FilePath));
+        Assert.Empty(_secrets.Forgotten);
+    }
+
+    [Fact]
+    public void A_typed_password_replaces_the_unreadable_one()
+    {
+        var id = Guid.NewGuid();
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(FilePath, $$"""[{"id":"{{id}}","name":"Patio","host":"h","passwordProtected":"AQAAAotra"}]""");
+        var store = new CameraStore(FilePath, _secrets);
+        var loaded = Assert.Single(store.Load());
+        loaded.Password = "nueva";
+        loaded.UnreadablePassword = null;
+        store.Save([loaded]);
+
+        var again = Assert.Single(store.Load());
+        Assert.Equal(("nueva", false), (again.Password, again.PasswordMissing));
+    }
+
+    [Fact]
+    public void Clearing_the_password_of_a_kept_camera_forgets_its_secret()
+    {
+        var camera = Sample(0);
+        var store = new CameraStore(FilePath, _secrets);
+        store.Save([camera]);
+        camera.Password = "";
+        store.Save([camera]);
+        Assert.Equal([camera.Id], _secrets.Forgotten);
+    }
 }
