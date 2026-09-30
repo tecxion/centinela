@@ -9,7 +9,7 @@ sealed class CameraRepository(CameraStore store)
 
     public IReadOnlyList<Camera> All => _cameras;
 
-    /// <summary>Raised after a successful save (the automatic backup listens, phase 2c).</summary>
+    /// <summary>Raised after a successful save; listeners must catch their own errors (the automatic backup does).</summary>
     public event Action? Saved;
     /// <summary>Raised with a Spanish message when saving fails.</summary>
     public event Action<string>? SaveFailed;

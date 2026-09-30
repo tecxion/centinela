@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Centinela.Core;
+using Centinela.Desktop.Services.Backup;
 using Centinela.Desktop.Services.Data;
 using Centinela.Desktop.Services.Streams;
 using Centinela.Desktop.Services.Tiles;
@@ -31,7 +32,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         var cameras = new CameraRepository(new CameraStore(CameraStore.DefaultPath, App.Platform.Secrets));
         cameras.Load();
-        _vm = new MainViewModel(cameras, new SettingsRepository(new SettingsStore(SettingsStore.DefaultPath)));
+        _vm = new MainViewModel(cameras, new SettingsRepository(new SettingsStore(SettingsStore.DefaultPath)),
+            new AutomaticBackup((folder, list) => BackupWriter.WriteAutomatic(folder, list)));
         DataContext = _vm;
         var factory = new TileFactory(_leases, () => _vm.ShowStats);
         factory.Created += Wire;
@@ -184,8 +186,9 @@ public partial class MainWindow : Window
     {
         _closing = true;
         foreach (var owned in OwnedWindows.ToList()) owned.Close();
-        // Tiles and recordings shut down in parallel; one bounded wait so recordings get their trailer.
-        var shutdowns = _tiles.ShutdownAll().Concat(_pendingShutdowns).Append(_vm.Recordings.ShutdownAsync()).ToArray();
+        // Tiles, recordings and the automatic copy finish in parallel; one bounded wait so recordings get their trailer.
+        var shutdowns = _tiles.ShutdownAll().Concat(_pendingShutdowns)
+            .Append(_vm.Recordings.ShutdownAsync()).Append(_vm.Backup.IdleAsync()).ToArray();
         // Stop whatever else still holds a shared session now, so it winds down in parallel.
         _leases.Dispose();
         try

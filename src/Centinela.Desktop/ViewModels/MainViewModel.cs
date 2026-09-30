@@ -1,4 +1,5 @@
 using Centinela.Core;
+using Centinela.Desktop.Services.Backup;
 using Centinela.Desktop.Services.Cameras;
 using Centinela.Desktop.Services.Data;
 using Centinela.Desktop.Services.Layout;
@@ -7,7 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace Centinela.Desktop.ViewModels;
 
 /// <summary>The main window's state: cameras, settings, chosen layout, stats and the status line.</summary>
-/// <remarks>Recording and snapshots are in MainViewModel.Recording.cs.</remarks>
+/// <remarks>Recording and snapshots are in MainViewModel.Recording.cs; the automatic copy in MainViewModel.Backup.cs.</remarks>
 sealed partial class MainViewModel : ObservableObject
 {
     [ObservableProperty] private int _layoutIndex;
@@ -17,16 +18,19 @@ sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string? _statusRevealPath;
     [ObservableProperty] private bool _isEmpty;
 
-    public MainViewModel(CameraRepository cameras, SettingsRepository settings)
+    /// <param name="backup">The automatic copy; none (a copy that writes nothing) when null, so tests never write.</param>
+    public MainViewModel(CameraRepository cameras, SettingsRepository settings, AutomaticBackup? backup = null)
     {
         Cameras = cameras;
         Settings = settings;
+        Backup = backup ?? new AutomaticBackup((_, _) => { });
         Layout = new LayoutController(cameras.All, settings.Settings);
         _layoutIndex = LayoutChoices.IndexFor(settings.Settings);
         _showStats = settings.Settings.ShowStats;
         _isEmpty = cameras.All.Count == 0;
         cameras.SaveFailed += message => Notify(message, null);
         InitRecording();
+        InitBackup();
     }
 
     public CameraRepository Cameras { get; }
