@@ -1,5 +1,32 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Centinela.Desktop.ViewModels"
         x:Class="Centinela.Desktop.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
         Title="Centinela" Width="1280" Height="800" Background="#111111"
-        Icon="/Assets/centinela.ico" />
+        Icon="/Assets/centinela.ico">
+    <DockPanel>
+        <Menu x:Name="MainMenu" DockPanel.Dock="Top">
+            <MenuItem Header="_Archivo">
+                <MenuItem Header="_Salir" Click="Exit_Click" />
+            </MenuItem>
+            <MenuItem Header="_Ver">
+                <!-- The menu flips IsChecked itself; TwoWay because MenuItem.IsChecked binds OneWay by default. -->
+                <MenuItem Header="Mostrar _estadísticas" ToggleType="CheckBox"
+                          IsChecked="{Binding ShowStats, Mode=TwoWay}" />
+            </MenuItem>
+        </Menu>
+        <StackPanel x:Name="TopBar" DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,4" Spacing="6">
+            <TextBlock Text="Vista:" VerticalAlignment="Center" />
+            <ComboBox MinWidth="240" ItemsSource="{Binding LayoutLabels}" SelectedIndex="{Binding LayoutIndex}" />
+        </StackPanel>
+        <Border x:Name="BottomBar" DockPanel.Dock="Bottom" Padding="8,3" Background="#1E1E1E">
+            <TextBlock Text="{Binding StatusText}" />
+        </Border>
+        <Grid>
+            <Grid x:Name="TileGrid" />
+            <TextBlock Text="No hay cámaras" Foreground="#AAAAAA" FontSize="20" IsVisible="{Binding IsEmpty}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Grid>
+    </DockPanel>
+</Window>

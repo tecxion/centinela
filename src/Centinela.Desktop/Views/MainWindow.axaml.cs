@@ -1,10 +1,65 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Centinela.Core;
+using Centinela.Desktop.Services.Data;
+using Centinela.Desktop.Services.Streams;
+using Centinela.Desktop.Services.Tiles;
+using Centinela.Desktop.Services.Ui;
+using Centinela.Desktop.ViewModels;
 
 namespace Centinela.Desktop.Views;
 
 public partial class MainWindow : Window
 {
-    public MainWindow() => InitializeComponent();
+    readonly MainViewModel _vm;
+    readonly StreamLeases _leases = new();
+    readonly TileHost _tiles;
+    // Shutdowns of tiles removed from the grid; closing waits for them too (UI thread only).
+    readonly List<Task> _pendingShutdowns = [];
+    WindowState _stateBeforeFullscreen = WindowState.Normal;
+    bool _closing;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        var cameras = new CameraRepository(new CameraStore(CameraStore.DefaultPath, App.Platform.Secrets));
+        cameras.Load();
+        _vm = new MainViewModel(cameras, new SettingsRepository(new SettingsStore(SettingsStore.DefaultPath)));
+        DataContext = _vm;
+        var factory = new TileFactory(_leases, () => _vm.ShowStats);
+        factory.Created += Wire;
+        _tiles = new TileHost(TileGrid, factory, cameras.Find);
+        _tiles.ShutdownStarted += Track;
+        _vm.ViewChanged += Rebuild;
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.ShowStats))
+                foreach (var tile in _tiles.All) tile.ViewModel.ShowStats = _vm.ShowStats;
+        };
+        RestorePlacement();
+        Rebuild();
+    }
+
+    void Rebuild()
+    {
+        if (!_closing) _tiles.Apply(_vm.Layout.Plan());
+    }
+
+    void Wire(CameraTileView tile)
+    {
+        tile.Clicked += t => _vm.Click(t.ViewModel.Camera.Id);
+        tile.SwapRequested += _vm.Drop;
+        tile.FullscreenRequested += t => ShowFullscreen(t.ViewModel.Camera);
+    }
+
+    void ShowFullscreen(Camera shown)
+    {
+        var window = new FullscreenWindow(_vm.Cameras.CurrentOr(shown), _vm.ShowStats);
+        window.Closed += (_, _) => Track(window.ShutdownAsync(), shown.Name);
+        window.Show(this);
+    }
 
     /// <summary>Another launch asked for the window: show it on top.</summary>
     public void BringToFront()
@@ -12,5 +67,86 @@ public partial class MainWindow : Window
         Show();
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
+    }
+
+    void Track(Task shutdown, string name)
+    {
+        _pendingShutdowns.Add(shutdown);
+        shutdown.ContinueWith(done => UiThread.Post(() =>
+        {
+            _pendingShutdowns.Remove(shutdown);
+            if (done.Exception?.GetBaseException().Message is { } error && !_closing)
+                _vm.StatusText = $"Error al detener la cámara {name}: {error}";
+        }), TaskScheduler.Default);
+    }
+
+    void Exit_Click(object? sender, RoutedEventArgs e) => Close();
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Key.F11) ToggleFullscreen();
+        else if (e.Key == Key.Escape && WindowState == WindowState.FullScreen) ToggleFullscreen();
+    }
+
+    void ToggleFullscreen()
+    {
+        var entering = WindowState != WindowState.FullScreen;
+        if (entering) _stateBeforeFullscreen = WindowState;
+        MainMenu.IsVisible = TopBar.IsVisible = BottomBar.IsVisible = !entering;
+        WindowState = entering ? WindowState.FullScreen : _stateBeforeFullscreen;
+    }
+
+    void RestorePlacement()
+    {
+        var s = _vm.Settings.Settings;
+        Width = s.Width;
+        Height = s.Height;
+        var screens = Screens.All.Select(sc => (sc.Bounds.X, sc.Bounds.Y, sc.Bounds.Width, sc.Bounds.Height));
+        if (s.Left is { } left && s.Top is { } top && WindowPlacement.IsVisibleOn(screens, left, top))
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Position = new PixelPoint((int)left, (int)top);
+        }
+        if (s.Maximized) WindowState = WindowState.Maximized;
+    }
+
+    void SavePlacement()
+    {
+        if (WindowState == WindowState.FullScreen) ToggleFullscreen();
+        var s = _vm.Settings.Settings;
+        s.Maximized = WindowState == WindowState.Maximized;
+        if (WindowState == WindowState.Normal)
+        {
+            s.Left = Position.X;
+            s.Top = Position.Y;
+            s.Width = Width;
+            s.Height = Height;
+        }
+        _vm.Settings.Save();
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        SavePlacement();
+        base.OnClosing(e);
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _closing = true;
+        foreach (var owned in OwnedWindows.ToList()) owned.Close();
+        var shutdowns = _tiles.ShutdownAll().Concat(_pendingShutdowns).ToArray();
+        // Stop whatever else still holds a shared session now, so it winds down in parallel.
+        _leases.Dispose();
+        try
+        {
+            Task.WaitAll(shutdowns, TimeSpan.FromSeconds(8));
+        }
+        catch (AggregateException)
+        {
+            // Failures cannot be shown any more; exit anyway.
+        }
+        base.OnClosed(e);
     }
 }
