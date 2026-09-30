@@ -98,7 +98,8 @@ public partial class CameraQualityWindow : Window
         var summary = string.Join("\n", changes.Select(c =>
             $"{c.Row.Token}:  {QualityText.Values(Now(c.Row))}  →  {QualityText.Values(c.Change)}"));
         if (!await MessageDialog.ConfirmAsync(this,
-                $"Se cambiará en la cámara «{_camera.Name}»:\n\n{summary}\n\nSe guarda en la cámara (también afecta a la app Imou y a sus grabaciones) y la imagen se cortará unos segundos. ¿Aplicar?"))
+                $"Se cambiará en la cámara «{_camera.Name}»:\n\n{summary}\n\nSe guarda en la cámara (también afecta a la app Imou y a sus grabaciones) y la imagen se cortará unos segundos. ¿Aplicar?",
+                defaultNo: true))
             return;
         if (_closed) return;
 

@@ -9,9 +9,11 @@ static class MessageDialog
 {
     public static async Task ShowAsync(Window? owner, string text) => await Build(owner, text, confirm: false);
 
-    public static async Task<bool> ConfirmAsync(Window owner, string text) => await Build(owner, text, confirm: true);
+    /// <param name="defaultNo">«No» is the default (and focused) button, for risky actions: Enter or Space does not confirm.</param>
+    public static async Task<bool> ConfirmAsync(Window owner, string text, bool defaultNo = false) =>
+        await Build(owner, text, confirm: true, defaultNo);
 
-    static Task<bool> Build(Window? owner, string text, bool confirm)
+    static Task<bool> Build(Window? owner, string text, bool confirm, bool defaultNo = false)
     {
         var result = new TaskCompletionSource<bool>();
         var window = new Window
@@ -36,8 +38,9 @@ static class MessageDialog
         }
         if (confirm)
         {
-            Add("Sí", true, isDefault: true);
-            Add("No", false);
+            Add("Sí", true, isDefault: !defaultNo);
+            var no = Add("No", false, isDefault: defaultNo);
+            if (defaultNo) window.Opened += (_, _) => no.Focus();
         }
         else Add("Aceptar", true, isDefault: true);
 
