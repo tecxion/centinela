@@ -79,6 +79,23 @@ sealed partial class MainViewModel : ObservableObject
         StatusRevealPath = revealPath;
     }
 
+    /// <summary>
+    /// Deletes the camera (the window has confirmed and retired its tiles): stops its recording with a notice, saves,
+    /// forgets it as the featured camera and in «Dos principales», and rebuilds the view.
+    /// </summary>
+    public void RemoveCamera(Guid cameraId)
+    {
+        if (Recordings.IsRecording(cameraId)) Recordings.StopWithNotice(cameraId);
+        Cameras.Remove(cameraId);
+        Cameras.Save();
+        var settings = Settings.Settings;
+        var changed = settings.FeaturedCameraId == cameraId;
+        if (changed) settings.FeaturedCameraId = null;
+        changed |= settings.DualCameraIds.Remove(cameraId);
+        if (changed) Settings.Save();
+        CamerasChanged();
+    }
+
     /// <summary>Call after the cameras changed (count may have).</summary>
     public void CamerasChanged()
     {

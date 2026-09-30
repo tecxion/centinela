@@ -29,8 +29,6 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
 
     public IEnumerable<CameraTileView> All => _tiles.Values.Concat(_placeholders.Values);
 
-    public IEnumerable<CameraTileView> TilesOf(Guid cameraId) => All.Where(t => t.ViewModel.Camera.Id == cameraId);
-
     public void Apply(LayoutPlan plan)
     {
         grid.RowDefinitions.Clear();
@@ -146,7 +144,7 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
         RemoveAndShutdown(tile);
     }
 
-    /// <summary>Removes every tile of the camera (edited or deleted camera).</summary>
+    /// <summary>Removes every grid tile of the camera (edited or deleted camera); the window closes its fullscreen views.</summary>
     public void DisposeTilesOf(Guid cameraId)
     {
         foreach (var key in _tiles.Keys.Where(k => k.Id == cameraId).ToList()) DisposeTile(key);

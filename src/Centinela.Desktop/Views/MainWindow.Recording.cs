@@ -13,11 +13,6 @@ public partial class MainWindow
         foreach (var tile in TilesOf(id)) tile.ViewModel.SetRecordingStatus(status);
     };
 
-    /// <summary>Every tile showing this camera: its grid tiles (and placeholders) plus any open fullscreen view.</summary>
-    IEnumerable<CameraTileView> TilesOf(Guid cameraId) =>
-        _tiles.TilesOf(cameraId).Concat(OwnedWindows.OfType<FullscreenWindow>().Select(w => w.Tile)
-            .Where(t => t.ViewModel.Camera.Id == cameraId));
-
     /// <summary>A new tile (grid or fullscreen): its ⏺ and 📷, and the camera's recording as it is now.</summary>
     void WireRecording(CameraTileView tile)
     {

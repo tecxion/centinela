@@ -39,11 +39,12 @@ public partial class MainWindow : Window
         _tiles.ShutdownStarted += Track;
         InitRecording();
         InitAudio();
+        InitCameraActions();
         _vm.ViewChanged += Rebuild;
         _vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.ShowStats))
-                foreach (var tile in _tiles.All) tile.ViewModel.ShowStats = _vm.ShowStats;
+                foreach (var tile in AllTiles()) tile.ViewModel.ShowStats = _vm.ShowStats;
         };
         RestorePlacement();
         // On Win32 WM_MOVE/WM_SIZE arrive before WindowState turns Maximized: look after they settle.
@@ -64,6 +65,7 @@ public partial class MainWindow : Window
         tile.FullscreenRequested += t => ShowFullscreen(t.ViewModel.Camera);
         WireRecording(tile);
         WireAudio(tile);
+        WireCameraActions(tile);
     }
 
     void ShowFullscreen(Camera shown)
@@ -71,8 +73,11 @@ public partial class MainWindow : Window
         var window = new FullscreenWindow(_vm.Cameras.CurrentOr(shown), _vm.ShowStats);
         WireRecording(window.Tile);
         WireAudio(window.Tile);
+        WireCameraActions(window.Tile);
+        _fullscreens.Add(window);
         window.Closed += (_, _) =>
         {
+            _fullscreens.Remove(window);
             _audio.Release(window.Tile.ViewModel);
             Track(window.ShutdownAsync(), shown.Name);
         };

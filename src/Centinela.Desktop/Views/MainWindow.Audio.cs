@@ -23,6 +23,5 @@ public partial class MainWindow
     }
 
     /// <summary>Every tile that may show the audio button: grid tiles (and placeholders) plus fullscreen views.</summary>
-    IEnumerable<TileViewModel> AudioTiles() =>
-        _tiles.All.Concat(OwnedWindows.OfType<FullscreenWindow>().Select(w => w.Tile)).Select(t => t.ViewModel);
+    IEnumerable<TileViewModel> AudioTiles() => AllTiles().Select(t => t.ViewModel);
 }
