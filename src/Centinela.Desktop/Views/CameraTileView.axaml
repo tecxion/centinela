@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Centinela.Desktop.ViewModels"
+             xmlns:video="using:Centinela.Desktop.Video"
+             x:Class="Centinela.Desktop.Views.CameraTileView"
+             x:DataType="vm:TileViewModel"
+             Background="Black" DragDrop.AllowDrop="True">
+    <Border x:Name="Frame" BorderBrush="#2A2A2A" BorderThickness="1">
+        <Grid>
+            <video:VideoSurface x:Name="Video" Opacity="{Binding IsPlaying, Converter={x:Static video:VideoOpacity.Converter}}" />
+            <TextBlock Text="{Binding StatusText}" Foreground="#DDDDDD" FontSize="14" TextWrapping="Wrap"
+                       TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Border Background="#80000000" Padding="6,2" CornerRadius="0,0,4,0"
+                    HorizontalAlignment="Left" VerticalAlignment="Top">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Name}" Foreground="White" />
+                    <TextBlock Text=" ⏱" Foreground="White" IsVisible="{Binding SmoothingVisible}"
+                               ToolTip.Tip="{Binding SmoothingToolTip}" />
+                </StackPanel>
+            </Border>
+            <Border Background="#80000000" Padding="6,1" CornerRadius="0,4,0,0"
+                    HorizontalAlignment="Left" VerticalAlignment="Bottom" IsVisible="{Binding ShowStats}">
+                <TextBlock Text="{Binding StatsText}" FontSize="11" FontFamily="Consolas,Menlo,monospace"
+                           Foreground="{Binding StatsStale, Converter={x:Static video:StatsBrush.Converter}}" />
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>
