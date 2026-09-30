@@ -26,6 +26,8 @@
                 <!-- The menu flips IsChecked itself; TwoWay because MenuItem.IsChecked binds OneWay by default. -->
                 <MenuItem Header="Mostrar _estadísticas" ToggleType="CheckBox"
                           IsChecked="{Binding ShowStats, Mode=TwoWay}" />
+                <Separator />
+                <MenuItem Header="_Opciones de avisos…" Click="NotificationOptions_Click" />
             </MenuItem>
             <MenuItem Header="A_yuda">
                 <MenuItem Header="_Manual" Click="Manual_Click" />
