@@ -81,6 +81,8 @@ sealed partial class TileViewModel : ObservableObject
     public StreamSession? Session { get; }
     /// <summary>True when the session is shared (substream lease); the window reports its errors once.</summary>
     public bool IsShared => _lease is not null;
+    /// <summary>True once <see cref="ShutdownAsync"/> was called: the tile is gone.</summary>
+    public bool IsShutDown => _disposed;
 
     /// <summary>Raised on the UI thread each time the stream reports reconnecting or failed authentication.</summary>
     public event Action<TileViewModel>? StreamFailed;

@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         factory.Created += Wire;
         _tiles = new TileHost(TileGrid, factory, cameras.Find);
         _tiles.ShutdownStarted += Track;
+        InitRecording();
         _vm.ViewChanged += Rebuild;
         _vm.PropertyChanged += (_, e) =>
         {
@@ -60,11 +61,13 @@ public partial class MainWindow : Window
         tile.Clicked += t => _vm.Click(t.ViewModel.Camera.Id);
         tile.SwapRequested += _vm.Drop;
         tile.FullscreenRequested += t => ShowFullscreen(t.ViewModel.Camera);
+        WireRecording(tile);
     }
 
     void ShowFullscreen(Camera shown)
     {
         var window = new FullscreenWindow(_vm.Cameras.CurrentOr(shown), _vm.ShowStats);
+        WireRecording(window.Tile);
         window.Closed += (_, _) => Track(window.ShutdownAsync(), shown.Name);
         window.Show(this);
     }
@@ -84,7 +87,7 @@ public partial class MainWindow : Window
         {
             _pendingShutdowns.Remove(shutdown);
             if (done.Exception?.GetBaseException().Message is { } error && !_closing)
-                _vm.StatusText = $"Error al detener la cámara {name}: {error}";
+                _vm.Notify($"Error al detener la cámara {name}: {error}", null);
         }), TaskScheduler.Default);
     }
 
@@ -169,7 +172,8 @@ public partial class MainWindow : Window
     {
         _closing = true;
         foreach (var owned in OwnedWindows.ToList()) owned.Close();
-        var shutdowns = _tiles.ShutdownAll().Concat(_pendingShutdowns).ToArray();
+        // Tiles and recordings shut down in parallel; one bounded wait so recordings get their trailer.
+        var shutdowns = _tiles.ShutdownAll().Concat(_pendingShutdowns).Append(_vm.Recordings.ShutdownAsync()).ToArray();
         // Stop whatever else still holds a shared session now, so it winds down in parallel.
         _leases.Dispose();
         try

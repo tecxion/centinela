@@ -6,11 +6,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace Centinela.Desktop.ViewModels;
 
 /// <summary>The main window's state: cameras, settings, chosen layout, stats and the status line.</summary>
+/// <remarks>Recording and snapshots are in MainViewModel.Recording.cs.</remarks>
 sealed partial class MainViewModel : ObservableObject
 {
     [ObservableProperty] private int _layoutIndex;
     [ObservableProperty] private bool _showStats;
     [ObservableProperty] private string _statusText = "";
+    /// <summary>The file or folder the status line shows when clicked; null when the message has none.</summary>
+    [ObservableProperty] private string? _statusRevealPath;
     [ObservableProperty] private bool _isEmpty;
 
     public MainViewModel(CameraRepository cameras, SettingsRepository settings)
@@ -21,7 +24,8 @@ sealed partial class MainViewModel : ObservableObject
         _layoutIndex = LayoutChoices.IndexFor(settings.Settings);
         _showStats = settings.Settings.ShowStats;
         _isEmpty = cameras.All.Count == 0;
-        cameras.SaveFailed += message => StatusText = message;
+        cameras.SaveFailed += message => Notify(message, null);
+        InitRecording();
     }
 
     public CameraRepository Cameras { get; }
@@ -66,6 +70,13 @@ sealed partial class MainViewModel : ObservableObject
                 return;
         }
         ViewChanged?.Invoke();
+    }
+
+    /// <summary>Shows a message in the status line; clicking it then reveals <paramref name="revealPath"/>, if any.</summary>
+    public void Notify(string message, string? revealPath)
+    {
+        StatusText = message;
+        StatusRevealPath = revealPath;
     }
 
     /// <summary>Call after the cameras changed (count may have).</summary>

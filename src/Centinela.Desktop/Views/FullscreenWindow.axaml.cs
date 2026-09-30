@@ -27,6 +27,9 @@ public partial class FullscreenWindow : Window
         _tile.Start();
     }
 
+    /// <summary>The tile, for the owner to wire its actions and show the recording.</summary>
+    internal CameraTileView Tile => _view;
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
