@@ -256,6 +256,7 @@ public sealed class CameraStoreTests : IDisposable
         store.Save([kept]);
         Assert.Equal([removed.Id], _secrets.Forgotten);
     }
+
     [Fact]
     public void An_unreadable_password_is_kept_as_it_was_when_saving()
     {

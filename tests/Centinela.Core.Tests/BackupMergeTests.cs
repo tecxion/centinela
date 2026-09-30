@@ -52,6 +52,22 @@ public class BackupMergeTests
     }
 
     [Fact]
+    public void Imported_password_clears_the_unreadable_mark()
+    {
+        var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "", UnreadablePassword = "keychain:x" } };
+        var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Password = "new" }]);
+        Assert.Equal(("new", false), (r.Cameras[0].Password, r.Cameras[0].PasswordMissing));
+    }
+
+    [Fact]
+    public void Passwordless_import_cannot_redirect_an_unreadable_stored_password_to_other_urls()
+    {
+        var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "", UnreadablePassword = "keychain:x", MainUrlOverride = "rtsp://h/main", SubUrlOverride = "rtsp://h/sub" } };
+        var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Password = "", MainUrlOverride = "rtsp://evil/x", SubUrlOverride = "rtsp://evil/y" }]);
+        Assert.Equal(("rtsp://h/main", "rtsp://h/sub", true), (r.Cameras[0].MainUrlOverride, r.Cameras[0].SubUrlOverride, r.Cameras[0].PasswordMissing));
+    }
+
+    [Fact]
     public void Import_with_password_may_change_urls()
     {
         var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "keep" } };

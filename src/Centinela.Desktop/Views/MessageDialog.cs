@@ -7,18 +7,18 @@ namespace Centinela.Desktop.Views;
 /// <summary>Small modal message: «Aceptar», or «Sí» / «No». Without an owner it shows as its own window.</summary>
 static class MessageDialog
 {
-    public static async Task ShowAsync(Window? owner, string text) => await Build(owner, text, confirm: false);
+    public static async Task ShowAsync(Window? owner, string text, string title = "Centinela") => await Build(owner, text, title, confirm: false);
 
     /// <param name="defaultNo">«No» is the default (and focused) button, for risky actions: Enter or Space does not confirm.</param>
-    public static async Task<bool> ConfirmAsync(Window owner, string text, bool defaultNo = false) =>
-        await Build(owner, text, confirm: true, defaultNo);
+    public static async Task<bool> ConfirmAsync(Window owner, string text, bool defaultNo = false, string title = "Centinela") =>
+        await Build(owner, text, title, confirm: true, defaultNo);
 
-    static Task<bool> Build(Window? owner, string text, bool confirm, bool defaultNo = false)
+    static Task<bool> Build(Window? owner, string text, string title, bool confirm, bool defaultNo = false)
     {
         var result = new TaskCompletionSource<bool>();
         var window = new Window
         {
-            Title = "Centinela",
+            Title = title,
             SizeToContent = SizeToContent.WidthAndHeight,
             MaxWidth = 520,
             CanResize = false,

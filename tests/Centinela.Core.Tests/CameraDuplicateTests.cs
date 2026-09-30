@@ -19,6 +19,7 @@ public class CameraDuplicateTests
         Assert.Equal((Brand.Imou, "rtsp://h/main", "rtsp://h/sub", true), (copy.Brand, copy.MainUrlOverride, copy.SubUrlOverride, copy.UseUdp));
         Assert.Equal("Garaje", original.Name);
     }
+
     [Fact]
     public void Duplicate_does_not_keep_an_unreadable_password()
     {

@@ -26,14 +26,14 @@ public static class BackupMerge
                 continue;
             }
             // A password-less entry must not redirect a stored password to different URLs.
-            var keepsStoredPassword = incoming.Password.Length == 0 && match.Password.Length > 0;
+            var keepsStoredPassword = incoming.Password.Length == 0 && (match.Password.Length > 0 || match.PasswordMissing);
             var before = match.Clone();
             match.Name = incoming.Name;
             match.Brand = incoming.Brand;
             match.Host = incoming.Host;
             match.Port = incoming.Port;
             match.User = incoming.User;
-            if (incoming.Password.Length > 0) match.Password = incoming.Password;
+            if (incoming.Password.Length > 0) { match.Password = incoming.Password; match.UnreadablePassword = null; }
             if (!keepsStoredPassword || SameUrl(match.MainUrlOverride, incoming.MainUrlOverride))
                 match.MainUrlOverride = incoming.MainUrlOverride;
             if (!keepsStoredPassword || SameUrl(match.SubUrlOverride, incoming.SubUrlOverride))

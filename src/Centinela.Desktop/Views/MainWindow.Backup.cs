@@ -29,19 +29,19 @@ public partial class MainWindow
             });
             if (_closing || files.Count == 0 || files[0].TryGetLocalPath() is not { } path) return;
             var reader = new BackupReader(
-                () => PassphraseDialog.AskAsync(this, confirm: false),
-                question => MessageDialog.ConfirmAsync(this, question),
+                () => _closing ? Task.FromResult<string?>(null) : PassphraseDialog.AskAsync(this, confirm: false),
+                question => _closing ? Task.FromResult(false) : MessageDialog.ConfirmAsync(this, question, title: "Importar"),
                 message => _vm.Notify(message, null));
             var result = await reader.ReadAsync(path);
             if (_closing) return;
             if (result.Error is { } error)
             {
-                await MessageDialog.ShowAsync(this, error);
+                await MessageDialog.ShowAsync(this, error, "Importar");
                 return;
             }
             if (result.Import is not { } imported) return;
             var summary = _vm.ApplyImport(imported, DisposeTilesOf);
-            await MessageDialog.ShowAsync(this, summary);
+            await MessageDialog.ShowAsync(this, summary, "Importar");
         }
         finally
         {
@@ -82,7 +82,7 @@ public partial class MainWindow
             {
                 if (_closing) return;
                 _vm.Notify("", null);
-                await MessageDialog.ShowAsync(this, ex.Message);
+                await MessageDialog.ShowAsync(this, ex.Message, "Exportar");
             }
         }
         finally

@@ -143,6 +143,7 @@ public sealed class CameraFormTests
         Assert.Equal("Pon la URL RTSP en «Avanzado» sin usuario ni contraseña (rtsp://IP:puerto/ruta). Escribe las credenciales en los campos Usuario y Contraseña: se guardan cifradas.",
             CameraForm.HintFor(Brand.Custom));
     }
+
     [Fact]
     public void Typing_a_password_replaces_the_unreadable_one()
     {
