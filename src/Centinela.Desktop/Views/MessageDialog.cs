@@ -25,7 +25,7 @@ static class MessageDialog
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8 };
         Button Add(string label, bool value, bool isDefault = false)
         {
-            var button = new Button { Content = label, MinWidth = 80, IsDefault = isDefault, IsCancel = !value };
+            var button = new Button { Content = label, MinWidth = 80, IsDefault = isDefault, IsCancel = !value || !confirm };
             button.Click += (_, _) =>
             {
                 result.TrySetResult(value);

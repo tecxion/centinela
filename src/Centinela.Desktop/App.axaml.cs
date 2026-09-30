@@ -11,7 +11,10 @@ namespace Centinela.Desktop;
 
 public partial class App : Application
 {
-    internal static PlatformServices Platform { get; private set; } = null!;
+    internal static PlatformServices Platform { get; set; } = null!;
+
+    /// <summary>Why the system pieces could not be created in Program.Main; shown once the UI runs.</summary>
+    internal static string? StartupError { get; set; }
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -23,19 +26,9 @@ public partial class App : Application
 
     static void Start(IClassicDesktopStyleApplicationLifetime desktop)
     {
-        try
+        if (StartupError is not null)
         {
-            Platform = PlatformServices.Create(Environment.ProcessPath!);
-        }
-        catch (PlatformNotSupportedException ex)
-        {
-            Fail(desktop, ex.Message);
-            return;
-        }
-        if (!Platform.SingleInstance.TryClaim())
-        {
-            // The running instance shows its window; this one has nothing to do.
-            desktop.Shutdown(0);
+            Fail(desktop, StartupError);
             return;
         }
         try
