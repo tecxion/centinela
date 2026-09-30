@@ -13,9 +13,19 @@ public sealed class ExplorerFileManager : IFileManager
         else if (File.Exists(path)) Start(CommandForFile(path));
     }
 
-    internal static ProcessStartInfo CommandForFolder(string folder) => new("explorer.exe", $"\"{folder}\"");
+    internal static ProcessStartInfo CommandForFolder(string folder) => new("explorer.exe", Quote(folder));
 
-    internal static ProcessStartInfo CommandForFile(string file) => new("explorer.exe", $"/select,\"{file}\"");
+    internal static ProcessStartInfo CommandForFile(string file) => new("explorer.exe", $"/select,{Quote(file)}");
+
+    /// <summary>
+    /// Quoted path without a trailing backslash (it would escape the closing quote). A drive root keeps its
+    /// backslash and goes unquoted: it has no spaces.
+    /// </summary>
+    static string Quote(string path)
+    {
+        var trimmed = path.TrimEnd('\\');
+        return trimmed.Length == 2 && trimmed[1] == ':' ? trimmed + "\\" : $"\"{trimmed}\"";
+    }
 
     static void Start(ProcessStartInfo info)
     {
