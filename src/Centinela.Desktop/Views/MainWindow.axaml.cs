@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Centinela.Core;
 using Centinela.Desktop.Services.Data;
 using Centinela.Desktop.Services.Streams;
@@ -20,6 +21,10 @@ public partial class MainWindow : Window
     readonly List<Task> _pendingShutdowns = [];
     WindowState _stateBeforeFullscreen = WindowState.Normal;
     bool _closing;
+    // Last normal (not maximized/fullscreen) placement, saved like WPF's RestoreBounds.
+    PixelPoint _normalPos;
+    Size _normalSize;
+    bool _hasNormal;
 
     public MainWindow()
     {
@@ -39,6 +44,9 @@ public partial class MainWindow : Window
                 foreach (var tile in _tiles.All) tile.ViewModel.ShowStats = _vm.ShowStats;
         };
         RestorePlacement();
+        // On Win32 WM_MOVE/WM_SIZE arrive before WindowState turns Maximized: look after they settle.
+        PositionChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormal, DispatcherPriority.Background);
+        Resized += (_, _) => Dispatcher.UIThread.Post(RememberNormal, DispatcherPriority.Background);
         Rebuild();
     }
 
@@ -97,31 +105,49 @@ public partial class MainWindow : Window
         WindowState = entering ? WindowState.FullScreen : _stateBeforeFullscreen;
     }
 
+    // settings.json keeps Left/Top in DIPs of the primary monitor, as the WPF app writes them.
+    double PrimaryScale => Screens.Primary?.Scaling ?? 1;
+
     void RestorePlacement()
     {
         var s = _vm.Settings.Settings;
         Width = s.Width;
         Height = s.Height;
         var screens = Screens.All.Select(sc => (sc.Bounds.X, sc.Bounds.Y, sc.Bounds.Width, sc.Bounds.Height));
-        if (s.Left is { } left && s.Top is { } top && WindowPlacement.IsVisibleOn(screens, left, top))
+        if (s.Left is { } left && s.Top is { } top)
         {
-            WindowStartupLocation = WindowStartupLocation.Manual;
-            Position = new PixelPoint((int)left, (int)top);
+            var scale = PrimaryScale;
+            int x = WindowPlacement.ToPixels(left, scale), y = WindowPlacement.ToPixels(top, scale);
+            if (WindowPlacement.IsVisibleOn(screens, x, y))
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Position = new PixelPoint(x, y);
+            }
         }
         if (s.Maximized) WindowState = WindowState.Maximized;
+    }
+
+    void RememberNormal()
+    {
+        if (WindowState != WindowState.Normal || !IsVisible) return;
+        _normalPos = Position;
+        _normalSize = new Size(Width, Height);
+        _hasNormal = true;
     }
 
     void SavePlacement()
     {
         if (WindowState == WindowState.FullScreen) ToggleFullscreen();
+        if (WindowState == WindowState.Normal) RememberNormal();
         var s = _vm.Settings.Settings;
         s.Maximized = WindowState == WindowState.Maximized;
-        if (WindowState == WindowState.Normal)
+        if (_hasNormal)
         {
-            s.Left = Position.X;
-            s.Top = Position.Y;
-            s.Width = Width;
-            s.Height = Height;
+            var scale = PrimaryScale;
+            s.Left = WindowPlacement.ToDips(_normalPos.X, scale);
+            s.Top = WindowPlacement.ToDips(_normalPos.Y, scale);
+            s.Width = _normalSize.Width;
+            s.Height = _normalSize.Height;
         }
         _vm.Settings.Save();
     }

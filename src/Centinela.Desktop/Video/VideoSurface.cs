@@ -37,6 +37,8 @@ sealed class VideoSurface : Control
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _attached = false;
+        _bitmap?.Dispose();
+        _bitmap = null;
         base.OnDetachedFromVisualTree(e);
     }
 
