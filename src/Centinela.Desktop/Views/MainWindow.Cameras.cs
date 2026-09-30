@@ -1,8 +1,14 @@
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Centinela.Core;
 using Centinela.Desktop.Services.Cameras;
 
 namespace Centinela.Desktop.Views;
 
-/// <summary>Per-camera actions from the tiles (HD/SD, «Suavizar imagen», 👁, «Eliminar») and the open fullscreen views.</summary>
+/// <summary>
+/// Per-camera actions from the tiles (HD/SD, «Suavizar imagen», 👁, «Editar…», «Duplicar…», «Eliminar»), «➕ Añadir cámara»
+/// and the open fullscreen views.
+/// </summary>
 public partial class MainWindow
 {
     CameraActions _actions = null!;
@@ -21,6 +27,8 @@ public partial class MainWindow
         tile.QualityToggleRequested += t => _actions.ToggleQuality(t.ViewModel.Camera.Id);
         tile.SmoothingToggleRequested += t => _actions.ToggleSmoothing(t.ViewModel.Camera.Id);
         tile.MotionToggleRequested += t => _actions.ToggleMotion(t.ViewModel.Camera.Id);
+        tile.EditRequested += t => _ = EditCameraAsync(t);
+        tile.DuplicateRequested += t => _ = DuplicateCameraAsync(t);
         tile.DeleteRequested += t => _ = DeleteCameraAsync(t);
         _actions.Show(tile.ViewModel);
     }
@@ -47,4 +55,35 @@ public partial class MainWindow
         DisposeTilesOf(camera.Id);
         _vm.RemoveCamera(camera.Id);
     }
+
+    void AddCamera_Click(object? sender, RoutedEventArgs e) => _ = AddCameraAsync(null, this);
+
+    /// <summary>«Añadir cámara», empty or pre-filled (a duplicate); the camera goes last in the order when saved.</summary>
+    async Task AddCameraAsync(Camera? prefilled, Window owner)
+    {
+        var dialog = new AddCameraDialog(prefilled, isNew: true);
+        if (!await dialog.ShowDialog<bool>(owner) || _closing) return;
+        _vm.AddCamera(dialog.Result);
+    }
+
+    /// <summary>Opens «Añadir cámara» pre-filled with a copy (new Id, "(copia)"); nothing is saved unless the user saves.</summary>
+    Task DuplicateCameraAsync(CameraTileView tile) =>
+        _vm.Cameras.Find(tile.ViewModel.Camera.Id) is { } camera
+            ? AddCameraAsync(camera.Duplicate(), OwnerFor(tile))
+            : Task.CompletedTask;
+
+    async Task EditCameraAsync(CameraTileView tile)
+    {
+        if (_vm.Cameras.Find(tile.ViewModel.Camera.Id) is not { } camera) return;
+        var dialog = new AddCameraDialog(camera, isNew: false);
+        if (!await dialog.ShowDialog<bool>(OwnerFor(tile))) return;
+        // Deleted meanwhile, or the window is closing.
+        if (_closing || _vm.Cameras.Find(camera.Id) is null) return;
+        // The URL may change: its tiles and fullscreen views restart with the new settings.
+        DisposeTilesOf(camera.Id);
+        _vm.ReplaceCamera(dialog.Result);
+    }
+
+    /// <summary>The dialog opens over the window showing the tile (a fullscreen view or this one).</summary>
+    Window OwnerFor(CameraTileView tile) => TopLevel.GetTopLevel(tile) as Window ?? this;
 }

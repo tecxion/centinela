@@ -25,7 +25,8 @@
             </MenuItem>
         </Menu>
         <StackPanel x:Name="TopBar" DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,4" Spacing="6">
-            <!-- «➕ Añadir cámara» and a separator go first (camera dialog). -->
+            <Button Content="➕ Añadir cámara" Click="AddCamera_Click" />
+            <Border Classes="separator" />
             <TextBlock Text="Vista:" VerticalAlignment="Center" />
             <ComboBox MinWidth="240" ItemsSource="{Binding LayoutLabels}" SelectedIndex="{Binding LayoutIndex}" />
             <Border Classes="separator" />
@@ -39,8 +40,11 @@
         </Border>
         <Grid>
             <Grid x:Name="TileGrid" />
-            <TextBlock Text="No hay cámaras" Foreground="#AAAAAA" FontSize="20" IsVisible="{Binding IsEmpty}"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <StackPanel IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="No hay cámaras" Foreground="#AAAAAA" FontSize="20" HorizontalAlignment="Center" />
+                <Button Content="Añade tu primera cámara" Margin="0,12,0,0" Padding="12,6" HorizontalAlignment="Center"
+                        Click="AddCamera_Click" />
+            </StackPanel>
         </Grid>
     </DockPanel>
 </Window>

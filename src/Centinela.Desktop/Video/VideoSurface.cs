@@ -19,7 +19,19 @@ sealed class VideoSurface : Control
     bool _attached;
     bool _firstFrame;
 
-    public StreamSession? Session { get; set; }
+    StreamSession? _session;
+
+    /// <summary>The session to paint; a new one starts reading its mailbox from the beginning.</summary>
+    public StreamSession? Session
+    {
+        get => _session;
+        set
+        {
+            if (value == _session) return;
+            _session = value;
+            _sequence = 0;
+        }
+    }
 
     /// <summary>Raised once, after the first frame has been painted.</summary>
     public event Action? FirstFrameShown;
@@ -54,7 +66,7 @@ sealed class VideoSurface : Control
 
     void OnFrame()
     {
-        if (Session is { } session && session.Mailbox.TryRead(ref _sequence, CopyFrame))
+        if (_session is { } session && session.Mailbox.TryRead(ref _sequence, CopyFrame))
         {
             UpdateContentRect();
             InvalidateVisual();

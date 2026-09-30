@@ -96,6 +96,26 @@ sealed partial class MainViewModel : ObservableObject
         CamerasChanged();
     }
 
+    /// <summary>Adds a camera saved in «Añadir cámara» (last in the order), saves and rebuilds the view.</summary>
+    public void AddCamera(Camera camera)
+    {
+        Cameras.Add(camera);
+        Cameras.Save();
+        CamerasChanged();
+    }
+
+    /// <summary>
+    /// Stores the camera saved in «Editar cámara» (the window has retired its tiles): its URL may have changed, so
+    /// its recording stops with a notice; then saves and rebuilds the view.
+    /// </summary>
+    public void ReplaceCamera(Camera updated)
+    {
+        if (Recordings.IsRecording(updated.Id)) Recordings.StopWithNotice(updated.Id);
+        Cameras.Replace(updated);
+        Cameras.Save();
+        CamerasChanged();
+    }
+
     /// <summary>Call after the cameras changed (count may have).</summary>
     public void CamerasChanged()
     {
