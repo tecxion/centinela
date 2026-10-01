@@ -45,7 +45,7 @@ public sealed class PlatformServices
                 Files = new ShellFileManager(),
             };
         }
-        throw new PlatformNotSupportedException("Centinela todavía no funciona en este sistema (llega en la v1.4).");
+        throw new PlatformNotSupportedException("Centinela todavía no está disponible en este sistema.");
     }
 
     // A method group, not a lambda: the platform analyzer does not carry the IsWindows() guard into a lambda.

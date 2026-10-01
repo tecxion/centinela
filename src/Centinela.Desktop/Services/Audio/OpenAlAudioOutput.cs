@@ -65,7 +65,7 @@ sealed unsafe class OpenAlAudioOutput : IAudioSink, IDisposable
                 if (device is null) return null;
                 context = alc.CreateContext(device, null);
                 if (context is null || !alc.MakeContextCurrent(context)) throw new InvalidOperationException();
-                al.GetError(); // clear any error left by an earlier output
+                ClearErrors(al);
                 var source = al.GenSource();
                 if (al.GetError() != AudioError.NoError) throw new InvalidOperationException();
                 return new OpenAlAudioOutput(alc, al, device, context, source);
@@ -83,6 +83,16 @@ sealed unsafe class OpenAlAudioOutput : IAudioSink, IDisposable
     /// <summary>Under <see cref="Gate"/>: OpenAL Soft, loaded once for the whole app. Throws when it cannot be loaded.</summary>
     internal static (ALContext Alc, AL Al) LoadApi() =>
         (s_alc ??= ALContext.GetApi(soft: true), s_al ??= AL.GetApi(soft: true));
+
+    /// <summary>
+    /// Under <see cref="Gate"/>, before an operation whose error is checked: reads errors until there are none, so an
+    /// earlier failure (of this output, another one or the notice sounds) is not blamed on that operation.
+    /// </summary>
+    internal static void ClearErrors(AL al)
+    {
+        // Bounded: a broken driver that never reports NoError must not hang the audio thread.
+        for (var i = 0; i < 16 && al.GetError() != AudioError.NoError; i++) { }
+    }
 
     /// <summary>Audio thread. The samples are copied into an OpenAL buffer, so the caller may reuse the span.</summary>
     public void Write(ReadOnlySpan<float> interleavedStereo)
@@ -135,6 +145,7 @@ sealed unsafe class OpenAlAudioOutput : IAudioSink, IDisposable
         if (_pcm.Length < count) _pcm = new short[count];
         SampleConversion.ToPcm16(samples[..count], _pcm);
 
+        ClearErrors(_al); // from Reclaim/DropQueued or another output: not this write's
         var buffer = NextBuffer();
         fixed (short* data = _pcm)
             _al.BufferData(buffer, BufferFormat.Stereo16, data, count * sizeof(short), AudioFormat.SampleRate);

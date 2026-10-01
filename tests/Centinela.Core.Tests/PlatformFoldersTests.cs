@@ -61,4 +61,31 @@ public class PlatformFoldersTests
         var f = PlatformFolders.For(OsKind.Linux, "/home/ana", NoEnv, Special, "XDG_VIDEOS_DIR=\"$HOME/\"");
         Assert.Equal("/home/ana/Videos", f.Videos);
     }
+
+    [Fact]
+    public void Linux_ignores_a_relative_xdg_data_home()
+    {
+        var f = PlatformFolders.For(OsKind.Linux, "/home/ana", name => name == "XDG_DATA_HOME" ? "datos" : null, Special, null);
+        Assert.Equal("/home/ana/.local/share/centinela", f.Data);
+    }
+
+    [Fact]
+    public void Linux_drops_the_trailing_slash_of_xdg_data_home()
+    {
+        var f = PlatformFolders.For(OsKind.Linux, "/home/ana", name => name == "XDG_DATA_HOME" ? "/home/ana/.datos/" : null,
+            Special, null);
+        Assert.Equal("/home/ana/.datos/centinela", f.Data);
+    }
+
+    [Fact]
+    public void Linux_ignores_relative_user_dirs()
+    {
+        const string userDirs = """
+            XDG_VIDEOS_DIR="Vídeos"
+            XDG_PICTURES_DIR="$HOME/Imágenes"
+            """;
+        var f = PlatformFolders.For(OsKind.Linux, "/home/ana", NoEnv, Special, userDirs);
+        Assert.Equal("/home/ana/Videos", f.Videos);
+        Assert.Equal("/home/ana/Imágenes", f.Pictures);
+    }
 }

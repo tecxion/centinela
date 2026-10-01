@@ -46,6 +46,40 @@ public sealed class FileSecretStoreTests : IDisposable
         Assert.Null(store.Unprotect(id, "file:not base64!"));
     }
 
+    [Fact]
+    public void Two_stores_on_the_same_path_share_the_key()
+    {
+        var id = Guid.NewGuid();
+        var first = new FileSecretStore(KeyFile);
+        var second = new FileSecretStore(KeyFile);
+        var a = first.Protect(id, "uno");
+        var b = second.Protect(id, "dos");
+        Assert.Equal("dos", first.Unprotect(id, b));
+        Assert.Equal("uno", second.Unprotect(id, a));
+    }
+
+    [Fact]
+    public void Unprotect_without_a_key_file_returns_null_and_does_not_create_it()
+    {
+        var stored = new FileSecretStore(Path.Combine(_dir, "other.key")).Protect(Guid.NewGuid(), "x");
+        var store = new FileSecretStore(KeyFile);
+        Assert.Null(store.Unprotect(Guid.NewGuid(), stored));
+        Assert.False(File.Exists(KeyFile));
+    }
+
+    [Fact]
+    public void A_key_file_of_the_wrong_size_is_never_overwritten()
+    {
+        Directory.CreateDirectory(_dir);
+        var damaged = Enumerable.Range(1, 10).Select(i => (byte)i).ToArray();
+        File.WriteAllBytes(KeyFile, damaged);
+        var store = new FileSecretStore(KeyFile);
+        var e = Assert.Throws<System.Security.Cryptography.CryptographicException>(() => store.Protect(Guid.NewGuid(), "x"));
+        Assert.Equal("El archivo de claves de Centinela está dañado.", e.Message);
+        Assert.Null(store.Unprotect(Guid.NewGuid(), "file:" + Convert.ToBase64String(new byte[40])));
+        Assert.Equal(damaged, File.ReadAllBytes(KeyFile));
+    }
+
     [SkippableFact]
     [UnsupportedOSPlatform("windows")] // for CA1416 only: Skip.If already skips it on Windows
     public void Key_file_is_readable_only_by_its_owner_on_unix()

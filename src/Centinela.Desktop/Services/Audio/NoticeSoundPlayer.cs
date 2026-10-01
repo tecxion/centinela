@@ -62,7 +62,7 @@ sealed unsafe class NoticeSoundPlayer : IDisposable
         if (_device is null) throw new InvalidOperationException();
         _context = alc.CreateContext(_device, null);
         if (_context is null || !alc.MakeContextCurrent(_context)) throw new InvalidOperationException();
-        al.GetError(); // clear any error left by another output
+        OpenAlAudioOutput.ClearErrors(al); // errors left by another output are not this one's
         foreach (var (kind, pcm) in tones)
         {
             var buffer = al.GenBuffer();

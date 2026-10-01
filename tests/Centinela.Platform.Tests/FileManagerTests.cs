@@ -1,3 +1,4 @@
+using Centinela.Core.Platform;
 using Centinela.Platform;
 using Centinela.Platform.Windows;
 
@@ -23,10 +24,59 @@ public class FileManagerTests
     }
 
     [Fact]
-    public void Shell_opens_the_folder_with_the_desktop_default()
+    public void Linux_opens_folders_and_files_with_xdg_open()
     {
-        var info = ShellFileManager.CommandForFolder("/home/ana/Videos/Centinela");
-        Assert.Equal("/home/ana/Videos/Centinela", info.FileName);
-        Assert.True(info.UseShellExecute);
+        var folder = ShellFileManager.CommandForFolder(OsKind.Linux, "/home/ana/Vídeos/Centinela");
+        Assert.Equal("xdg-open", folder.FileName);
+        Assert.Equal(["/home/ana/Vídeos/Centinela"], folder.ArgumentList);
+        Assert.False(folder.UseShellExecute);
+        // xdg-open cannot select a file: it opens the file's folder.
+        var file = ShellFileManager.CommandForFile(OsKind.Linux, "/home/ana/Imágenes/Centinela/a b.png");
+        Assert.Equal("xdg-open", file.FileName);
+        Assert.Equal(["/home/ana/Imágenes/Centinela"], file.ArgumentList);
+    }
+
+    [Fact]
+    public void MacOS_opens_folders_and_reveals_files_with_open()
+    {
+        var folder = ShellFileManager.CommandForFolder(OsKind.MacOS, "/Users/ana/Movies/Centinela");
+        Assert.Equal("open", folder.FileName);
+        Assert.Equal(["/Users/ana/Movies/Centinela"], folder.ArgumentList);
+        var file = ShellFileManager.CommandForFile(OsKind.MacOS, "/Users/ana/Pictures/Centinela/a b.png");
+        Assert.Equal("open", file.FileName);
+        Assert.Equal(["-R", "/Users/ana/Pictures/Centinela/a b.png"], file.ArgumentList);
+    }
+
+    [Fact]
+    public void Shell_does_nothing_for_a_folder_that_does_not_exist()
+    {
+        var started = new List<System.Diagnostics.ProcessStartInfo>();
+        var files = new ShellFileManager(OsKind.Linux, started.Add);
+        var missing = Path.Combine(Path.GetTempPath(), "centinela-no-existe-" + Guid.NewGuid());
+        files.OpenFolder(missing);
+        files.Reveal(missing);
+        Assert.Empty(started);
+    }
+
+    [Fact]
+    public void Shell_starts_one_command_per_request()
+    {
+        var dir = Directory.CreateTempSubdirectory("centinela-fm-").FullName;
+        try
+        {
+            var file = Path.Combine(dir, "a.png");
+            File.WriteAllBytes(file, [1]);
+            var started = new List<System.Diagnostics.ProcessStartInfo>();
+            var files = new ShellFileManager(OsKind.MacOS, started.Add);
+            files.OpenFolder(dir);
+            files.Reveal(dir);
+            files.Reveal(file);
+            Assert.Equal([["{dir}"], ["{dir}"], ["-R", "{file}"]],
+                started.Select(i => i.ArgumentList.Select(a => a.Replace(file, "{file}").Replace(dir, "{dir}")).ToArray()));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 }
