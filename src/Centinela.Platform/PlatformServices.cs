@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using Centinela.Core;
 using Centinela.Core.Platform;
 using Centinela.Platform.Windows;
@@ -15,6 +16,8 @@ public sealed class PlatformServices
     public IAutoStart? AutoStart { get; init; }
     public required ISingleInstance SingleInstance { get; init; }
     public required IFileManager Files { get; init; }
+    /// <summary>Makes the tray icon (on the UI thread); null where this system's tray is not there yet (phases 3–4).</summary>
+    public Func<ITray>? CreateTray { get; init; }
 
     public static PlatformServices Create(string exePath)
     {
@@ -28,6 +31,8 @@ public sealed class PlatformServices
                 AutoStart = testRun ? null : new WindowsAutoStart(new RegistryRunKey(), exePath),
                 SingleInstance = new WindowsSingleInstance(AppPaths.InstanceSuffix),
                 Files = new ExplorerFileManager(),
+                // Also for test runs: the tray touches no data.
+                CreateTray = NewWindowsTray,
             };
         }
         if (testRun)
@@ -42,6 +47,10 @@ public sealed class PlatformServices
         }
         throw new PlatformNotSupportedException("Centinela todavía no funciona en este sistema (llega en la v1.4).");
     }
+
+    // A method group, not a lambda: the platform analyzer does not carry the IsWindows() guard into a lambda.
+    [SupportedOSPlatform("windows")]
+    static ITray NewWindowsTray() => new WindowsTray();
 
     /// <summary>Every launch is the first one: for test runs only, until each system has its own.</summary>
     sealed class NoSingleInstance : ISingleInstance

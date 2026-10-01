@@ -19,6 +19,8 @@ public class PlatformServicesTests
             Assert.IsType<DpapiSecretStore>(services.Secrets);
             Assert.IsType<WindowsAutoStart>(services.AutoStart);
             Assert.IsType<WindowsSingleInstance>(services.SingleInstance);
+            // Never invoked here: it would put an icon in the real tray.
+            Assert.NotNull(services.CreateTray);
         }
         finally
         {
