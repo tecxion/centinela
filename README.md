@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/Centinela.App/Assets/centinela.png" width="140" alt="Logo de Centinela">
+  <img src="src/Centinela.Desktop/Assets/centinela.png" width="140" alt="Logo de Centinela">
 </p>
 
 <h1 align="center">Centinela</h1>
@@ -104,7 +104,7 @@ powershell -ExecutionPolicy Bypass -File tools\get-ffmpeg.ps1
 ### 4. Pruébalo
 
 ```powershell
-dotnet run --project src\Centinela.App -c Release
+dotnet run --project src\Centinela.Desktop -c Release
 ```
 
 La primera vez tarda un poco porque compila. Si se abre la ventana de Centinela, todo está bien.
@@ -114,7 +114,7 @@ La primera vez tarda un poco porque compila. Si se abre la ventana de Centinela,
 Así tendrás un `Centinela.exe` que puedes abrir sin PowerShell:
 
 ```powershell
-dotnet publish src\Centinela.App -c Release -r win-x64 --self-contained false -o "$env:LOCALAPPDATA\Programs\Centinela"
+dotnet publish src\Centinela.Desktop -c Release -r win-x64 --self-contained false -o "$env:LOCALAPPDATA\Programs\Centinela"
 explorer "$env:LOCALAPPDATA\Programs\Centinela"
 ```
 
@@ -353,7 +353,7 @@ Si el problema sigue, abre **Registro** (barra inferior), pulsa *Copiar* y escr�
 ```powershell
 cd $HOME\Documents\centinela
 git pull
-dotnet publish src\Centinela.App -c Release -r win-x64 --self-contained false -o "$env:LOCALAPPDATA\Programs\Centinela"
+dotnet publish src\Centinela.Desktop -c Release -r win-x64 --self-contained false -o "$env:LOCALAPPDATA\Programs\Centinela"
 ```
 
 Tus cámaras y ajustes se conservan.
@@ -370,7 +370,7 @@ Tus cámaras y ajustes se conservan.
 
 ```
 src/
-  Centinela.App/     Aplicación WPF (ventanas, vistas, bandeja)
+  Centinela.Desktop/ Aplicación Avalonia (ventanas, vistas, bandeja)
   Centinela.Core/    Lógica sin dependencias: modelo, vistas, ONVIF, movimiento, copias, reproducción
   Centinela.Media/   FFmpeg: sesiones RTSP, decodificación, grabación, capturas, audio
 tests/
@@ -391,7 +391,7 @@ powershell -ExecutionPolicy Bypass -File tools\get-mediamtx.ps1   # servidor RTS
 dotnet test tests\Centinela.Media.Tests                            # necesita ffmpeg/ffprobe (con libx264) en el PATH
 ```
 
-La aplicación (`src/Centinela.App`) no tiene pruebas automáticas. Para probarla sin cámaras reales usa dos
+La aplicación (`src/Centinela.Desktop`) no tiene pruebas automáticas. Para probarla sin cámaras reales usa dos
 terminales:
 
 ```powershell
@@ -411,7 +411,7 @@ Después añade una cámara de marca **Otra (RTSP)** con la URL principal `rtsp:
 
 ```powershell
 $env:CENTINELA_DATA_DIR = "$env:TEMP\centinela-prueba"
-dotnet run --project src\Centinela.App            # añade "-- --tray" para arrancar oculta en la bandeja
+dotnet run --project src\Centinela.Desktop            # añade "-- --tray" para arrancar oculta en la bandeja
 ```
 
 Con esta variable, todo lo que escribe Centinela (cámaras, ajustes, registros, `backup\`, `recordings\` y
@@ -426,7 +426,7 @@ Windows («Arrancar con Windows» no aparece) y no busca actualizaciones al arra
 
 ### Icono
 
-`src/Centinela.App/Assets/centinela.png` es el original. Tras cambiarlo, regenera el `.ico` (16–256 px):
+`src/Centinela.Desktop/Assets/centinela.png` es el original. Tras cambiarlo, regenera el `.ico` (16–256 px):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\make-icon.ps1

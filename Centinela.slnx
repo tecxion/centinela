@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Centinela.App/Centinela.App.csproj" />
     <Project Path="src/Centinela.Core/Centinela.Core.csproj" />
     <Project Path="src/Centinela.Desktop/Centinela.Desktop.csproj" />
     <Project Path="src/Centinela.Media/Centinela.Media.csproj" />
