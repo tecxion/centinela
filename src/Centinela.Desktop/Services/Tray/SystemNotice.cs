@@ -21,4 +21,13 @@ static class SystemNotice
     /// </summary>
     public static bool ForRecordingFailure(OsKind os, bool hiddenInTray, bool windowVisible, bool canShow) =>
         os == OsKind.Windows ? hiddenInTray : !windowVisible && canShow;
+
+    /// <summary>
+    /// Whether a notice (connection lost/back, an update) goes outside the window instead of a toast: hidden in the
+    /// tray; elsewhere than Windows also minimized with no tray, when the system's notifications can show it (a toast
+    /// would wait unseen in the minimized window). On Windows exactly <paramref name="hiddenInTray"/>, as always.
+    /// </summary>
+    public static bool OutsideWindow(bool hiddenInTray, OsKind os, bool hasTray, bool windowVisible,
+        bool canShowSystemNotice) =>
+        hiddenInTray || (os != OsKind.Windows && !hasTray && !windowVisible && canShowSystemNotice);
 }

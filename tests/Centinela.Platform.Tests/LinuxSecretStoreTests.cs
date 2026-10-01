@@ -210,6 +210,31 @@ public sealed class LinuxSecretStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_service_that_does_not_answer_is_not_called_again_until_it_answers()
+    {
+        var timeouts = new ServiceTimeouts();
+        Assert.False(timeouts.Silent);
+
+        await Assert.ThrowsAsync<TimeoutException>(() => timeouts.Watch<bool>(() => throw new TimeoutException()));
+        Assert.True(timeouts.Silent); // the next operations give false/null at once
+
+        Assert.Equal(7, await timeouts.Watch(() => Task.FromResult(7))); // an answer (e.g. one already under way)
+        Assert.False(timeouts.Silent);
+    }
+
+    [Fact]
+    public async Task An_error_reply_or_a_turned_down_prompt_is_not_a_silent_service()
+    {
+        var timeouts = new ServiceTimeouts();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            timeouts.Watch<bool>(() => throw new InvalidOperationException()));
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            timeouts.Watch<bool>(() => throw new OperationCanceledException()));
+        Assert.False(await timeouts.Watch(() => Task.FromResult(false))); // e.g. the prompt was dismissed
+        Assert.False(timeouts.Silent);
+    }
+
+    [Fact]
     public void A_keychain_reference_for_another_camera_is_not_read()
     {
         var backend = new FakeBackend();

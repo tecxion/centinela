@@ -6,9 +6,9 @@ using Centinela.Desktop.Services.Ui;
 namespace Centinela.Desktop.Views;
 
 /// <summary>
-/// Notices: toasts inside the window (bottom-right, over the grid), or system notices while the window is hidden in
-/// the tray; and the notice sounds (connection lost, motion). Every system notice goes through
-/// <see cref="ShowSystemNotice"/>.
+/// Notices: toasts inside the window (bottom-right, over the grid), or system notices while the window is out of sight
+/// (hidden in the tray; outside Windows also minimized with no tray); and the notice sounds (connection lost, motion).
+/// Every system notice goes through <see cref="ShowSystemNotice"/>.
 /// </summary>
 public partial class MainWindow
 {
@@ -17,8 +17,10 @@ public partial class MainWindow
 
     void InitNotices()
     {
-        // Without a tray the window is never hidden in it, so the system notice is never needed.
-        _notices = new NoticeRouter(() => IsHiddenInTray, Toasts.Show, ShowSystemNotice);
+        // Hidden in the tray; or, outside Windows with no tray, minimized (the system's notifications stand in).
+        _notices = new NoticeRouter(
+            () => SystemNotice.OutsideWindow(IsHiddenInTray, Os, HasTray, WindowVisible, CanShowSystemNotice),
+            Toasts.Show, ShowSystemNotice);
     }
 
     /// <summary>Whether a system notice would show anywhere (the tray, else the system's notifications).</summary>

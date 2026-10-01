@@ -64,6 +64,9 @@ Centinela guarda las contraseñas de las cámaras en el llavero de GNOME. Para v
       cada cámara. Este aviso sale una única vez en total: si ya salió en otra prueba, es normal que no salga.
 - [ ] Tras lo anterior, en una Terminal: `ls -l ~/.local/share/centinela/secret.key`. La línea empieza por
       `-rw-------` (solo tu usuario puede leerlo).
+- [ ] Desbloquea el llavero, edita una cámara y guarda: en «Contraseñas y claves» vuelven a estar todas. Si cancelas
+      una vez la petición de desbloqueo, al guardar las contraseñas pasan al archivo cifrado; vuelven al llavero en el
+      siguiente guardado con el llavero desbloqueado.
 - [ ] Arrancar con el llavero bloqueado: bloquea el llavero, cierra Centinela con «Salir» y ábrelo. GNOME pide la
       contraseña del llavero; escríbela. Las cámaras se ven con su imagen. Apunta cuántos segundos tarda la ventana.
 - [ ] Repite, pero pulsa «Cancelar». La ventana sale (apunta si tarda más de unos segundos) y las cámaras cuya
@@ -148,12 +151,17 @@ Centinela guarda las contraseñas de las cámaras en el llavero de GNOME. Para v
 ## 10. Sin bandeja
 
 - [ ] Sal de Centinela. Abre «Extensiones» (tecla Super y escribe «Extensiones») y desactiva «Ubuntu AppIndicators».
-      Abre Centinela: no hay icono arriba.
+      Si no tienes la app «Extensiones» (no viene de serie), en una Terminal:
+      `gnome-extensions disable ubuntu-appindicators@ubuntu.com` (si el icono no se va, cierra sesión y vuelve a
+      entrar). Abre Centinela: no hay icono arriba.
 - [ ] Pulsa la X: la ventana se minimiza (no se cierra) y las grabaciones siguen. Se recupera desde el dock.
 - [ ] En el menú Archivo, antes de «Salir», sale la casilla «Arrancar al iniciar sesión» y funciona (sección 11).
-- [ ] Con la ventana minimizada, el movimiento y los cortes de conexión salen como notificaciones de GNOME (sección
-      12).
-- [ ] Vuelve a activar «Ubuntu AppIndicators», sal de Centinela y ábrelo: vuelve el icono.
+- [ ] Con la ventana minimizada, el movimiento, la conexión perdida y la conexión recuperada salen como notificaciones
+      de GNOME, no dentro de la ventana (sección 12). Al restaurarla no hay avisos pendientes de esos cortes.
+- [ ] Con la ventana minimizada, haz fallar una grabación (por ejemplo, graba y desconecta la cámara de la
+      corriente o de la red): sale una notificación de GNOME con el fallo.
+- [ ] Vuelve a activar «Ubuntu AppIndicators» (o en una Terminal: `gnome-extensions enable ubuntu-appindicators@ubuntu.com`;
+      puede hacer falta cerrar sesión), sal de Centinela y ábrelo: vuelve el icono.
 
 ## 11. Arrancar al iniciar sesión
 
@@ -220,11 +228,13 @@ Centinela guarda las contraseñas de las cámaras en el llavero de GNOME. Para v
 
 Esta prueba arranca Centinela como si el sistema no tuviera llavero, bandeja ni notificaciones.
 
-- [ ] Sal de Centinela con «Salir» (si sigue abierto, esta prueba abriría un segundo Centinela). En una Terminal:
-      `env -u DBUS_SESSION_BUS_ADDRESS -u XDG_RUNTIME_DIR centinela`
+- [ ] Sal de Centinela con «Salir» (si sigue abierto, esta prueba solo traería al frente esa ventana). En una
+      Terminal: `env -u DBUS_SESSION_BUS_ADDRESS centinela`
 - [ ] La ventana sale en pocos segundos (apunta cuántos). No hay icono arriba y la X minimiza (sección 10).
+- [ ] Las cámaras con la contraseña en el llavero dicen «Falta contraseña» (sin bus no hay llavero): es lo esperado,
+      vuelven a verse cuando abras Centinela normalmente. Las que la tienen en el archivo cifrado se ven.
 - [ ] Edita una cámara y guarda su contraseña: se guarda (en el archivo cifrado) y, si el aviso «Contraseñas» no ha
-      salido nunca, sale ahora. Puede que no se oiga el sonido en esta prueba; es normal.
+      salido nunca, sale ahora.
 - [ ] Cierra con Archivo › Salir y abre Centinela normal desde el menú: todas las cámaras se ven.
 
 ## Qué apuntar al terminar

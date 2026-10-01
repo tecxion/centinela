@@ -70,6 +70,33 @@ public class RecordingFailureNoticeTests
     }
 }
 
+public class OutsideWindowNoticeTests
+{
+    [Fact]
+    public void On_windows_exactly_hidden_in_the_tray_as_always()
+    {
+        foreach (var hiddenInTray in new[] { false, true })
+            foreach (var hasTray in new[] { false, true })
+                foreach (var windowVisible in new[] { false, true })
+                    foreach (var canShow in new[] { false, true })
+                        Assert.Equal(hiddenInTray,
+                            SystemNotice.OutsideWindow(hiddenInTray, OsKind.Windows, hasTray, windowVisible, canShow));
+    }
+
+    [Theory]
+    [InlineData(OsKind.Linux)]
+    [InlineData(OsKind.MacOS)]
+    public void Elsewhere_also_minimized_without_a_tray_when_a_notice_can_show(OsKind os)
+    {
+        Assert.True(SystemNotice.OutsideWindow(hiddenInTray: true, os, hasTray: true, windowVisible: false, canShowSystemNotice: true));
+        Assert.True(SystemNotice.OutsideWindow(hiddenInTray: false, os, hasTray: false, windowVisible: false, canShowSystemNotice: true));
+        // Visible, minimized with a tray (a toast, as on Windows), or no way to show a system notice: inside the window.
+        Assert.False(SystemNotice.OutsideWindow(hiddenInTray: false, os, hasTray: false, windowVisible: true, canShowSystemNotice: true));
+        Assert.False(SystemNotice.OutsideWindow(hiddenInTray: false, os, hasTray: true, windowVisible: false, canShowSystemNotice: true));
+        Assert.False(SystemNotice.OutsideWindow(hiddenInTray: false, os, hasTray: false, windowVisible: false, canShowSystemNotice: false));
+    }
+}
+
 public class TrayHintTests
 {
     [Fact]
