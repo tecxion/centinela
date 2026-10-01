@@ -27,7 +27,12 @@ public partial class MainWindow : Window
     Size _normalSize;
     bool _hasNormal;
 
-    public MainWindow()
+    public MainWindow() : this(startHidden: false)
+    {
+    }
+
+    /// <param name="startHidden">Started with the system (<c>--tray</c>): stays in the tray, if there is one, until opened.</param>
+    public MainWindow(bool startHidden)
     {
         InitializeComponent();
         var cameras = new CameraRepository(new CameraStore(CameraStore.DefaultPath, App.Platform.Secrets));
@@ -42,6 +47,9 @@ public partial class MainWindow : Window
         InitRecording();
         InitAudio();
         InitCameraActions();
+        InitTray();
+        // Started with the system: created but not shown; it counts as hidden in the tray (no tiles).
+        IsHiddenInTray = startHidden && HasTray;
         _vm.ViewChanged += Rebuild;
         _vm.PropertyChanged += (_, e) =>
         {
@@ -57,7 +65,8 @@ public partial class MainWindow : Window
 
     void Rebuild()
     {
-        if (!_closing) _tiles.Apply(_vm.Layout.Plan());
+        // Hidden in the tray there are no tiles; ShowFromTray rebuilds the view.
+        if (!_closing && !IsHiddenInTray) _tiles.Apply(_vm.Layout.Plan());
     }
 
     void Wire(CameraTileView tile)
@@ -86,14 +95,6 @@ public partial class MainWindow : Window
         window.Show(this);
     }
 
-    /// <summary>Another launch asked for the window: show it on top.</summary>
-    public void BringToFront()
-    {
-        Show();
-        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-        Activate();
-    }
-
     void Track(Task shutdown, string name)
     {
         _pendingShutdowns.Add(shutdown);
@@ -105,7 +106,7 @@ public partial class MainWindow : Window
         }), TaskScheduler.Default);
     }
 
-    void Exit_Click(object? sender, RoutedEventArgs e) => Close();
+    void Exit_Click(object? sender, RoutedEventArgs e) => ExitApp();
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -178,8 +179,20 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        SavePlacement();
+        if (!_exitRequested && HasTray && !_closing)
+        {
+            // The X hides to the tray; recordings keep running.
+            e.Cancel = true;
+            HideToTray();
+            return;
+        }
         base.OnClosing(e);
+        if (e.Cancel) return;
+        // The close goes ahead: from here on nothing touches the window or the view model.
+        if (!IsHiddenInTray) SavePlacement();
+        _closing = true;
+        // Fullscreen views now, so their shutdowns are tracked before OnClosed waits.
+        foreach (var owned in OwnedWindows.ToList()) owned.Close();
     }
 
     protected override void OnClosed(EventArgs e)
@@ -200,6 +213,8 @@ public partial class MainWindow : Window
             // Failures cannot be shown any more; exit anyway.
         }
         _audio.Dispose();
+        _tray?.Dispose();
+        // Raises Closed: the app ends there (App.Start).
         base.OnClosed(e);
     }
 }

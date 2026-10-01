@@ -19,7 +19,8 @@ static class Program
         {
             App.StartupError = ex.Message;
         }
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, Avalonia.Controls.ShutdownMode.OnMainWindowClose);
+        // Closing the window may only hide it in the tray: the app ends when App says so («Salir», session end).
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, Avalonia.Controls.ShutdownMode.OnExplicitShutdown);
     }
 
     public static AppBuilder BuildAvaloniaApp() =>

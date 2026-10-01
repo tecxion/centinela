@@ -50,6 +50,13 @@ sealed partial class MainViewModel
             if (Cameras.Find(id) is { } camera) Recordings.Start(camera);
     }
 
+    /// <summary>The recordings folder, created if it does not exist yet (to open it).</summary>
+    public static string EnsureRecordingsFolder()
+    {
+        Directory.CreateDirectory(AppPaths.RecordingsDirectory);
+        return AppPaths.RecordingsDirectory;
+    }
+
     /// <summary>Saves the tile's picture and reports it; the tile is busy meanwhile. UI thread.</summary>
     public async Task SnapshotAsync(TileViewModel tile)
     {

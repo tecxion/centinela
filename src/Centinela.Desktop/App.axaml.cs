@@ -17,6 +17,9 @@ public partial class App : Application
     /// <summary>Why the system pieces could not be created in Program.Main; shown once the UI runs.</summary>
     internal static string? StartupError { get; set; }
 
+    // The main window, also while it is hidden in the tray (then it is not the lifetime's MainWindow).
+    static MainWindow? _window;
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -50,9 +53,24 @@ public partial class App : Application
         }
         try
         {
-            var window = new MainWindow();
-            desktop.MainWindow = window;
-            Platform.SingleInstance.ListenForActivation(() => UiThread.Post(window.BringToFront));
+            var window = new MainWindow(startHidden: desktop.Args?.Contains("--tray") == true);
+            _window = window;
+            // The lifetime shows its MainWindow when its loop starts: started in the tray, it is left unset.
+            if (!window.IsHiddenInTray) desktop.MainWindow = window;
+            var sessionEnding = false;
+            // «Salir»: once the window has stopped everything, the app ends.
+            window.Closed += (_, _) =>
+            {
+                if (!sessionEnding) desktop.Shutdown();
+            };
+            // The session ends (or the system asks the app to quit): a real exit. The window is closed here, also
+            // when it was never shown, so its wait runs; the lifetime then ends the app itself.
+            desktop.ShutdownRequested += (_, _) =>
+            {
+                sessionEnding = true;
+                window.ExitForShutdown();
+            };
+            Platform.SingleInstance.ListenForActivation(() => UiThread.Post(window.ShowFromTray));
         }
         catch (Exception ex)
         {
@@ -69,7 +87,7 @@ public partial class App : Application
         Dispatcher.UIThread.UnhandledException += (_, e) =>
         {
             e.Handled = true;
-            var owner = desktop.MainWindow is { IsVisible: true } window ? window : null;
+            var owner = _window is { IsVisible: true } window ? window : null;
             _ = MessageDialog.ShowAsync(owner, e.Exception.Message);
         };
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();

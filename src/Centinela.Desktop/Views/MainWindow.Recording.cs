@@ -1,6 +1,5 @@
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Centinela.Core;
 using Centinela.Desktop.ViewModels;
 
 namespace Centinela.Desktop.Views;
@@ -21,13 +20,17 @@ public partial class MainWindow
         tile.ViewModel.SetRecordingStatus(_vm.Recordings.StatusOf(tile.ViewModel.Camera.Id));
     }
 
-    void RecordAll_Click(object? sender, RoutedEventArgs e) => _vm.ToggleRecordAll(allCameras: false);
+    /// <summary>The toolbar records the cameras on screen; every camera while the window is in the tray.</summary>
+    void RecordAll_Click(object? sender, RoutedEventArgs e) => ToggleRecordAll(allCameras: IsHiddenInTray);
 
-    void OpenRecordings_Click(object? sender, RoutedEventArgs e)
+    /// <summary>«Grabar todas» / «Detener todas»; the tray menu passes <paramref name="allCameras"/> = true.</summary>
+    void ToggleRecordAll(bool allCameras)
     {
-        Directory.CreateDirectory(AppPaths.RecordingsDirectory);
-        App.Platform.Files.OpenFolder(AppPaths.RecordingsDirectory);
+        if (!_closing) _vm.ToggleRecordAll(allCameras);
     }
+
+    void OpenRecordings_Click(object? sender, RoutedEventArgs e) =>
+        App.Platform.Files.OpenFolder(MainViewModel.EnsureRecordingsFolder());
 
     void StatusText_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {

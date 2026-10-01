@@ -67,6 +67,13 @@ sealed class AudioController(Func<IEnumerable<TileViewModel>> audioTiles) : IDis
         if (_audio.Deactivate(tile)) CloseOutput();
     }
 
+    /// <summary>Hidden in the tray: silences whatever plays and closes the output (an idle app holds no audio device).</summary>
+    public void ReleaseAll()
+    {
+        if (_audio.Active is { } playing) Release(playing);
+        CloseOutput();
+    }
+
     /// <summary>
     /// A pump may still be finishing a Write after SetAudio(null): the disposed output ignores it, and its Failed
     /// event is ignored too (no longer <see cref="_output"/>).

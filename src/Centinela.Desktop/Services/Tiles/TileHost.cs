@@ -168,6 +168,12 @@ sealed class TileHost(Grid grid, TileFactory factory, Func<Guid, Camera?> findCa
         ShutdownStarted?.Invoke(tile.ViewModel.ShutdownAsync(), tile.ViewModel.Camera.Name);
     }
 
+    /// <summary>Removes every tile (hidden in the tray); their shutdowns are reported through <see cref="ShutdownStarted"/>.</summary>
+    public void RetireAll()
+    {
+        foreach (var key in _tiles.Keys.ToList()) DisposeTile(key);
+    }
+
     /// <summary>Stops every tile (exit); returns their shutdowns.</summary>
     public IReadOnlyList<Task> ShutdownAll()
     {
