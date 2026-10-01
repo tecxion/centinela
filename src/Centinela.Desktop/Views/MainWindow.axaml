@@ -16,10 +16,12 @@
     </Window.Styles>
     <DockPanel>
         <Menu x:Name="MainMenu" DockPanel.Dock="Top">
-            <MenuItem Header="_Archivo">
+            <MenuItem Header="_Archivo" SubmenuOpened="FileMenu_SubmenuOpened">
                 <MenuItem Header="_Importar JSON…" Click="Import_Click" />
                 <MenuItem Header="_Exportar JSON…" Click="Export_Click" />
                 <MenuItem Header="_Carpeta de copia automática…" Click="BackupFolder_Click" />
+                <!-- Linux and macOS without a tray: the tray's auto start check (header set in code). -->
+                <MenuItem x:Name="AutoStartMenuItem" ToggleType="CheckBox" IsVisible="False" Click="AutoStart_Click" />
                 <Separator />
                 <MenuItem Header="_Salir" Click="Exit_Click" />
             </MenuItem>

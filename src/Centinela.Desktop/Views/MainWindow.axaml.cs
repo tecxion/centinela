@@ -8,6 +8,7 @@ using Centinela.Desktop.Services.Backup;
 using Centinela.Desktop.Services.Data;
 using Centinela.Desktop.Services.Streams;
 using Centinela.Desktop.Services.Tiles;
+using Centinela.Desktop.Services.Tray;
 using Centinela.Desktop.Services.Ui;
 using Centinela.Desktop.ViewModels;
 
@@ -92,6 +93,7 @@ public partial class MainWindow : Window
         _audio?.Dispose();
         _noticeSounds.Dispose();
         _tray?.Dispose();
+        App.Platform.Notifier?.Dispose();
         _errorLog?.Dispose();
         _motionLog?.Dispose();
     }
@@ -216,14 +218,20 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        // Logging off or shutting down Windows, or the app ending: a real exit, never hidden.
+        // Logging off or shutting down the system, or the app ending: a real exit, never hidden.
         var systemExit = e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown;
-        if (!_exitRequested && !systemExit && HasTray && !_closing)
+        switch (_closing ? CloseAction.Close : WindowClose.Decide(_exitRequested, systemExit, HasTray, Os))
         {
-            // The X hides to the tray; recordings keep running.
-            e.Cancel = true;
-            HideToTray();
-            return;
+            case CloseAction.Hide:
+                // The X hides to the tray; recordings keep running.
+                e.Cancel = true;
+                HideToTray();
+                return;
+            case CloseAction.Minimize:
+                // Linux or macOS without a tray: minimized, recordings and detection keep running; «Salir» ends it.
+                e.Cancel = true;
+                WindowState = WindowState.Minimized;
+                return;
         }
         base.OnClosing(e);
         if (e.Cancel) return;
@@ -258,6 +266,8 @@ public partial class MainWindow : Window
         _audio.Dispose();
         _noticeSounds.Dispose();
         _tray?.Dispose();
+        // After the tray, which shows its notices through it.
+        App.Platform.Notifier?.Dispose();
         _errorLog.Dispose();
         // After _motion.ShutdownAsync above, which logged the events still active.
         _motionLog.Dispose();

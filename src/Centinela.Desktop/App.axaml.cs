@@ -14,6 +14,12 @@ public partial class App : Application
 {
     internal static PlatformServices Platform { get; set; } = null!;
 
+    /// <summary>
+    /// Whether Avalonia's tray icon can show (Linux, macOS), asked once in Program.Main; false where the system has
+    /// no such check (Windows has its own tray).
+    /// </summary>
+    internal static Task<bool> TrayAvailable { get; set; } = Task.FromResult(false);
+
     /// <summary>Why the system pieces could not be created in Program.Main; shown once the UI runs.</summary>
     internal static string? StartupError { get; set; }
 

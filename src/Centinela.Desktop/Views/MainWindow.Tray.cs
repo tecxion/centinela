@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Centinela.Core.Platform;
 using Centinela.Desktop.Services.Tray;
 using Centinela.Desktop.Services.Ui;
@@ -7,7 +8,8 @@ namespace Centinela.Desktop.Views;
 
 /// <summary>
 /// Tray mode: with a tray, the window's X hides it to the tray and recordings keep running; only «Salir» (menu or
-/// tray) or the end of the user's session ends the app. Without a tray, the X ends the app.
+/// tray) or the end of the user's session ends the app. Without a tray, the X ends the app on Windows and minimizes
+/// the window on Linux and macOS, where the auto start check moves to the Archivo menu.
 /// </summary>
 public partial class MainWindow
 {
@@ -35,8 +37,12 @@ public partial class MainWindow
         }
         try
         {
-            _tray = App.Platform.CreateTray?.Invoke();
-            if (_tray is null) return;
+            _tray = NewTray();
+            if (_tray is null)
+            {
+                ShowAutoStartInMenu();
+                return;
+            }
             // Both icons now, so a drawing failure means no tray rather than an error later.
             foreach (var recording in new[] { false, true }) _trayIcons[recording] = TrayIconRenderer.Render(recording);
             UpdateTray();
@@ -46,6 +52,7 @@ public partial class MainWindow
             // No tray: Centinela works as a normal window and the X ends it.
             _tray?.Dispose();
             _tray = null;
+            ShowAutoStartInMenu();
             return;
         }
         // Deferred so the menu has closed before the window shows or the exit wait starts.
@@ -55,9 +62,41 @@ public partial class MainWindow
         _vm.Recordings.Failure += message =>
         {
             // The status line already shows it.
-            if (IsHiddenInTray && !_closing) _tray?.ShowNotice("Centinela", message);
+            if (IsHiddenInTray && !_closing) ShowSystemNotice("Centinela", message);
         };
     }
+
+    /// <summary>
+    /// Windows' own tray; elsewhere Avalonia's, when the desktop can show it (asked once at startup); else none.
+    /// </summary>
+    static ITray? NewTray()
+    {
+        if (App.Platform.CreateTray is { } create) return create();
+        return Os != OsKind.Windows && App.TrayAvailable.GetAwaiter().GetResult() ? new AvaloniaTray(App.Platform.Notifier) : null;
+    }
+
+    /// <summary>
+    /// Without a tray on Linux and macOS, the auto start check lives in the Archivo menu (Windows keeps its menu as
+    /// it was).
+    /// </summary>
+    void ShowAutoStartInMenu()
+    {
+        if (Os == OsKind.Windows || _autoStart is null) return;
+        AutoStartMenuItem.Header = TrayTexts.AutoStartLabel(Os);
+        AutoStartMenuItem.IsVisible = true;
+        UpdateAutoStartMenuItem();
+    }
+
+    /// <summary>Archivo opens: the check shows the real state (it may have changed outside the app).</summary>
+    void FileMenu_SubmenuOpened(object? sender, RoutedEventArgs e) => UpdateAutoStartMenuItem();
+
+    void UpdateAutoStartMenuItem()
+    {
+        if (AutoStartMenuItem.IsVisible) AutoStartMenuItem.IsChecked = IsAutoStartEnabled();
+    }
+
+    /// <summary>The menu has flipped its check already; the change asked for is the opposite of the real state.</summary>
+    void AutoStart_Click(object? sender, RoutedEventArgs e) => SetAutoStart(!IsAutoStartEnabled());
 
     /// <summary>The icon (red dot while recording) and the menu («Grabar todas» / «Detener todas»).</summary>
     void UpdateTray()
@@ -110,6 +149,7 @@ public partial class MainWindow
         }
         // The check shows the real state, whether the change worked or not.
         UpdateTrayMenu();
+        UpdateAutoStartMenuItem();
     }
 
     /// <summary>Closes the views (recordings keep running), releases the sound and hides the window.</summary>
@@ -128,7 +168,7 @@ public partial class MainWindow
         {
             settings.TrayHintShown = true;
             _vm.Settings.Save();
-            _tray.ShowNotice("Centinela sigue en la bandeja",
+            ShowSystemNotice("Centinela sigue en la bandeja",
                 "Las grabaciones continúan. Doble clic en el icono para abrirla; «Salir» la cierra.");
         }
     }

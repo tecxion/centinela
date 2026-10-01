@@ -48,16 +48,16 @@ public partial class MainWindow
     void WireMotion(CameraTileView tile) => tile.ViewModel.SetMotionActive(_motion.IsActive(tile.ViewModel.Camera.Id));
 
     /// <summary>
-    /// A system notice, only with the window minimized or hidden (the notification gate decides) and only if there is
-    /// a tray to show it. Only a notice actually shown restarts the camera's cooldown.
+    /// A system notice, only with the window minimized or hidden (the notification gate decides) and only if it can
+    /// show (the tray, or the system's notifications without one). Only a notice actually shown restarts the camera's cooldown.
     /// </summary>
     void OnMotionStarted(Camera camera, bool alertEligible)
     {
         if (!alertEligible || _closing) return;
         var decision = NotificationGate.Decide(NoticeKind.Motion, camera, _vm.Settings.Settings, WindowVisible, DateTime.Now);
-        if (decision.Show && _tray is not null)
+        if (decision.Show && CanShowSystemNotice)
         {
-            _tray.ShowNotice($"Detección de movimiento: «{camera.Name}»", DateTime.Now.ToString("HH:mm:ss"),
+            ShowSystemNotice($"Detección de movimiento: «{camera.Name}»", DateTime.Now.ToString("HH:mm:ss"),
                 () => UiThread.Post(ShowFromTray));
             _motion.ConfirmAlert(camera.Id, DateTimeOffset.Now);
         }

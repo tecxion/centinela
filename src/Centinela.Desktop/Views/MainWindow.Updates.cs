@@ -55,7 +55,7 @@ public partial class MainWindow
         if (result.Status == UpdateStatus.Failed)
             _errorLog.Add(new ErrorLogEntry(DateTime.Now, "Centinela", "Actualizaciones", "No se pudo buscar actualizaciones", result.Error ?? ""));
         if (!UpdatePolicy.ShouldNotify(result, settings)) return;
-        if (!IsHiddenInTray || _tray is null)
+        if (!IsHiddenInTray)
         {
             _notices.Show(UpdateToast(result));
             return;
@@ -63,7 +63,7 @@ public partial class MainWindow
         // Started with the system / in the tray: the notice has no buttons, so clicking it opens the window and the
         // update details; opening the window any other way shows the usual notice instead.
         _pendingUpdate = result;
-        _tray.ShowNotice($"Centinela {result.Latest} disponible", "Haz clic aquí para ver la novedad.", () => UiThread.Post(() =>
+        ShowSystemNotice($"Centinela {result.Latest} disponible", "Haz clic aquí para ver la novedad.", () => UiThread.Post(() =>
         {
             if (_pendingUpdate is not { } pending) return;
             _pendingUpdate = null;

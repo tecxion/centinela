@@ -18,6 +18,13 @@ public sealed class PlatformServices
     public required IFileManager Files { get; init; }
     /// <summary>Makes the tray icon (on the UI thread); null where this system's tray is not there yet (phases 3–4).</summary>
     public Func<ITray>? CreateTray { get; init; }
+    /// <summary>System notifications outside the tray (Linux); null on Windows, where the tray shows them.</summary>
+    public INotifier? Notifier { get; init; }
+    /// <summary>
+    /// Whether a tray icon (Avalonia's) can show, where <see cref="CreateTray"/> is null; null on Windows. Its check
+    /// may wait for the session bus: read it once, off the UI thread.
+    /// </summary>
+    public ITrayAvailability? TrayAvailability { get; init; }
 
     public static PlatformServices Create(string exePath)
     {

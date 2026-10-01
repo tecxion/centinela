@@ -53,7 +53,7 @@ public partial class MainWindow
             {
                 // Hidden in the tray (the X during the read): no dialog owned by a hidden window, as in the WPF.
                 _vm.Notify($"Importación terminada: {summary}", null);
-                _tray?.ShowNotice("Importar", summary);
+                ShowSystemNotice("Importar", summary);
                 return;
             }
             await MessageDialog.ShowAsync(this, summary, "Importar");
@@ -117,13 +117,13 @@ public partial class MainWindow
         _vm.SetBackupFolder(path);
     }
 
-    /// <summary>A failed import or export: a dialog, or, hidden in the tray, the status line and a tray notice.</summary>
+    /// <summary>A failed import or export: a dialog, or, hidden in the tray, the status line and a system notice.</summary>
     async Task ShowBackupMessageAsync(string message, string title)
     {
         if (IsHiddenInTray)
         {
             _vm.Notify(message, null);
-            _tray?.ShowNotice(title, message);
+            ShowSystemNotice(title, message);
             return;
         }
         await MessageDialog.ShowAsync(this, message, title);
