@@ -17,10 +17,13 @@ sealed class AudioController(Func<IEnumerable<TileViewModel>> audioTiles) : IDis
     OpenAlAudioOutput? _output;
     bool _closed;
 
-    /// <summary>A message for the status line.</summary>
+    /// <summary>A message for the status line («No hay salida de audio en este equipo.»).</summary>
     public event Action<string>? Notice;
 
-    /// <summary>A camera's audio could not be played (for the error log): the camera, the title and the detail.</summary>
+    /// <summary>
+    /// A camera's audio could not be played: the camera, the title and the detail. The owner logs it and shows an
+    /// error notice (the video keeps going).
+    /// </summary>
     public event Action<Camera, string, string>? Failed;
 
     /// <summary>A new tile: silenced when its stream loses the audio track or its audio cannot be played.</summary>
@@ -101,13 +104,8 @@ sealed class AudioController(Func<IEnumerable<TileViewModel>> audioTiles) : IDis
         output.Dispose();
     }
 
-    /// <summary>The status line shows the title and «El vídeo sigue funcionando.»; the error log gets the detail.</summary>
-    void ReportFailure(TileViewModel tile, string message)
-    {
-        var title = $"No se pudo reproducir el audio de «{tile.Camera.Name}»";
-        Notice?.Invoke($"{title}. El vídeo sigue funcionando.");
-        Failed?.Invoke(tile.Camera, title, message);
-    }
+    void ReportFailure(TileViewModel tile, string message) =>
+        Failed?.Invoke(tile.Camera, $"No se pudo reproducir el audio de «{tile.Camera.Name}»", message);
 
     /// <summary>Window closed: closes the output; later calls do nothing.</summary>
     public void Dispose()

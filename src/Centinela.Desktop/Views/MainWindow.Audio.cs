@@ -1,5 +1,6 @@
 using Centinela.Core;
 using Centinela.Desktop.Services.Audio;
+using Centinela.Desktop.Services.Notices;
 using Centinela.Desktop.ViewModels;
 
 namespace Centinela.Desktop.Views;
@@ -13,8 +14,12 @@ public partial class MainWindow
     {
         _audio = new AudioController(AudioTiles);
         _audio.Notice += message => _vm.Notify(message, null);
+        // Logged, and an error notice (a system notice while hidden in the tray), as in the Windows version.
         _audio.Failed += (camera, title, detail) =>
+        {
             _errorLog.Add(new ErrorLogEntry(DateTime.Now, camera.Name, "Audio", title, detail));
+            if (!_closing) _notices.Show(new Toast(title, "El vídeo sigue funcionando.", ToastStyle.Error));
+        };
         _tiles.AudioReleaseRequested += _audio.Release;
     }
 
