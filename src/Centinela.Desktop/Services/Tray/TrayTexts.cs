@@ -19,4 +19,9 @@ static class TrayTexts
     public static string AutoStartFailed(OsKind os, string message) => os == OsKind.Windows
         ? $"No se pudo cambiar el arranque con Windows: {message}"
         : $"No se pudo cambiar el arranque al iniciar sesión: {message}";
+
+    /// <summary>The first time the window hides in the tray: Windows opens it with a double click, the others with one.</summary>
+    public static string HiddenHint(OsKind os) => os == OsKind.Windows
+        ? "Las grabaciones continúan. Doble clic en el icono para abrirla; «Salir» la cierra."
+        : "Las grabaciones continúan. Haz clic en el icono para abrirla; «Salir» la cierra.";
 }

@@ -1,12 +1,18 @@
 using Centinela.Core;
+using Centinela.Core.Platform;
+using Centinela.Desktop.Services.Tray;
 
 namespace Centinela.Desktop.Services.Info;
 
-/// <summary>The Spanish user manual, the same text as the WPF app's.</summary>
+/// <summary>
+/// The Spanish user manual: on Windows the same text as the WPF app's; on Linux and macOS their own tray (or menu
+/// bar), starting with the system, volume and folders (<see cref="ManualSystemTexts"/>).
+/// </summary>
 static class ManualDocument
 {
-    public static IReadOnlyList<InfoBlock> Build()
+    public static IReadOnlyList<InfoBlock> Build(OsKind os)
     {
+        var sys = ManualSystemTexts.For(os);
         List<InfoBlock> doc = [];
         doc.Add(new InfoHeading("Manual de Centinela"));
         doc.Add(new InfoParagraph("Centinela muestra, graba y captura el vídeo de tus cámaras IP (Tapo, Imou o cualquier cámara con RTSP) dentro de tu red local."));
@@ -35,26 +41,26 @@ static class ManualDocument
 
         doc.Add(new InfoHeading("Sonido"));
         doc.Add(new InfoParagraph("Si la cámara envía audio, las cámaras grandes y la pantalla completa muestran el botón 🔇. Púlsalo para oírla (🔊). Todas empiezan en silencio y solo suena una a la vez."));
-        doc.Add(new InfoParagraph("El sonido se para al ocultar Centinela en la bandeja o al cerrar la pantalla completa. El volumen se ajusta en el mezclador de volumen de Windows."));
+        doc.Add(new InfoParagraph(sys.Sound));
 
         doc.Add(new InfoHeading("Grabar y capturas"));
         doc.Add(new InfoParagraph("El botón ⏺ de cada cámara empieza o detiene su grabación; «Grabar todas» graba todas las cámaras a la vez."));
-        doc.Add(new InfoParagraph(@"Las grabaciones se guardan en Vídeos\Centinela y las capturas en Imágenes\Centinela."));
+        doc.Add(new InfoParagraph(sys.Folders));
         doc.Add(new InfoParagraph("Las grabaciones son archivos MKV que se reproducen con VLC."));
 
-        doc.Add(new InfoHeading("Bandeja del sistema"));
-        doc.Add(new InfoParagraph("La X de la ventana la oculta en la bandeja del sistema (junto al reloj) y las grabaciones continúan. «Salir» cierra Centinela del todo."));
-        doc.Add(new InfoParagraph("Con «Arrancar con Windows», Centinela se abre al iniciar sesión en el equipo."));
+        doc.Add(new InfoHeading(sys.TrayHeading));
+        doc.Add(new InfoParagraph(sys.Tray));
+        doc.Add(new InfoParagraph($"Con «{TrayTexts.AutoStartLabel(os)}», Centinela se abre al iniciar sesión en el equipo."));
 
         doc.Add(new InfoHeading("Detección de movimiento"));
         doc.Add(new InfoParagraph("Cada cámara puede vigilar si hay movimiento. Viene apagada: actívala con el botón 👁 de la cámara, con «Detección de movimiento» del clic derecho o en Ver › Opciones de avisos…. Un 👁 tachado junto al nombre indica que está apagada."));
         doc.Add(new InfoParagraph("Mientras hay movimiento, la cámara lleva un marco rojo (en las miniaturas, en las grandes y a pantalla completa) que se quita 3 segundos después de que pare."));
-        doc.Add(new InfoParagraph("Sigue vigilando con Centinela oculta en la bandeja. Si la ventana está minimizada o en la bandeja, sale un aviso junto al reloj; haz clic en él para abrir la ventana. Como mucho sale un aviso por cámara cada tiempo de espera."));
+        doc.Add(new InfoParagraph(sys.MotionNotice));
         doc.Add(new InfoParagraph("Cada cámara vigilada usa una conexión en calidad baja (la misma de la miniatura si se ve)."));
 
         doc.Add(new InfoHeading("Registro de movimiento"));
         doc.Add(new InfoParagraph("El botón «Movimiento» de la barra de estado muestra cuántos movimientos no has visto y abre el registro: hora de inicio, cámara, duración y cambio máximo. Desde ahí puedes copiar las líneas, abrir la carpeta o vaciarlo."));
-        doc.Add(new InfoParagraph(@"Cada movimiento se anota cuando termina (o al salir de Centinela). Los archivos (movimiento-AAAA-MM-DD.log, en %AppData%\Centinela\logs) se borran a los 14 días."));
+        doc.Add(new InfoParagraph($"Cada movimiento se anota cuando termina (o al salir de Centinela). Los archivos (movimiento-AAAA-MM-DD.log, en {sys.Logs}) se borran a los 14 días."));
 
         doc.Add(new InfoHeading("Opciones de avisos"));
         doc.Add(new InfoParagraph("Ver › Opciones de avisos… tiene una tabla con cada cámara: detección, sensibilidad (Baja, Media o Alta), tiempo de espera entre avisos (30 s, 1 min, 5 min o 15 min), avisos de conexión y avisos de movimiento."));
@@ -65,7 +71,7 @@ static class ManualDocument
         doc.Add(new InfoHeading("Copias de seguridad"));
         doc.Add(new InfoParagraph("Archivo › Exportar JSON guarda la lista de cámaras. Puedes exportarla sin contraseñas o con ellas, cifradas con una clave que eliges tú (al menos 8 caracteres)."));
         doc.Add(new InfoParagraph("Guarda la clave en un lugar seguro: sin ella no se pueden recuperar las contraseñas."));
-        doc.Add(new InfoParagraph(@"Cada vez que cambias la lista de cámaras se guarda una copia automática sin contraseñas (camaras-copia.json, en Documentos\Centinela o en la carpeta que elijas en Archivo › Carpeta de copia automática)."));
+        doc.Add(new InfoParagraph($"Cada vez que cambias la lista de cámaras se guarda una copia automática sin contraseñas (camaras-copia.json, en {sys.Documents} o en la carpeta que elijas en Archivo › Carpeta de copia automática)."));
         doc.Add(new InfoParagraph("Archivo › Importar JSON añade las cámaras nuevas y actualiza las que ya tenías (misma IP y puerto). Si la copia tiene contraseñas, se pide la clave."));
 
         doc.Add(new InfoHeading("Actualizaciones"));

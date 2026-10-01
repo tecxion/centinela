@@ -1,5 +1,6 @@
 using Avalonia;
 using Centinela.Core.Platform;
+using Centinela.Desktop.Services.Ui;
 using Centinela.Platform;
 
 namespace Centinela.Desktop;
@@ -12,7 +13,7 @@ static class Program
         // Claimed before Avalonia starts: a shutdown requested before its loop runs is ignored.
         try
         {
-            App.Platform = PlatformServices.Create(Environment.ProcessPath!);
+            App.Platform = PlatformServices.Create(Environment.ProcessPath!, UiThread.Context);
             // The running instance shows its window; this one has nothing to do.
             if (!App.Platform.SingleInstance.TryClaim()) return;
             // Asked once, while Avalonia starts: the answer may wait for the session bus.

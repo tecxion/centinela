@@ -35,6 +35,7 @@ public partial class MainWindow
             try { _autoStart.Migrate(); }
             catch (Exception) { /* the old entry just stays; the tray check shows the real state */ }
         }
+        NotifyRecordingFailures();
         try
         {
             _tray = NewTray();
@@ -59,20 +60,28 @@ public partial class MainWindow
         _tray.OpenRequested += () => UiThread.Post(ShowFromTray);
         _tray.MenuOpening += UpdateTrayMenu; // the auto start may have changed outside the app
         _vm.Recordings.StatusChanged += (_, _) => UpdateTray();
-        _vm.Recordings.Failure += message =>
-        {
-            // The status line already shows it.
-            if (IsHiddenInTray && !_closing) ShowSystemNotice("Centinela", message);
-        };
     }
 
     /// <summary>
-    /// Windows' own tray; elsewhere Avalonia's, when the desktop can show it (asked once at startup); else none.
+    /// Also without a tray: on Linux and macOS a minimized window still hears of a failed recording through the
+    /// system's notifications.
+    /// </summary>
+    void NotifyRecordingFailures() => _vm.Recordings.Failure += message =>
+    {
+        if (!_closing && SystemNotice.ForRecordingFailure(Os, IsHiddenInTray, WindowVisible, CanShowSystemNotice))
+            ShowSystemNotice("Centinela", message);
+    };
+
+    /// <summary>
+    /// Windows' own tray; elsewhere Avalonia's, when the desktop can show it (asked once at startup, waited for at
+    /// most a few seconds); else none.
     /// </summary>
     static ITray? NewTray()
     {
         if (App.Platform.CreateTray is { } create) return create();
-        return Os != OsKind.Windows && App.TrayAvailable.GetAwaiter().GetResult() ? new AvaloniaTray(App.Platform.Notifier) : null;
+        return Os != OsKind.Windows && TrayAvailabilityWait.Get(App.TrayAvailable, TrayAvailabilityWait.Timeout)
+            ? new AvaloniaTray(App.Platform.Notifier)
+            : null;
     }
 
     /// <summary>
@@ -168,8 +177,7 @@ public partial class MainWindow
         {
             settings.TrayHintShown = true;
             _vm.Settings.Save();
-            ShowSystemNotice("Centinela sigue en la bandeja",
-                "Las grabaciones continúan. Doble clic en el icono para abrirla; «Salir» la cierra.");
+            ShowSystemNotice("Centinela sigue en la bandeja", TrayTexts.HiddenHint(Os));
         }
     }
 

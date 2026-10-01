@@ -77,11 +77,11 @@ public sealed class SettingsStoreTests : IDisposable
         new SettingsStore(FilePath).Save(new AppSettings
         {
             LayoutMode = LayoutMode.Featured, FeaturedCameraId = id, ShowStats = true,
-            BackupFolder = @"D:\Copias", TrayHintShown = true,
+            BackupFolder = @"D:\Copias", TrayHintShown = true, FileSecretNoticeShown = true,
         });
         var s = new SettingsStore(FilePath).Load();
-        Assert.Equal((LayoutMode.Featured, id, true, @"D:\Copias", true),
-            (s.LayoutMode, s.FeaturedCameraId!.Value, s.ShowStats, s.BackupFolder, s.TrayHintShown));
+        Assert.Equal((LayoutMode.Featured, id, true, @"D:\Copias", true, true),
+            (s.LayoutMode, s.FeaturedCameraId!.Value, s.ShowStats, s.BackupFolder, s.TrayHintShown, s.FileSecretNoticeShown));
     }
 
     [Fact]

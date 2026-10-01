@@ -22,6 +22,8 @@ public sealed class AppSettings
     public bool ShowStats { get; set; }
     public string? BackupFolder { get; set; }
     public bool TrayHintShown { get; set; }
+    /// <summary>The one-time notice that passwords are kept in the encrypted file (Linux without a keychain).</summary>
+    public bool FileSecretNoticeShown { get; set; }
     /// <summary>The two big cameras of the Dual layout, left then right (may be stale; the planner validates).</summary>
     public List<Guid> DualCameraIds { get; set; } = [];
     /// <summary>Which big camera (0 left, 1 right) a click on a thumbnail replaces next.</summary>

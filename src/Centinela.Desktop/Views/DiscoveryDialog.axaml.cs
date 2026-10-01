@@ -137,13 +137,17 @@ public partial class DiscoveryDialog : Window
             // Networks that exist but have no ONVIF camera (servers, guests…) are found by pinging their router.
             var existing = NetworkScan.FindNetworksAsync(WsDiscovery.LocalAddresses(), detect.Token);
             var found = await WsDiscovery.SweepAsync(zone, new Progress<double>(p => DetectProgress.Value = p), detect.Token);
-            var networks = await existing;
+            var scan = await existing;
             if (_closed) return;
-            var (withCameras, empty) = _networks.ApplyDetection(found, networks, _knownHosts);
+            var (withCameras, empty) = _networks.ApplyDetection(found, scan.Networks, _knownHosts);
             ShowDevices(found);
-            StatusText.Text = withCameras == 0 && empty == 0
+            var status = withCameras == 0 && empty == 0
                 ? "No se encontraron otras redes."
                 : $"{withCameras} red(es) con cámaras y {empty} sin cámaras ONVIF. Marca las que quieras incluir en las próximas búsquedas. {Summary()}";
+            // Without ping only the networks where a camera answered can be found.
+            StatusText.Text = scan.PingUnavailable
+                ? $"{status} No se pudo hacer ping en este sistema: solo se muestran las redes con cámaras ONVIF."
+                : status;
         }
         catch (OperationCanceledException)
         {

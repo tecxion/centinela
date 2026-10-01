@@ -1,5 +1,7 @@
 using System.Runtime.Versioning;
 using Centinela.Core;
+using Centinela.Platform.Linux;
+using Centinela.Platform.Unix;
 using Centinela.Platform.Windows;
 
 namespace Centinela.Platform.Tests;
@@ -15,7 +17,7 @@ public class PlatformServicesTests
         try
         {
             Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, null);
-            var services = PlatformServices.Create(@"C:\Apps\Centinela\Centinela.exe");
+            var services = PlatformServices.Create(@"C:\Apps\Centinela\Centinela.exe", new SynchronizationContext());
             Assert.IsType<DpapiSecretStore>(services.Secrets);
             Assert.IsType<WindowsAutoStart>(services.AutoStart);
             Assert.IsType<WindowsSingleInstance>(services.SingleInstance);
@@ -36,7 +38,7 @@ public class PlatformServicesTests
         try
         {
             Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, dir);
-            var services = PlatformServices.Create("/opt/centinela/Centinela");
+            var services = PlatformServices.Create("/opt/centinela/Centinela", new SynchronizationContext());
             Assert.IsType<FileSecretStore>(services.Secrets);
             Assert.Null(services.AutoStart);
         }
@@ -45,5 +47,70 @@ public class PlatformServicesTests
             Environment.SetEnvironmentVariable(AppPaths.DataDirectoryVariable, original);
             if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
         }
+    }
+
+    static string? LinuxEnv(string name) => name switch
+    {
+        "XDG_RUNTIME_DIR" => "/run/user/1000",
+        _ => null,
+    };
+
+    // Only builds the pieces: nothing here connects to a bus, binds a socket or writes a file.
+    [Fact]
+    [SupportedOSPlatform("linux")]
+    public void Linux_gets_the_keychain_with_file_fallback_xdg_autostart_the_unix_socket_and_its_notifications()
+    {
+        var services = PlatformServices.ForLinux("/opt/centinela/Centinela", testRun: false, "/home/ana/.local/share/centinela",
+            LinuxEnv, "/home/ana", new SynchronizationContext());
+        Assert.IsType<LinuxSecretStore>(services.Secrets);
+        Assert.IsType<LinuxAutoStart>(services.AutoStart);
+        Assert.IsType<UnixSingleInstance>(services.SingleInstance);
+        Assert.IsType<ShellFileManager>(services.Files);
+        Assert.IsType<LinuxNotifier>(services.Notifier);
+        Assert.IsType<LinuxTrayAvailability>(services.TrayAvailability);
+        Assert.Null(services.CreateTray);
+        Assert.False(services.SecretsUseFileFallback);
+    }
+
+    [Fact]
+    [SupportedOSPlatform("linux")]
+    public void Linux_with_a_test_data_folder_gets_only_the_file_store_and_no_auto_start()
+    {
+        var services = PlatformServices.ForLinux("/opt/centinela/Centinela", testRun: true, "/tmp/centinela-pruebas",
+            LinuxEnv, "/home/ana", new SynchronizationContext());
+        Assert.IsType<FileSecretStore>(services.Secrets);
+        Assert.Null(services.AutoStart);
+        Assert.IsType<UnixSingleInstance>(services.SingleInstance);
+        Assert.Null(services.CreateTray);
+    }
+
+    [Fact]
+    public void Secrets_use_the_file_fallback_once_the_linux_store_used_its_file()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "centinela-svc-" + Guid.NewGuid());
+        try
+        {
+            var store = new LinuxSecretStore(backend: null, new FileSecretStore(Path.Combine(dir, "secret.key")));
+            var services = new PlatformServices { Secrets = store, SingleInstance = new UnixSingleInstance(Path.Combine(dir, "s.sock")), Files = new ShellFileManager() };
+            Assert.False(services.SecretsUseFileFallback);
+            store.Protect(Guid.NewGuid(), "clave");
+            Assert.True(services.SecretsUseFileFallback);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Other_stores_never_use_the_file_fallback()
+    {
+        var services = new PlatformServices
+        {
+            Secrets = new FileSecretStore(Path.Combine(Path.GetTempPath(), "centinela-none", "secret.key")),
+            SingleInstance = new UnixSingleInstance("unused.sock"),
+            Files = new ShellFileManager(),
+        };
+        Assert.False(services.SecretsUseFileFallback);
     }
 }

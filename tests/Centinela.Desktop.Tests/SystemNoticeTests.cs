@@ -44,3 +44,58 @@ public class WindowCloseTests
                 Assert.Equal(CloseAction.Close, WindowClose.Decide(exitRequested, systemExit, hasTray, os));
     }
 }
+
+public class RecordingFailureNoticeTests
+{
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void On_windows_only_while_hidden_in_the_tray_as_always(bool hiddenInTray, bool expected)
+    {
+        // Minimized without being in the tray: no notice, as before.
+        Assert.Equal(expected, SystemNotice.ForRecordingFailure(OsKind.Windows, hiddenInTray, windowVisible: false, canShow: true));
+        Assert.False(SystemNotice.ForRecordingFailure(OsKind.Windows, hiddenInTray: false, windowVisible: true, canShow: true));
+    }
+
+    [Theory]
+    [InlineData(OsKind.Linux)]
+    [InlineData(OsKind.MacOS)]
+    public void Elsewhere_whenever_the_window_is_not_visible_and_a_notice_can_show(OsKind os)
+    {
+        // Minimized with no tray (the system's notifications show it), or hidden in the tray.
+        Assert.True(SystemNotice.ForRecordingFailure(os, hiddenInTray: false, windowVisible: false, canShow: true));
+        Assert.True(SystemNotice.ForRecordingFailure(os, hiddenInTray: true, windowVisible: false, canShow: true));
+        Assert.False(SystemNotice.ForRecordingFailure(os, hiddenInTray: false, windowVisible: true, canShow: true));
+        Assert.False(SystemNotice.ForRecordingFailure(os, hiddenInTray: false, windowVisible: false, canShow: false));
+    }
+}
+
+public class TrayHintTests
+{
+    [Fact]
+    public void Windows_keeps_its_double_click() =>
+        Assert.Equal("Las grabaciones continúan. Doble clic en el icono para abrirla; «Salir» la cierra.", TrayTexts.HiddenHint(OsKind.Windows));
+
+    [Theory]
+    [InlineData(OsKind.Linux)]
+    [InlineData(OsKind.MacOS)]
+    public void Elsewhere_a_single_click(OsKind os) =>
+        Assert.Equal("Las grabaciones continúan. Haz clic en el icono para abrirla; «Salir» la cierra.", TrayTexts.HiddenHint(os));
+}
+
+public class TrayAvailabilityWaitTests
+{
+    [Fact]
+    public void The_answer_when_it_comes_in_time()
+    {
+        Assert.True(TrayAvailabilityWait.Get(Task.FromResult(true), TimeSpan.FromSeconds(1)));
+        Assert.False(TrayAvailabilityWait.Get(Task.FromResult(false), TimeSpan.FromSeconds(1)));
+    }
+
+    [Fact]
+    public void No_tray_when_the_check_takes_too_long_or_fails()
+    {
+        Assert.False(TrayAvailabilityWait.Get(new TaskCompletionSource<bool>().Task, TimeSpan.FromMilliseconds(50)));
+        Assert.False(TrayAvailabilityWait.Get(Task.FromException<bool>(new InvalidOperationException()), TimeSpan.FromSeconds(1)));
+    }
+}
