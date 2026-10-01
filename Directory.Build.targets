@@ -4,5 +4,13 @@
           Link="ffmpeg\%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest"
           Visible="false" />
+    <!-- Linux: only the soname files (libavcodec.so.62 ...), which are what FFmpegLoader opens.
+         The full-version files (libavcodec.so.62.x.y) and the bare .so names are symlink twins:
+         copying them too would duplicate every library, since the copy follows the links. -->
+    <None Include="$(MSBuildThisFileDirectory)ffmpeg\lib\*.so.*"
+          Exclude="$(MSBuildThisFileDirectory)ffmpeg\lib\*.so.*.*"
+          Link="ffmpeg\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="false" />
   </ItemGroup>
 </Project>

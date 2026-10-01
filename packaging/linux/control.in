@@ -1,0 +1,11 @@
+Package: centinela
+Version: @VERSION@
+Architecture: amd64
+Maintainer: Centinela <tecxart@gmail.com>
+Depends: libc6, libx11-6, libice6, libsm6, libfontconfig1, libva2, libva-drm2, libdrm2
+Section: video
+Priority: optional
+Description: Visor de cámaras IP
+ Centinela muestra tus cámaras de vigilancia (TP-Link Tapo, Imou o cualquier
+ cámara RTSP/ONVIF) en una sola ventana, con el mínimo retraso y sin pasar por
+ la nube. Graba, hace capturas, detecta movimiento y avisa cuando algo pasa.

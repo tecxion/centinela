@@ -5,3 +5,4 @@ obj/
 ffmpeg/
 .remember/
 tools/bin/
+dist/
