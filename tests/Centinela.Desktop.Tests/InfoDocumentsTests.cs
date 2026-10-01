@@ -26,6 +26,14 @@ public class InfoDocumentsTests
     }
 
     [Fact]
+    public void Manual_notice_sounds_are_centinela_own_not_windows()
+    {
+        var blocks = ManualDocument.Build();
+        Assert.Contains(new InfoParagraph("También puedes activar sonidos de aviso al perder la conexión y con movimiento (solo cuando sale el aviso)."), blocks);
+        Assert.DoesNotContain(blocks, b => b is InfoParagraph p && p.Text.Contains("sonidos de Windows"));
+    }
+
+    [Fact]
     public void Manual_explains_every_stream_error_after_its_heading()
     {
         var blocks = ManualDocument.Build().ToList();

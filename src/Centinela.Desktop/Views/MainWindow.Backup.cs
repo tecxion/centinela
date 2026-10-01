@@ -29,14 +29,15 @@ public partial class MainWindow
             });
             if (_closing || files.Count == 0 || files[0].TryGetLocalPath() is not { } path) return;
             var reader = new BackupReader(
-                () => _closing ? Task.FromResult<string?>(null) : PassphraseDialog.AskAsync(this, confirm: false),
-                question => _closing ? Task.FromResult(false) : MessageDialog.ConfirmAsync(this, question, title: "Importar"),
+                // Closing, or hidden in the tray meanwhile: no dialog owned by a hidden window; the questions cancel.
+                () => _closing || IsHiddenInTray ? Task.FromResult<string?>(null) : PassphraseDialog.AskAsync(this, confirm: false),
+                question => _closing || IsHiddenInTray ? Task.FromResult(false) : MessageDialog.ConfirmAsync(this, question, title: "Importar"),
                 message => _vm.Notify(message, null));
             var result = await reader.ReadAsync(path);
             if (_closing) return;
             if (result.Error is { } error)
             {
-                await MessageDialog.ShowAsync(this, error, "Importar");
+                await ShowBackupMessageAsync(error, "Importar");
                 return;
             }
             if (result.Import is not { } imported) return;
@@ -48,6 +49,13 @@ public partial class MainWindow
             });
             // New, updated or re-enabled cameras: detection follows them.
             ApplyMotion();
+            if (IsHiddenInTray)
+            {
+                // Hidden in the tray (the X during the read): no dialog owned by a hidden window, as in the WPF.
+                _vm.Notify($"Importación terminada: {summary}", null);
+                _tray?.ShowNotice("Importar", summary);
+                return;
+            }
             await MessageDialog.ShowAsync(this, summary, "Importar");
         }
         finally
@@ -89,7 +97,7 @@ public partial class MainWindow
             {
                 if (_closing) return;
                 _vm.Notify("", null);
-                await MessageDialog.ShowAsync(this, ex.Message, "Exportar");
+                await ShowBackupMessageAsync(ex.Message, "Exportar");
             }
         }
         finally
@@ -107,6 +115,18 @@ public partial class MainWindow
         });
         if (_closing || folders.Count == 0 || folders[0].TryGetLocalPath() is not { } path) return;
         _vm.SetBackupFolder(path);
+    }
+
+    /// <summary>A failed import or export: a dialog, or, hidden in the tray, the status line and a tray notice.</summary>
+    async Task ShowBackupMessageAsync(string message, string title)
+    {
+        if (IsHiddenInTray)
+        {
+            _vm.Notify(message, null);
+            _tray?.ShowNotice(title, message);
+            return;
+        }
+        await MessageDialog.ShowAsync(this, message, title);
     }
 
     /// <summary>The backup folder for the pickers; null when it does not exist yet (or the setting is malformed).</summary>

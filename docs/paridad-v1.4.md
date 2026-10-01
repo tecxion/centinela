@@ -14,6 +14,8 @@ cámara de prueba y borrarla al terminar.
 - [ ] Con Centinela abierto, ábrelo otra vez desde el acceso directo. No se abre una segunda ventana: se muestra
       la que ya estaba (también si estaba escondida en la bandeja).
 - [ ] Pulsa F11. La ventana ocupa toda la pantalla; F11 o Esc la devuelven a su tamaño.
+- [ ] Si venías de CamaraWin (README, «Si venías de CamaraWin»): la primera vez que abres Centinela aparecen solas
+      las cámaras y los ajustes que tenías en CamaraWin.
 
 ## 2. Añadir cámaras
 
@@ -100,6 +102,7 @@ cámara de prueba y borrarla al terminar.
 - [ ] «Grabar todas» del menú graba todas las cámaras, aunque la ventana esté escondida.
 - [ ] Mientras graba alguna cámara, el icono de la bandeja lleva un punto rojo; sin grabar, el icono normal.
 - [ ] «Salir» (del menú de la bandeja o de Archivo › Salir) cierra Centinela del todo y el icono desaparece.
+- [ ] Graba una cámara y, sin detener la grabación, pulsa «Salir». El archivo de la grabación se reproduce bien.
 
 ## 11. Arrancar con Windows
 
@@ -118,12 +121,17 @@ cámara de prueba y borrarla al terminar.
       «Detección de movimiento: «Nombre»» con la hora. Un clic en el aviso abre Centinela.
 - [ ] Sale como mucho un aviso por cámara en cada tiempo de espera (el que elegiste en «Opciones de avisos»).
 - [ ] Con la ventana abierta y a la vista no sale aviso, pero sí el marco rojo.
+- [ ] Pulsa «Salir» mientras hay movimiento delante de una cámara: al volver a abrir, ese movimiento está en el
+      registro de movimiento.
 
 ## 13. Registro de movimiento
 
 - [ ] Tras un movimiento, el botón de la barra de abajo pasa a «Movimiento (1)» (o el número que toque).
 - [ ] Púlsalo. Se abre el registro con hora, cámara, duración y cambio máximo, y el contador vuelve a «Movimiento».
-- [ ] «Copiar» copia las líneas, «Abrir carpeta» abre la carpeta de registros y «Limpiar» lo vacía.
+- [ ] «Copiar» copia las líneas, «Abrir carpeta» abre la carpeta de registros y «Vaciar» lo vacía.
+
+Nota: «Copiar» copia las filas en el orden en que se ven (la versión de siempre las copiaba en el orden en que se
+seleccionaron).
 
 ## 14. Opciones de avisos
 
@@ -134,6 +142,8 @@ cámara de prueba y borrarla al terminar.
 - [ ] Pon unas horas de silencio que incluyan la hora actual (pueden pasar de medianoche, por ejemplo de 23:00 a
       07:00). En ese rato no hay avisos ni sonidos, pero el registro y el marco rojo siguen.
 - [ ] Escribe una hora no válida (por ejemplo «25:00») y pulsa aceptar: sale un mensaje de error y no se guarda.
+- [ ] Desactiva «Avisos de conexión» y «Avisos de movimiento» de una cámara. Desenchúfala y muévete delante: esa
+      cámara no avisa (ni con la ventana escondida), aunque el registro y el marco rojo siguen.
 
 ## 15. Copias de seguridad
 
@@ -157,12 +167,16 @@ cámara de prueba y borrarla al terminar.
 - [ ] Con una versión nueva publicada, unos segundos después de arrancar (una vez al día) sale el aviso
       «Centinela … disponible». Con la ventana escondida sale como aviso de Windows y al pulsarlo se abre la ventana
       de actualizaciones.
+- [ ] Con la ventana a la vista, pulsa «Ver» en el aviso de actualización: se abre la ventana «Actualizaciones».
+
+Solo se puede comprobar del todo cuando haya publicada en GitHub una versión más nueva que la tuya.
 
 ## 17. Errores y registro de errores
 
 - [ ] Desenchufa una cámara (o apaga su wifi). La cámara dice «Sin conexión · reintentando» y abajo a la derecha de
       la ventana sale un aviso rojo. Al volver, un aviso verde «✓ Nombre: conexión recuperada».
 - [ ] Con la ventana escondida en la bandeja, esos avisos salen como avisos de Windows.
+- [ ] Con la ventana a la vista, pulsa un aviso rojo o verde: se abre «Registro de errores».
 - [ ] Pon mal la contraseña de una cámara: dice «Contraseña incorrecta» y tiene el botón «Editar».
 - [ ] El botón «Registro» de la barra de abajo muestra el número de errores sin ver («Registro (2)»). Al pulsarlo se
       abre «Registro de errores» con hora, cámara, error, título y detalle, y el número se quita.

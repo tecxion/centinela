@@ -138,10 +138,6 @@ static class TrayInterop
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool GetCursorPos(out POINT point);
-
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr CreatePopupMenu();
 

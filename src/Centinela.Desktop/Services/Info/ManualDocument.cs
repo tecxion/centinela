@@ -58,7 +58,7 @@ static class ManualDocument
 
         doc.Add(new InfoHeading("Opciones de avisos"));
         doc.Add(new InfoParagraph("Ver › Opciones de avisos… tiene una tabla con cada cámara: detección, sensibilidad (Baja, Media o Alta), tiempo de espera entre avisos (30 s, 1 min, 5 min o 15 min), avisos de conexión y avisos de movimiento."));
-        doc.Add(new InfoParagraph("También puedes activar sonidos de Windows al perder la conexión y con movimiento (solo cuando sale el aviso)."));
+        doc.Add(new InfoParagraph("También puedes activar sonidos de aviso al perder la conexión y con movimiento (solo cuando sale el aviso)."));
         doc.Add(new InfoParagraph("En las horas de silencio (por ejemplo, de 23:00 a 07:00, pueden pasar de medianoche) no hay avisos ni sonidos, pero el registro y el marco rojo siguen funcionando."));
         doc.Add(new InfoParagraph("Las opciones de cada cámara se guardan con las cámaras y van en la copia JSON (las copias antiguas se importan con la detección apagada). Los sonidos y las horas de silencio se guardan en los ajustes de Centinela y no van en la copia."));
 

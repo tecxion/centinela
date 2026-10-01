@@ -48,6 +48,21 @@ public partial class MainWindow : Window
         InitAudio();
         InitCameraActions();
         InitTray();
+        try
+        {
+            InitRest(startHidden);
+        }
+        catch
+        {
+            // The window will never show: remove the tray icon so no ghost remains, stop detecting, release the
+            // shared sessions (detection's and any tile's) and the logs and sounds, as the WPF window does.
+            ReleaseAfterFailedStart();
+            throw;
+        }
+    }
+
+    void InitRest(bool startHidden)
+    {
         InitNotices();
         InitErrors();
         // Detection runs also when starting hidden; tiles created from here on show its red frame.
@@ -66,6 +81,19 @@ public partial class MainWindow : Window
         PositionChanged += (_, _) => Dispatcher.UIThread.Post(RememberNormal, DispatcherPriority.Background);
         Resized += (_, _) => Dispatcher.UIThread.Post(RememberNormal, DispatcherPriority.Background);
         Rebuild();
+    }
+
+    void ReleaseAfterFailedStart()
+    {
+        _closing = true;
+        // Whatever was created before the failure; fields not reached yet are still null.
+        _motion?.Dispose();
+        _leases.Dispose();
+        _audio?.Dispose();
+        _noticeSounds.Dispose();
+        _tray?.Dispose();
+        _errorLog?.Dispose();
+        _motionLog?.Dispose();
     }
 
     void Rebuild()
@@ -188,7 +216,9 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_exitRequested && HasTray && !_closing)
+        // Logging off or shutting down Windows, or the app ending: a real exit, never hidden.
+        var systemExit = e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown;
+        if (!_exitRequested && !systemExit && HasTray && !_closing)
         {
             // The X hides to the tray; recordings keep running.
             e.Cancel = true;
