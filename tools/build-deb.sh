@@ -23,13 +23,19 @@ app="$staging/opt/centinela"
 deb="$root/dist/centinela_${version}_amd64.deb"
 
 rm -rf "$staging"
+trap 'rm -rf "$staging"' EXIT
 mkdir -p "$app"
 
 dotnet publish src/Centinela.Desktop -c Release -r linux-x64 --self-contained true -o "$app"
 
-# FFmpeg: only the soname files (libavcodec.so.62 ...) are what FFmpegLoader opens.
+# Directory.Build.targets only copies the Windows DLLs for win-* builds; remove any just in case.
+rm -f "$app"/ffmpeg/*.dll
+
+# FFmpeg: only the soname files (libavcodec.so.N ...) are what FFmpegLoader opens.
 # cp -L copies the real library under the soname, so the package holds no symlinks
 # and no duplicate copies under the full version or the bare .so development name.
+# This intentionally overlaps with the copy that publish already does through
+# Directory.Build.targets (same files): the package must not depend on it.
 mkdir -p "$app/ffmpeg"
 for so in ffmpeg/lib/lib*.so.*; do
     name="$(basename "$so")"
@@ -61,6 +67,8 @@ fi
 
 mkdir -p "$staging/DEBIAN"
 sed "s/@VERSION@/$version/" packaging/linux/control.in > "$staging/DEBIAN/control"
+installed_size="$(du -sk --exclude=DEBIAN "$staging" | cut -f1)"
+sed -i "/^Description:/i Installed-Size: $installed_size" "$staging/DEBIAN/control"
 
 # Permissions: directories 755, files 644, executables 755.
 find "$staging" -type d -exec chmod 755 {} +
@@ -72,7 +80,6 @@ fi
 
 rm -f "$deb"
 dpkg-deb --build --root-owner-group "$staging" "$deb"
-rm -rf "$staging"
 
 echo
 echo "Paquete creado: dist/centinela_${version}_amd64.deb"

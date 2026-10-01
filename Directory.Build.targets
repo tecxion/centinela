@@ -1,11 +1,19 @@
 <Project>
-  <ItemGroup Condition="'$(CopyFFmpeg)' == 'true'">
+  <!-- FFmpeg native libraries only for the target system: Windows DLLs for win-* (or a RID-less build
+       on Windows), Linux .so files for linux-* (or a RID-less build on Linux). -->
+  <PropertyGroup>
+    <_CentinelaFFmpegWindows Condition="('$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Windows'))) Or $(RuntimeIdentifier.StartsWith('win'))">true</_CentinelaFFmpegWindows>
+    <_CentinelaFFmpegLinux Condition="('$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Linux'))) Or $(RuntimeIdentifier.StartsWith('linux'))">true</_CentinelaFFmpegLinux>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(CopyFFmpeg)' == 'true' And '$(_CentinelaFFmpegWindows)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)ffmpeg\bin\*.dll"
           Link="ffmpeg\%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest"
           Visible="false" />
-    <!-- Linux: only the soname files (libavcodec.so.62 ...), which are what FFmpegLoader opens.
-         The full-version files (libavcodec.so.62.x.y) and the bare .so names are symlink twins:
+  </ItemGroup>
+  <ItemGroup Condition="'$(CopyFFmpeg)' == 'true' And '$(_CentinelaFFmpegLinux)' == 'true'">
+    <!-- Only the soname files (libavcodec.so.N ...), which are what FFmpegLoader opens.
+         The full-version files (libavcodec.so.N.x.y) and the bare .so names are symlink twins:
          copying them too would duplicate every library, since the copy follows the links. -->
     <None Include="$(MSBuildThisFileDirectory)ffmpeg\lib\*.so.*"
           Exclude="$(MSBuildThisFileDirectory)ffmpeg\lib\*.so.*.*"

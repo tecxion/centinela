@@ -22,7 +22,7 @@ lib="$(find "$tmp" -mindepth 2 -maxdepth 2 -type d -name lib | head -n 1)"
 
 rm -rf "$dest/lib"
 mkdir -p "$dest/lib"
-# cp -P keeps the symlinks (libavcodec.so.62 -> libavcodec.so.62.x.y) as they are in the archive.
+# cp -P keeps the symlinks (libavcodec.so.N -> libavcodec.so.N.x.y) as they are in the archive.
 cp -P "$lib"/*.so* "$dest/lib/"
 
 license="$(find "$tmp" -mindepth 2 -maxdepth 2 -type f -name 'LICENSE*' | head -n 1)"
