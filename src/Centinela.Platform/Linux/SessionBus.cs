@@ -23,20 +23,28 @@ public sealed class SessionBus : IDisposable
 
     /// <summary>Whether some process owns the bus name right now (false without a session bus).</summary>
     public bool HasOwner(string name) =>
-        Run(connection => connection.CallMethodAsync(NameHasOwner(connection, name),
-            static (Message message, object? _) => message.GetBodyReader().ReadBool()), CallTimeout);
+        Run((connection, token) => connection.CallMethodAsync(NameHasOwner(connection, name),
+            static (Message message, object? _) => message.GetBodyReader().ReadBool()).WaitAsync(token), CallTimeout);
 
     /// <summary>
     /// Runs <paramref name="work"/> on the thread pool (never on the caller's UI context) and waits at most
-    /// <paramref name="timeout"/>. Any failure, a timeout or no session bus gives default.
+    /// <paramref name="timeout"/>. Any failure, a timeout or no session bus gives default. On a timeout the token is
+    /// cancelled, so the work stops instead of acting after its caller gave up.
     /// </summary>
-    internal T? Run<T>(Func<Connection, Task<T>> work, TimeSpan timeout)
+    internal T? Run<T>(Func<Connection, CancellationToken, Task<T>> work, TimeSpan timeout)
     {
         if (Connection is not { } connection) return default;
+        var cancel = new CancellationTokenSource();
         try
         {
-            var task = Task.Run(() => work(connection));
-            return task.Wait(timeout) ? task.Result : default;
+            var task = Task.Run(() => work(connection, cancel.Token), cancel.Token);
+            if (task.Wait(timeout))
+            {
+                cancel.Dispose(); // only once the work is done with its token
+                return task.Result;
+            }
+            cancel.Cancel();
+            return default;
         }
         catch (Exception)
         {
@@ -52,9 +60,10 @@ public sealed class SessionBus : IDisposable
     static Connection? Connect()
     {
         if (Address.Session is not { Length: > 0 } address) return null;
-        var connection = new Connection(address);
+        Connection? connection = null;
         try
         {
+            connection = new Connection(address); // a malformed address throws here: no bus
             var connect = Task.Run(async () => await connection.ConnectAsync());
             if (connect.Wait(ConnectTimeout)) return connection;
         }
@@ -62,7 +71,7 @@ public sealed class SessionBus : IDisposable
         {
             // No bus at that address, or it refused us.
         }
-        connection.Dispose();
+        connection?.Dispose();
         return null;
     }
 

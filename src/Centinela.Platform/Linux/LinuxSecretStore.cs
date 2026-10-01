@@ -16,7 +16,12 @@ internal sealed class LinuxSecretStore(ISecretBackend? backend, FileSecretStore 
     public string Protect(Guid cameraId, string password)
     {
         if (password.Length == 0) return "";
-        if (backend is not null && backend.Store(cameraId, password)) return SecretServiceNames.StoredValue(cameraId);
+        if (backend is not null)
+        {
+            if (backend.Store(cameraId, password)) return SecretServiceNames.StoredValue(cameraId);
+            // The camera may have an older password in the keychain: do not leave it behind.
+            backend.Delete(cameraId);
+        }
         _usesFileFallback = true;
         return fallback.Protect(cameraId, password);
     }

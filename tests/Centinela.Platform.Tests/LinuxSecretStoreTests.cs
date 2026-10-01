@@ -162,6 +162,54 @@ public sealed class LinuxSecretStoreTests : IDisposable
     }
 
     [Fact]
+    public void When_the_keychain_fails_the_cameras_old_item_is_removed()
+    {
+        var backend = new FakeBackend();
+        var store = new LinuxSecretStore(backend, Fallback);
+        var id = Guid.NewGuid();
+        store.Protect(id, "vieja");
+        backend.Fails = true;
+
+        var stored = store.Protect(id, "nueva");
+
+        Assert.StartsWith("file:", stored);
+        Assert.Equal([id], backend.Deleted);
+        Assert.Empty(backend.Items);
+        Assert.Equal("nueva", store.Unprotect(id, stored));
+    }
+
+    [Fact]
+    public void Forget_leaves_another_cameras_keychain_item_alone()
+    {
+        var backend = new FakeBackend();
+        var store = new LinuxSecretStore(backend, Fallback);
+        var other = Guid.NewGuid();
+        var stored = store.Protect(other, "x");
+
+        store.Forget(Guid.NewGuid(), stored);
+
+        Assert.Empty(backend.Deleted);
+        Assert.Equal("x", backend.Items[other]);
+    }
+
+    [Fact]
+    public void A_turned_down_prompt_is_not_shown_again_until_the_keychain_is_unlocked()
+    {
+        var refusal = new PromptRefusal();
+        Assert.True(refusal.MayPrompt);
+
+        refusal.Record(accepted: false); // dismissed or timed out
+        Assert.False(refusal.MayPrompt);
+
+        refusal.Unlocked(); // unlocked meanwhile, e.g. from the keychain app
+        Assert.True(refusal.MayPrompt);
+
+        refusal.Record(accepted: false);
+        refusal.Record(accepted: true);
+        Assert.True(refusal.MayPrompt);
+    }
+
+    [Fact]
     public void A_keychain_reference_for_another_camera_is_not_read()
     {
         var backend = new FakeBackend();

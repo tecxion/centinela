@@ -8,7 +8,8 @@ namespace Centinela.Platform.Linux;
 /// <summary>
 /// The Secret Service (org.freedesktop.secrets: GNOME Keyring, KWallet) over the session bus, with a "plain"
 /// session (the bus is private to the user). Items carry <see cref="SecretServiceNames.Attributes"/>. A locked
-/// keychain is unlocked through the system's own prompt (at most <see cref="PromptTimeout"/>). Never throws: any
+/// keychain is unlocked through the system's own prompt (at most <see cref="PromptTimeout"/>; not shown again once
+/// turned down). Never throws: any
 /// failure is false/null, and the store then falls back to its file.
 /// </summary>
 [SupportedOSPlatform("linux")]
@@ -23,30 +24,40 @@ internal sealed class SecretServiceClient(SessionBus bus) : ISecretBackend
     const string NoObject = "/";
     const string ContentType = "text/plain; charset=utf8";
     static readonly TimeSpan PromptTimeout = TimeSpan.FromSeconds(60);
-    /// <summary>A whole operation: a few calls plus, at most, one prompt.</summary>
-    static readonly TimeSpan OperationTimeout = PromptTimeout + TimeSpan.FromSeconds(15);
+    /// <summary>A prompt: subscribing, showing it, waiting for the user and, on time out, dismissing it.</summary>
+    static readonly TimeSpan PromptBudget = PromptTimeout + 3 * SessionBus.CallTimeout;
+    /// <summary>
+    /// A whole operation covers its steps (Store, the longest: up to two prompts and five calls), so the inner time
+    /// limits fire first; past it the operation is cancelled and never acts after its caller gave up.
+    /// </summary>
+    static readonly TimeSpan OperationTimeout = 2 * PromptBudget + 6 * SessionBus.CallTimeout;
+
+    readonly PromptRefusal _refusal = new();
 
     public bool Store(Guid cameraId, string password) =>
-        bus.Run(connection => StoreAsync(connection, cameraId, password), OperationTimeout);
+        bus.Run((connection, token) => StoreAsync(connection, cameraId, password, token), OperationTimeout);
 
-    public string? Lookup(Guid cameraId) => bus.Run(connection => LookupAsync(connection, cameraId), OperationTimeout);
+    public string? Lookup(Guid cameraId) =>
+        bus.Run((connection, token) => LookupAsync(connection, cameraId, token), OperationTimeout);
 
-    public void Delete(Guid cameraId) => bus.Run(connection => DeleteAsync(connection, cameraId), OperationTimeout);
+    public void Delete(Guid cameraId) =>
+        bus.Run((connection, token) => DeleteAsync(connection, cameraId, token), OperationTimeout);
 
-    static async Task<bool> StoreAsync(Connection connection, Guid cameraId, string password)
+    async Task<bool> StoreAsync(Connection connection, Guid cameraId, string password, CancellationToken token)
     {
-        var collection = await Call(connection, ReadAlias(connection, "default"), ReadObjectPath);
+        var collection = await Call(connection, ReadAlias(connection, "default"), ReadObjectPath, token);
         if (collection == NoObject) return false; // no default keychain
-        if (!await UnlockAsync(connection, [collection])) return false;
-        var session = await OpenSessionAsync(connection);
+        if (!await UnlockAsync(connection, [collection], token)) return false;
+        var session = await OpenSessionAsync(connection, token);
         try
         {
             var secret = Encoding.UTF8.GetBytes(password);
             try
             {
+                token.ThrowIfCancellationRequested();
                 var (_, prompt) = await Call(connection, CreateItem(connection, collection, session, cameraId, secret),
-                    ReadTwoObjectPaths);
-                return prompt == NoObject || await PromptAsync(connection, prompt);
+                    ReadTwoObjectPaths, token);
+                return prompt == NoObject || await PromptAsync(connection, prompt, token);
             }
             finally
             {
@@ -59,15 +70,15 @@ internal sealed class SecretServiceClient(SessionBus bus) : ISecretBackend
         }
     }
 
-    static async Task<string?> LookupAsync(Connection connection, Guid cameraId)
+    async Task<string?> LookupAsync(Connection connection, Guid cameraId, CancellationToken token)
     {
-        var item = (await FindItemsAsync(connection, cameraId)).FirstOrDefault();
+        var item = (await FindItemsAsync(connection, cameraId, token)).FirstOrDefault();
         if (item is null) return null;
-        var session = await OpenSessionAsync(connection);
+        var session = await OpenSessionAsync(connection, token);
         try
         {
             var secret = await Call(connection, Simple(connection, item, ItemInterface, "GetSecret", "o", session),
-                ReadSecretValue);
+                ReadSecretValue, token);
             try
             {
                 return Encoding.UTF8.GetString(secret);
@@ -83,34 +94,44 @@ internal sealed class SecretServiceClient(SessionBus bus) : ISecretBackend
         }
     }
 
-    static async Task<bool> DeleteAsync(Connection connection, Guid cameraId)
+    async Task<bool> DeleteAsync(Connection connection, Guid cameraId, CancellationToken token)
     {
-        foreach (var item in await FindItemsAsync(connection, cameraId))
+        foreach (var item in await FindItemsAsync(connection, cameraId, token))
         {
-            var prompt = await Call(connection, Simple(connection, item, ItemInterface, "Delete"), ReadObjectPath);
-            if (prompt != NoObject && !await PromptAsync(connection, prompt)) return false;
+            var prompt = await Call(connection, Simple(connection, item, ItemInterface, "Delete"), ReadObjectPath, token);
+            if (prompt != NoObject && !await PromptAsync(connection, prompt, token)) return false;
         }
         return true;
     }
 
     /// <summary>The camera's items, unlocked (with the system prompt when needed). Empty when none or still locked.</summary>
-    static async Task<string[]> FindItemsAsync(Connection connection, Guid cameraId)
+    async Task<string[]> FindItemsAsync(Connection connection, Guid cameraId, CancellationToken token)
     {
-        var (unlocked, locked) = await Call(connection, SearchItems(connection, cameraId), ReadTwoPathArrays);
+        var (unlocked, locked) = await Call(connection, SearchItems(connection, cameraId), ReadTwoPathArrays, token);
         if (locked.Length == 0) return unlocked;
-        return await UnlockAsync(connection, locked) ? [.. unlocked, .. locked] : unlocked;
+        return await UnlockAsync(connection, locked, token) ? [.. unlocked, .. locked] : unlocked;
     }
 
-    /// <summary>Unlocks the objects (no prompt when they already are). False when the user dismissed the prompt.</summary>
-    static async Task<bool> UnlockAsync(Connection connection, string[] objects)
+    /// <summary>Unlocks the objects (no prompt when they already are). False when the prompt was turned down.</summary>
+    async Task<bool> UnlockAsync(Connection connection, string[] objects, CancellationToken token)
     {
-        var (_, prompt) = await Call(connection, Unlock(connection, objects), ReadPathArrayAndPath);
-        return prompt == NoObject || await PromptAsync(connection, prompt);
+        var (_, prompt) = await Call(connection, Unlock(connection, objects), ReadPathArrayAndPath, token);
+        if (prompt != NoObject) return await PromptAsync(connection, prompt, token);
+        _refusal.Unlocked(); // unlocked meanwhile (e.g. from the keychain app): prompts are welcome again
+        return true;
     }
 
-    /// <summary>Shows a Secret Service prompt and waits for its Completed signal. True when it was not dismissed.</summary>
-    static async Task<bool> PromptAsync(Connection connection, string prompt)
+    /// <summary>
+    /// Shows a Secret Service prompt and waits for its Completed signal. True when it was accepted. Once one was
+    /// dismissed or timed out, no other is shown (see <see cref="PromptRefusal"/>).
+    /// </summary>
+    async Task<bool> PromptAsync(Connection connection, string prompt, CancellationToken token)
     {
+        if (!_refusal.MayPrompt)
+        {
+            await DismissAsync(connection, prompt); // never shown: let the service drop it
+            return false;
+        }
         var completed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var rule = new MatchRule { Type = MessageType.Signal, Path = prompt, Interface = PromptInterface, Member = "Completed" };
         // Subscribed before Prompt is called, so the signal cannot be missed.
@@ -118,55 +139,55 @@ internal sealed class SecretServiceClient(SessionBus bus) : ISecretBackend
             static (Message message, object? _) => message.GetBodyReader().ReadBool(),
             (Exception? error, bool dismissed, object? _, object? _) => completed.TrySetResult(error is null && !dismissed),
             ObserverFlags.None, readerState: null, handlerState: null, emitOnCapturedContext: false)
-            .AsTask().WaitAsync(SessionBus.CallTimeout);
+            .AsTask().WaitAsync(SessionBus.CallTimeout, token);
         // Window id "": the prompt is not tied to one of our windows.
-        await connection.CallMethodAsync(Simple(connection, prompt, PromptInterface, "Prompt", "s", "")).WaitAsync(SessionBus.CallTimeout);
+        await connection.CallMethodAsync(Simple(connection, prompt, PromptInterface, "Prompt", "s", ""))
+            .WaitAsync(SessionBus.CallTimeout, token);
+        bool accepted;
         try
         {
-            return await completed.Task.WaitAsync(PromptTimeout);
+            accepted = await completed.Task.WaitAsync(PromptTimeout, token);
         }
-        catch (TimeoutException)
+        catch (Exception e) when (e is TimeoutException or OperationCanceledException)
         {
             await DismissAsync(connection, prompt);
-            return false;
+            accepted = false;
         }
+        _refusal.Record(accepted);
+        return accepted;
     }
 
-    static async Task DismissAsync(Connection connection, string prompt)
-    {
-        try
-        {
-            await connection.CallMethodAsync(Simple(connection, prompt, PromptInterface, "Dismiss")).WaitAsync(SessionBus.CallTimeout);
-        }
-        catch (Exception)
-        {
-            // Best effort: the prompt may already be gone.
-        }
-    }
+    static Task DismissAsync(Connection connection, string prompt) =>
+        BestEffort(connection, Simple(connection, prompt, PromptInterface, "Dismiss")); // it may already be gone
 
-    static Task<string> OpenSessionAsync(Connection connection) =>
+    static Task<string> OpenSessionAsync(Connection connection, CancellationToken token) =>
         Call(connection, OpenSession(connection), static (Message message, object? _) =>
         {
             var reader = message.GetBodyReader();
             reader.ReadVariantValue(); // "plain" has no output
             return reader.ReadObjectPathAsString();
-        });
+        }, token);
 
-    static async Task CloseSessionAsync(Connection connection, string session)
+    /// <summary>The service also drops it with our connection.</summary>
+    static Task CloseSessionAsync(Connection connection, string session) =>
+        BestEffort(connection, Simple(connection, session, "org.freedesktop.Secret.Session", "Close"));
+
+    /// <summary>A call whose failure does not matter. Without the operation's token: it also runs after a cancellation.</summary>
+    static async Task BestEffort(Connection connection, MessageBuffer message)
     {
         try
         {
-            await connection.CallMethodAsync(Simple(connection, session, "org.freedesktop.Secret.Session", "Close"))
-                .WaitAsync(SessionBus.CallTimeout);
+            await connection.CallMethodAsync(message).WaitAsync(SessionBus.CallTimeout);
         }
         catch (Exception)
         {
-            // Best effort: the service drops it with our connection anyway.
+            // Nothing to do.
         }
     }
 
-    static Task<T> Call<T>(Connection connection, MessageBuffer message, MessageValueReader<T> reader) =>
-        connection.CallMethodAsync(message, reader).WaitAsync(SessionBus.CallTimeout);
+    static Task<T> Call<T>(Connection connection, MessageBuffer message, MessageValueReader<T> reader,
+        CancellationToken token) =>
+        connection.CallMethodAsync(message, reader).WaitAsync(SessionBus.CallTimeout, token);
 
     // ---- Replies ----
 
