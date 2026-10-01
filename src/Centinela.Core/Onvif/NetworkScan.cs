@@ -19,11 +19,12 @@ public static class NetworkScan
 
     /// <summary>The <c>a.b.c.0/24</c> networks (sorted) whose .1 or .254 answered a ping.</summary>
     public static Task<NetworkScanResult> FindNetworksAsync(IEnumerable<IPAddress> locals, CancellationToken ct = default) =>
-        FindNetworksAsync(locals, SystemPingAsync, ct);
+        FindNetworksAsync(locals, SystemPingAsync, OperatingSystem.IsWindows(), ct);
 
     /// <param name="ping">True when the address answered; throws as <see cref="Ping"/> does.</param>
+    /// <param name="windows">On Windows a refusal is never assumed: every failure is that address not answering.</param>
     public static async Task<NetworkScanResult> FindNetworksAsync(IEnumerable<IPAddress> locals,
-        Func<IPAddress, CancellationToken, Task<bool>> ping, CancellationToken ct = default)
+        Func<IPAddress, CancellationToken, Task<bool>> ping, bool windows, CancellationToken ct = default)
     {
         var targets = locals
             .Select(l => l.GetAddressBytes())
@@ -43,7 +44,7 @@ public static class NetworkScan
                 if (await ping(target, ct))
                     lock (alive) alive.Add(ProbeTargets.NetworkOf(target.ToString())!);
             }
-            catch (Exception e) when (IsPingNotAllowed(e))
+            catch (Exception e) when (IsPingRefused(e, windows))
             {
                 Volatile.Write(ref unavailable, true);
             }
@@ -58,15 +59,26 @@ public static class NetworkScan
     }
 
     /// <summary>
-    /// The system does not let this process ping: no raw sockets and no usable ping utility, or no permission.
-    /// <see cref="Ping"/> wraps most of these in a <see cref="PingException"/> (itself an
-    /// <see cref="InvalidOperationException"/>: alone, it only means that address did not answer).
+    /// The system does not let this process ping (Linux, macOS): no permission for raw sockets or the ping utility
+    /// (EPERM, EACCES), or no ping utility (ENOENT). <see cref="Ping"/> wraps these in a <see cref="PingException"/>.
+    /// Anything else, a <see cref="System.Net.Sockets.SocketException"/> above all (no buffer space, host
+    /// unreachable…), is one address not answering; on Windows always.
     /// </summary>
-    static bool IsPingNotAllowed(Exception e) =>
-        e is PingException ping ? ping.InnerException is { } inner && IsNotAllowed(inner) : IsNotAllowed(e);
+    public static bool IsPingRefused(Exception e, bool windows)
+    {
+        if (windows) return false;
+        if (e is PingException ping)
+        {
+            if (ping.InnerException is not { } inner) return false;
+            e = inner;
+        }
+        return e is PlatformNotSupportedException or UnauthorizedAccessException
+            || e is Win32Exception { NativeErrorCode: EPERM or ENOENT or EACCES } and not System.Net.Sockets.SocketException;
+    }
 
-    static bool IsNotAllowed(Exception e) =>
-        e is PlatformNotSupportedException or UnauthorizedAccessException or Win32Exception or InvalidOperationException;
+    const int EPERM = 1;
+    const int ENOENT = 2;
+    const int EACCES = 13;
 
     static async Task<bool> SystemPingAsync(IPAddress target, CancellationToken ct)
     {

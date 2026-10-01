@@ -5,7 +5,7 @@ namespace Centinela.Desktop.Views;
 
 /// <summary>
 /// Without a keychain (Linux), the passwords are kept in Centinela's encrypted file: told once, after the cameras
-/// are loaded (when the window first shows) or saved, while the window is on screen.
+/// are loaded (when the window first shows) or saved, while the window is on screen (shown, not minimized, not in the tray).
 /// </summary>
 public partial class MainWindow
 {
@@ -19,8 +19,8 @@ public partial class MainWindow
 
     void ShowFileSecretNoticeOnce()
     {
-        // Hidden in the tray: told when the window shows.
-        if (_closing || !IsVisible || IsHiddenInTray) return;
+        // Hidden in the tray or minimized: told once the window is on screen.
+        if (_closing || !WindowVisible) return;
         if (!FileSecretNotice.TryClaim(App.Platform.SecretsUseFileFallback, _vm.Settings.Settings)) return;
         _vm.Settings.Save();
         _ = MessageDialog.ShowAsync(this, FileSecretNotice.Text, FileSecretNotice.Title);
