@@ -12,13 +12,13 @@ static class Program
         try
         {
             App.Platform = PlatformServices.Create(Environment.ProcessPath!);
+            // The running instance shows its window; this one has nothing to do.
+            if (!App.Platform.SingleInstance.TryClaim()) return;
         }
         catch (Exception ex)
         {
             App.StartupError = ex.Message;
         }
-        // The running instance shows its window; this one has nothing to do.
-        if (App.StartupError is null && !App.Platform.SingleInstance.TryClaim()) return;
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, Avalonia.Controls.ShutdownMode.OnMainWindowClose);
     }
 

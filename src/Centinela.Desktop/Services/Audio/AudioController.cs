@@ -31,9 +31,10 @@ sealed class AudioController(Func<IEnumerable<TileViewModel>> audioTiles) : IDis
         };
     }
 
+    /// <summary>The tile's 🔊 click; ignored for a closed tile or one that cannot play audio.</summary>
     public void Toggle(TileViewModel tile)
     {
-        if (_closed) return;
+        if (_closed || tile.IsShutDown || !tile.AudioCapable) return;
         if (tile.AudioOn)
         {
             Release(tile);

@@ -26,4 +26,14 @@ public class WindowsSingleInstanceTests
         Assert.False(second.Result);
         Assert.True(woken.Wait(TimeSpan.FromSeconds(5)));
     }
+
+    [SkippableFact]
+    public void Repeated_claim_keeps_the_first_result()
+    {
+        Skip.IfNot(OperatingSystem.IsWindows(), "mutex con nombre de Windows");
+        var suffix = ".test-" + Guid.NewGuid().ToString("N");
+        using var instance = new WindowsSingleInstance(suffix);
+        Assert.True(instance.TryClaim());
+        Assert.True(instance.TryClaim());
+    }
 }

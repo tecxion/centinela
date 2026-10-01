@@ -11,18 +11,18 @@ sealed partial class MainViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecordAllText))]
-    private bool _anyRecording;
+    private bool _isAnyRecording;
 
     /// <summary>Owns every recording; the window shows its <see cref="RecordingController.StatusChanged"/> on the tiles.</summary>
     public RecordingController Recordings { get; } = new();
 
-    public string RecordAllText => AnyRecording ? "⏹ Detener todas" : "⏺ Grabar todas";
+    public string RecordAllText => IsAnyRecording ? "⏹ Detener todas" : "⏺ Grabar todas";
 
     void InitRecording()
     {
         Recordings.Notify += Notify;
         Recordings.Failure += message => Notify(message, null);
-        Recordings.StatusChanged += (_, _) => AnyRecording = Recordings.AnyRecording;
+        Recordings.StatusChanged += (_, _) => IsAnyRecording = Recordings.AnyRecording;
     }
 
     /// <summary>Uses the current camera with that Id (the tile may hold an older copy); does nothing if it was deleted.</summary>

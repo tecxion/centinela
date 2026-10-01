@@ -17,15 +17,20 @@ public sealed class WindowsSingleInstance(string instanceSuffix) : ISingleInstan
     // Held for the life of the process; the OS releases the mutex when the process ends.
     Mutex? _mutex;
     EventWaitHandle? _activate;
+    bool? _claimed;
+    bool _listening;
 
     [DllImport("user32.dll")]
     static extern bool AllowSetForegroundWindow(int processId);
 
+    /// <inheritdoc/>
     /// <remarks>
     /// A launch while the first instance is exiting (mutex still held during its exit wait) is absorbed: the signal
-    /// is ignored and nothing opens, so the user simply launches again.
+    /// is ignored and nothing opens, so the user simply launches again. A repeated call returns the first result.
     /// </remarks>
-    public bool TryClaim()
+    public bool TryClaim() => _claimed ??= Claim();
+
+    bool Claim()
     {
         _mutex = new Mutex(initiallyOwned: true, _mutexName, out var createdNew);
         if (createdNew)
@@ -47,9 +52,13 @@ public sealed class WindowsSingleInstance(string instanceSuffix) : ISingleInstan
         return false;
     }
 
+    /// <inheritdoc/>
+    /// <remarks>Only the first call listens; later calls keep that listener.</remarks>
     public void ListenForActivation(Action onActivate)
     {
         var handle = _activate ?? throw new InvalidOperationException("Not the first instance.");
+        if (_listening) return;
+        _listening = true;
         new Thread(() =>
         {
             try
@@ -58,7 +67,7 @@ public sealed class WindowsSingleInstance(string instanceSuffix) : ISingleInstan
             }
             catch (ObjectDisposedException)
             {
-                // Disposed (tests): stop listening.
+                // The instance was disposed: stop listening.
             }
         }) { IsBackground = true, Name = "SingleInstance" }.Start();
     }

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Centinela.Desktop.ViewModels;
 
 namespace Centinela.Desktop.Views;
 
@@ -32,6 +33,13 @@ partial class CameraTileView
         PointerExited += (_, _) => Actions.IsVisible = false;
         ContextMenu = BuildMenu();
     }
+
+    /// <summary>The view-model properties the menu shows; other changes leave it alone.</summary>
+    static readonly HashSet<string> MenuProperties =
+    [
+        nameof(TileViewModel.CanSnapshot), nameof(TileViewModel.HasSession), nameof(TileViewModel.RecordToolTip),
+        nameof(TileViewModel.MotionEnabled), nameof(TileViewModel.SmoothingOn), nameof(TileViewModel.IsZoomed),
+    ];
 
     /// <summary>Same items and order as the Windows version; checks and texts follow the view model.</summary>
     ContextMenu BuildMenu()
@@ -80,7 +88,10 @@ partial class CameraTileView
         }
         // Also on opening: a check item may have toggled itself on the last click, but the owner decides.
         menu.Opening += (_, _) => Sync();
-        vm.PropertyChanged += (_, _) => Sync();
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is null || MenuProperties.Contains(e.PropertyName)) Sync();
+        };
         Sync();
         return menu;
     }
