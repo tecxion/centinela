@@ -142,6 +142,7 @@ public partial class MainWindow
             IsHiddenInTray = false;
             Show();
             Rebuild();
+            ShowPendingUpdate();
         }
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();

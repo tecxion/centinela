@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Centinela.Desktop.Views.UpdateWindow"
+        Title="Actualizaciones" Width="520" Height="420" MinWidth="420" MinHeight="260"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="/Assets/centinela.ico">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="DownloadButton" Content="Descargar" MinWidth="90" Padding="8,2" Margin="0,0,8,0"
+                    HorizontalContentAlignment="Center" IsVisible="False" Click="Download_Click" />
+            <Button x:Name="SkipButton" Content="Omitir esta versión" MinWidth="90" Padding="8,2" Margin="0,0,8,0"
+                    HorizontalContentAlignment="Center" IsVisible="False" Click="Skip_Click" />
+            <Button x:Name="RetryButton" Content="Volver a comprobar" MinWidth="90" Padding="8,2" Margin="0,0,8,0"
+                    HorizontalContentAlignment="Center" Click="Retry_Click" />
+            <Button Content="Cerrar" MinWidth="90" Padding="8,2" HorizontalContentAlignment="Center" IsCancel="True"
+                    Click="Close_Click" />
+        </StackPanel>
+        <CheckBox x:Name="AutoCheckBox" DockPanel.Dock="Bottom" Content="Comprobar al arrancar" Margin="0,12,0,0"
+                  Click="AutoCheck_Click" />
+        <StackPanel>
+            <TextBlock x:Name="InstalledText" />
+            <TextBlock x:Name="StatusText" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,12,0,0" />
+            <!-- Which release file fits this computer; only with a new version and a package for this system. -->
+            <TextBlock x:Name="AssetText" TextWrapping="Wrap" Margin="0,4,0,0" IsVisible="False" />
+            <TextBox x:Name="NotesBox" IsReadOnly="True" TextWrapping="Wrap" Height="200" Margin="0,12,0,0"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" IsVisible="False" />
+        </StackPanel>
+    </DockPanel>
+</Window>

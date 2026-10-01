@@ -52,6 +52,7 @@ public partial class MainWindow : Window
         InitErrors();
         // Detection runs also when starting hidden; tiles created from here on show its red frame.
         InitMotion();
+        InitUpdates();
         // Started with the system: created but not shown; it counts as hidden in the tray (no tiles).
         IsHiddenInTray = startHidden && HasTray;
         _vm.ViewChanged += Rebuild;
