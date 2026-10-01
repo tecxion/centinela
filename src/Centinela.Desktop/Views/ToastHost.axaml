@@ -1,0 +1,6 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Centinela.Desktop.Views.ToastHost"
+             HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,16,16">
+    <StackPanel x:Name="Stack" Width="360" />
+</UserControl>

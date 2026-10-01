@@ -48,6 +48,7 @@ public partial class MainWindow : Window
         InitAudio();
         InitCameraActions();
         InitTray();
+        InitNotices();
         // Started with the system: created but not shown; it counts as hidden in the tray (no tiles).
         IsHiddenInTray = startHidden && HasTray;
         _vm.ViewChanged += Rebuild;
@@ -213,6 +214,7 @@ public partial class MainWindow : Window
             // Failures cannot be shown any more; exit anyway.
         }
         _audio.Dispose();
+        _noticeSounds.Dispose();
         _tray?.Dispose();
         // Raises Closed: the app ends there (App.Start).
         base.OnClosed(e);

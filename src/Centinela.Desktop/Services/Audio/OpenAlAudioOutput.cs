@@ -15,8 +15,8 @@ sealed unsafe class OpenAlAudioOutput : IAudioSink, IDisposable
     const string DisconnectedMessage = "Se desconectó el dispositivo de audio.";
 
     // One lock for every output and for loading the API: the OpenAL context is current process-wide, so each
-    // locked operation makes its own context current first.
-    static readonly object Gate = new();
+    // locked operation makes its own context current first. Shared with the notice sounds.
+    internal static readonly object Gate = new();
     static ALContext? s_alc;
     static AL? s_al;
 
@@ -60,8 +60,7 @@ sealed unsafe class OpenAlAudioOutput : IAudioSink, IDisposable
             ALContext? alc = null;
             try
             {
-                alc = s_alc ??= ALContext.GetApi(soft: true);
-                var al = s_al ??= AL.GetApi(soft: true);
+                (alc, var al) = LoadApi();
                 device = alc.OpenDevice(null); // null: the system's default output
                 if (device is null) return null;
                 context = alc.CreateContext(device, null);
@@ -80,6 +79,10 @@ sealed unsafe class OpenAlAudioOutput : IAudioSink, IDisposable
             }
         }
     }
+
+    /// <summary>Under <see cref="Gate"/>: OpenAL Soft, loaded once for the whole app. Throws when it cannot be loaded.</summary>
+    internal static (ALContext Alc, AL Al) LoadApi() =>
+        (s_alc ??= ALContext.GetApi(soft: true), s_al ??= AL.GetApi(soft: true));
 
     /// <summary>Audio thread. The samples are copied into an OpenAL buffer, so the caller may reuse the span.</summary>
     public void Write(ReadOnlySpan<float> interleavedStereo)
