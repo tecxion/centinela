@@ -1,3 +1,4 @@
+using Centinela.Core;
 using Silk.NET.OpenAL;
 
 namespace Centinela.Desktop.Services.Audio;
@@ -9,29 +10,37 @@ namespace Centinela.Desktop.Services.Audio;
 /// </summary>
 sealed unsafe class NoticeSoundPlayer : IDisposable
 {
-    // One source per sound, each with its buffer attached once: playing again restarts it.
-    static readonly NoticeKind[] Kinds = [NoticeKind.ConnectionLost, NoticeKind.Motion];
+    // The sounds as PCM16, synthesized once outside the gate; kinds without a sound (ConnectionRecovered) are absent.
+    static readonly Lazy<IReadOnlyDictionary<NoticeKind, short[]>> Tones = new(() => new Dictionary<NoticeKind, short[]>
+    {
+        [NoticeKind.ConnectionLost] = ToPcm(NoticeTones.ConnectionLost()),
+        [NoticeKind.Motion] = ToPcm(NoticeTones.Motion()),
+    });
 
     ALContext? _alc;
     AL? _al;
     Device* _device;
     Context* _context;
+    // One source per sound, each with its buffer attached once: playing again restarts it.
     readonly Dictionary<NoticeKind, uint> _sources = [];
     readonly List<uint> _buffers = [];
     bool _opened;
     bool _unavailable;
     bool _disposed;
 
+    /// <summary>Starts the kind's sound; kinds without one (ConnectionRecovered) stay silent.</summary>
     public void Play(NoticeKind kind)
     {
+        var tones = Tones.Value; // synthesized before taking the shared lock
+        if (!tones.ContainsKey(kind)) return;
         lock (OpenAlAudioOutput.Gate)
         {
             if (_disposed || _unavailable) return;
             try
             {
-                if (!_opened) Open();
+                if (!_opened) Open(tones);
                 _alc!.MakeContextCurrent(_context);
-                _al!.SourcePlay(_sources[kind]);
+                if (_sources.TryGetValue(kind, out var source)) _al!.SourcePlay(source);
             }
             catch (Exception)
             {
@@ -43,7 +52,7 @@ sealed unsafe class NoticeSoundPlayer : IDisposable
     }
 
     /// <summary>Under the gate. Throws when there is no usable output (the caller releases what was made).</summary>
-    void Open()
+    void Open(IReadOnlyDictionary<NoticeKind, short[]> tones)
     {
         _opened = true;
         var (alc, al) = OpenAlAudioOutput.LoadApi();
@@ -54,11 +63,12 @@ sealed unsafe class NoticeSoundPlayer : IDisposable
         _context = alc.CreateContext(_device, null);
         if (_context is null || !alc.MakeContextCurrent(_context)) throw new InvalidOperationException();
         al.GetError(); // clear any error left by another output
-        foreach (var kind in Kinds)
+        foreach (var (kind, pcm) in tones)
         {
             var buffer = al.GenBuffer();
             _buffers.Add(buffer);
-            Load(buffer, kind == NoticeKind.ConnectionLost ? NoticeTones.ConnectionLost() : NoticeTones.Motion());
+            fixed (short* data = pcm)
+                al.BufferData(buffer, BufferFormat.Mono16, data, pcm.Length * sizeof(short), NoticeTones.SampleRate);
             var source = al.GenSource();
             _sources[kind] = source;
             al.SetSourceProperty(source, SourceInteger.Buffer, (int)buffer);
@@ -66,12 +76,11 @@ sealed unsafe class NoticeSoundPlayer : IDisposable
         if (al.GetError() != AudioError.NoError) throw new InvalidOperationException();
     }
 
-    void Load(uint buffer, float[] samples)
+    static short[] ToPcm(float[] samples)
     {
         var pcm = new short[samples.Length];
         SampleConversion.ToPcm16(samples, pcm);
-        fixed (short* data = pcm)
-            _al!.BufferData(buffer, BufferFormat.Mono16, data, pcm.Length * sizeof(short), NoticeTones.SampleRate);
+        return pcm;
     }
 
     /// <summary>Under the gate: sources, buffers, context and device; never throws.</summary>
