@@ -119,6 +119,51 @@ public sealed class UnixSingleInstanceTests : IDisposable
     }
 
     [Fact]
+    public void Overlong_path_claims_without_single_instance()
+    {
+        // Unix socket paths are limited to ~104-108 bytes: the endpoint rejects this one.
+        var tooLong = Path.Combine(_dir, new string('a', 150) + ".sock");
+        using var instance = new UnixSingleInstance(tooLong);
+        Assert.True(instance.TryClaim());
+        instance.ListenForActivation(() => { });
+    }
+
+    [Fact]
+    public void Claim_after_dispose_never_binds()
+    {
+        var unclaimed = new UnixSingleInstance(SocketPath);
+        unclaimed.Dispose();
+        Assert.False(unclaimed.TryClaim());
+        Assert.False(File.Exists(SocketPath));
+
+        var claimed = new UnixSingleInstance(SocketPath);
+        Assert.True(claimed.TryClaim());
+        claimed.Dispose();
+        Assert.True(claimed.TryClaim());
+        Assert.False(File.Exists(SocketPath));
+    }
+
+    [Fact]
+    public void Throwing_handler_keeps_listening()
+    {
+        using var first = new UnixSingleInstance(SocketPath);
+        Assert.True(first.TryClaim());
+        using var twice = new CountdownEvent(2);
+        first.ListenForActivation(() =>
+        {
+            twice.Signal();
+            throw new InvalidOperationException("handler failure");
+        });
+
+        for (var i = 0; i < 2; i++)
+        {
+            using var later = new UnixSingleInstance(SocketPath);
+            Assert.False(later.TryClaim());
+        }
+        Assert.True(twice.Wait(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
     public void PathFor_uses_an_absolute_runtime_dir()
     {
         Assert.Equal(Path.Combine("/run/user/1000", "centinela.sock"),
