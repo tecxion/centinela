@@ -113,6 +113,17 @@ public sealed class CameraActionsTests : IDisposable
     }
 
     [Fact]
+    public void Motion_toggle_asks_to_apply_detection_after_saving()
+    {
+        var savesSeen = -1;
+        _actions.DetectionChanged += () => savesSeen = _saves;
+
+        _actions.ToggleMotion(_camera.Id);
+
+        Assert.Equal(1, savesSeen);
+    }
+
+    [Fact]
     public void A_tile_with_an_older_copy_changes_the_stored_camera()
     {
         var stale = _camera.Clone();
@@ -132,6 +143,8 @@ public sealed class CameraActionsTests : IDisposable
         _cameras.Remove(_camera.Id);
         var rebuilds = 0;
         _actions.ViewChanged += () => rebuilds++;
+        var detections = 0;
+        _actions.DetectionChanged += () => detections++;
 
         _actions.ToggleQuality(_camera.Id);
         _actions.ToggleSmoothing(_camera.Id);
@@ -139,6 +152,7 @@ public sealed class CameraActionsTests : IDisposable
 
         Assert.Equal(0, _saves);
         Assert.Equal(0, rebuilds);
+        Assert.Equal(0, detections);
         Assert.False(tile.LowQuality);
         Assert.False(tile.SmoothingOn);
     }

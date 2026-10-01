@@ -77,6 +77,17 @@ public class TileDisplayTests
     }
 
     [Fact]
+    public void Motion_frame_follows_the_event()
+    {
+        var tile = NewTile();
+        Assert.False(tile.MotionActive);
+        tile.SetMotionActive(true);
+        Assert.True(tile.MotionActive);
+        tile.SetMotionActive(false);
+        Assert.False(tile.MotionActive);
+    }
+
+    [Fact]
     public void Smoothing_check_follows_the_setting()
     {
         var tile = NewTile();

@@ -14,8 +14,10 @@ partial class CameraTileView : UserControl
     static readonly DataFormat<string> DragFormat = DataFormat.CreateStringApplicationFormat("Centinela.CameraId");
     static readonly IBrush NormalBorder = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A));
     static readonly IBrush DropBorder = Brushes.DodgerBlue;
+    static readonly IBrush MotionBorder = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
     readonly DispatcherTimer _clickTimer = new();
     readonly DispatcherTimer _statsTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    bool _dropHover;
     Point? _pressAt;
     PointerPressedEventArgs? _pressEvent;
     // The window the tile is placed in; its scaling (DPI) is part of the decode size.
@@ -38,6 +40,7 @@ partial class CameraTileView : UserControl
         viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(TileViewModel.ShowStats)) UpdateStatsTimer();
+            else if (e.PropertyName == nameof(TileViewModel.MotionActive)) UpdateBorder();
         };
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
         AddHandler(DragDrop.DragLeaveEvent, (_, _) => SetDropHover(false));
@@ -46,6 +49,7 @@ partial class CameraTileView : UserControl
         SizeChanged += (_, _) => UpdateTargetSize();
         InitActions();
         InitZoom();
+        UpdateBorder();
     }
 
     public TileViewModel ViewModel { get; } = null!;
@@ -146,7 +150,16 @@ partial class CameraTileView : UserControl
 
     internal void SetDropHover(bool hover)
     {
-        Frame.BorderBrush = hover ? DropBorder : NormalBorder;
+        _dropHover = hover;
+        UpdateBorder();
+    }
+
+    /// <summary>Drop-target highlight over the motion frame over the normal border.</summary>
+    void UpdateBorder()
+    {
+        var motion = ViewModel.MotionActive;
+        Frame.BorderBrush = _dropHover ? DropBorder : motion ? MotionBorder : NormalBorder;
+        Frame.BorderThickness = new Thickness(motion ? 3 : 1);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

@@ -50,9 +50,10 @@
         </StackPanel>
         <Border x:Name="BottomBar" DockPanel.Dock="Bottom" Padding="8,3" Background="{StaticResource BarBackground}">
             <DockPanel>
-                <!-- «Movimiento» opens the motion log (wired with motion detection); «Registro» the error log. -->
+                <!-- «Movimiento» opens the motion log; «Registro» the error log. -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0">
-                    <Button x:Name="MotionLogButton" Content="Movimiento" Padding="8,0" ToolTip.Tip="Registro de movimiento" />
+                    <Button x:Name="MotionLogButton" Content="Movimiento" Padding="8,0" ToolTip.Tip="Registro de movimiento"
+                            Click="OpenMotionLog_Click" />
                     <Button x:Name="LogButton" Content="Registro" Padding="8,0" ToolTip.Tip="Registro de errores"
                             Click="OpenLog_Click" />
                 </StackPanel>

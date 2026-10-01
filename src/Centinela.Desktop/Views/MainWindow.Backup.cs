@@ -46,6 +46,8 @@ public partial class MainWindow
                 _errors.Forget(id);
                 DisposeTilesOf(id);
             });
+            // New, updated or re-enabled cameras: detection follows them.
+            ApplyMotion();
             await MessageDialog.ShowAsync(this, summary, "Importar");
         }
         finally

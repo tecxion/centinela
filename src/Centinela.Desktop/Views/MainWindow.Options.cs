@@ -13,7 +13,8 @@ public partial class MainWindow
         NotificationOptions.Apply(window.Rows, _vm.Cameras.All, _vm.Settings.Settings, sounds);
         _vm.Cameras.Save();
         _vm.Settings.Save();
-        // The 👁 of every tile shows the camera's detection (the detection itself arrives in 2d).
+        ApplyMotion();
+        // The 👁 of every tile shows the camera's detection.
         foreach (var tile in AllTiles()) _actions.Show(tile.ViewModel);
     }
 }

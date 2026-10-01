@@ -14,6 +14,9 @@ sealed class CameraActions(CameraRepository cameras, Func<Guid, IEnumerable<Tile
     /// <summary>The grid must be rebuilt: a camera's big view switched stream.</summary>
     public event Action? ViewChanged;
 
+    /// <summary>A camera's detection was turned on or off (saved): the owner applies motion detection.</summary>
+    public event Action? DetectionChanged;
+
     /// <summary>A new tile shows the camera's options as they are now.</summary>
     public void Show(TileViewModel tile)
     {
@@ -46,12 +49,13 @@ sealed class CameraActions(CameraRepository cameras, Func<Guid, IEnumerable<Tile
         foreach (var session in leases.SessionsFor(id)) session.Smoothing = camera.Smoothing;
     }
 
-    /// <summary>👁: turns the camera's motion detection on or off (the flag and its indicator; detection is phase 2d).</summary>
+    /// <summary>👁: turns the camera's motion detection on or off (the flag and its indicator), then asks to apply it.</summary>
     public void ToggleMotion(Guid id)
     {
         if (cameras.Find(id) is not { } camera) return;
         camera.MotionEnabled = !camera.MotionEnabled;
         cameras.Save();
         foreach (var tile in tilesOf(id)) tile.SetMotionEnabled(camera.MotionEnabled);
+        DetectionChanged?.Invoke();
     }
 }

@@ -57,6 +57,7 @@ public partial class MainWindow
         _errors.Forget(camera.Id);
         DisposeTilesOf(camera.Id);
         _vm.RemoveCamera(camera.Id);
+        ApplyMotion();
     }
 
     void AddCamera_Click(object? sender, RoutedEventArgs e) => _ = AddCameraAsync(null, this);
@@ -68,6 +69,7 @@ public partial class MainWindow
         if (!await dialog.ShowDialog<bool>(owner) || _closing) return;
         _errors.Forget(dialog.Result.Id);
         _vm.AddCamera(dialog.Result);
+        ApplyMotion();
     }
 
     /// <summary>Opens «Añadir cámara» pre-filled with a copy (new Id, "(copia)"); nothing is saved unless the user saves.</summary>
@@ -88,6 +90,7 @@ public partial class MainWindow
         // The URL may change: its tiles and fullscreen views restart with the new settings.
         DisposeTilesOf(camera.Id);
         _vm.ReplaceCamera(dialog.Result);
+        ApplyMotion();
     }
 
     /// <summary>«Calidad de la cámara…», without blocking: the camera as it is now, over the window showing the tile.</summary>

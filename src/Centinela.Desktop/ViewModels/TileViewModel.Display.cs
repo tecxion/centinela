@@ -13,6 +13,9 @@ sealed partial class TileViewModel
     [NotifyPropertyChangedFor(nameof(MotionToolTip))]
     private bool _motionEnabled = true;
 
+    /// <summary>The camera has a motion event in progress: red frame (set by the owner).</summary>
+    [ObservableProperty] private bool _motionActive;
+
     [ObservableProperty] private bool _smoothingOn;
 
     [ObservableProperty]
@@ -106,6 +109,9 @@ sealed partial class TileViewModel
 
     /// <summary>Shows whether detection is on: button tooltip, menu check and the crossed-out eye by the name.</summary>
     public void SetMotionEnabled(bool enabled) => MotionEnabled = enabled;
+
+    /// <summary>Red frame while the camera has a motion event in progress.</summary>
+    public void SetMotionActive(bool active) => MotionActive = active;
 
     /// <summary>The camera's smoothing setting: menu check, and the own session (shared ones are set by the owner).</summary>
     public void SetSmoothing(bool enabled)

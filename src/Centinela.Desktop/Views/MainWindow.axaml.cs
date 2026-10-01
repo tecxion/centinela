@@ -50,6 +50,8 @@ public partial class MainWindow : Window
         InitTray();
         InitNotices();
         InitErrors();
+        // Detection runs also when starting hidden; tiles created from here on show its red frame.
+        InitMotion();
         // Started with the system: created but not shown; it counts as hidden in the tray (no tiles).
         IsHiddenInTray = startHidden && HasTray;
         _vm.ViewChanged += Rebuild;
@@ -80,6 +82,7 @@ public partial class MainWindow : Window
         WireAudio(tile);
         WireCameraActions(tile);
         WireErrors(tile);
+        WireMotion(tile);
     }
 
     void ShowFullscreen(Camera shown)
@@ -89,6 +92,7 @@ public partial class MainWindow : Window
         WireAudio(window.Tile);
         WireCameraActions(window.Tile);
         WireErrors(window.Tile);
+        WireMotion(window.Tile);
         _fullscreens.Add(window);
         window.Closed += (_, _) =>
         {
@@ -205,7 +209,11 @@ public partial class MainWindow : Window
         foreach (var owned in OwnedWindows.ToList()) owned.Close();
         // Tiles, recordings, the automatic copy and a manual export finish in parallel; one bounded wait so recordings get their trailer.
         var shutdowns = _tiles.ShutdownAll().Concat(_pendingShutdowns)
-            .Append(_vm.Recordings.ShutdownAsync()).Append(_vm.Backup.IdleAsync()).Append(_manualExport).ToArray();
+            .Append(_vm.Recordings.ShutdownAsync()).Append(_vm.Backup.IdleAsync()).Append(_manualExport)
+            // Ends active motion events now (on this thread, logging them) and releases detection's leases, stopping
+            // the sessions nothing else holds; awaited below with the rest.
+            .Append(_motion.ShutdownAsync())
+            .ToArray();
         // Stop whatever else still holds a shared session now, so it winds down in parallel.
         _leases.Dispose();
         try
@@ -220,6 +228,8 @@ public partial class MainWindow : Window
         _noticeSounds.Dispose();
         _tray?.Dispose();
         _errorLog.Dispose();
+        // After _motion.ShutdownAsync above, which logged the events still active.
+        _motionLog.Dispose();
         // Raises Closed: the app ends there (App.Start).
         base.OnClosed(e);
     }
