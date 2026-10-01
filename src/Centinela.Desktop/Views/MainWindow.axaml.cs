@@ -49,6 +49,7 @@ public partial class MainWindow : Window
         InitCameraActions();
         InitTray();
         InitNotices();
+        InitErrors();
         // Started with the system: created but not shown; it counts as hidden in the tray (no tiles).
         IsHiddenInTray = startHidden && HasTray;
         _vm.ViewChanged += Rebuild;
@@ -78,6 +79,7 @@ public partial class MainWindow : Window
         WireRecording(tile);
         WireAudio(tile);
         WireCameraActions(tile);
+        WireErrors(tile);
     }
 
     void ShowFullscreen(Camera shown)
@@ -86,6 +88,7 @@ public partial class MainWindow : Window
         WireRecording(window.Tile);
         WireAudio(window.Tile);
         WireCameraActions(window.Tile);
+        WireErrors(window.Tile);
         _fullscreens.Add(window);
         window.Closed += (_, _) =>
         {
@@ -216,6 +219,7 @@ public partial class MainWindow : Window
         _audio.Dispose();
         _noticeSounds.Dispose();
         _tray?.Dispose();
+        _errorLog.Dispose();
         // Raises Closed: the app ends there (App.Start).
         base.OnClosed(e);
     }

@@ -114,7 +114,7 @@ sealed partial class TileViewModel : ObservableObject
             return;
         }
         var current = session.State;
-        if (current != SessionState.Playing && session.LastErrorKind is { } lastError) _errorKind = lastError;
+        if (current != SessionState.Playing && session.LastErrorKind is { } lastError) ShowLastError(lastError);
         ShowState(current == SessionState.Idle ? SessionState.Connecting : current);
         UpdateAudio();
     }
@@ -178,6 +178,16 @@ sealed partial class TileViewModel : ObservableObject
         ShowFixButton = Manage && error.Kind == StreamErrorKind.AuthFailed;
         StatusText = TileStatus.Text(Session?.State ?? SessionState.Reconnecting, _errorKind, Camera);
         if (_lease is null) ErrorReported?.Invoke(this, error);
+    }
+
+    /// <summary>
+    /// A shared session that already failed before this tile joined it: its error shows as if just reported (with
+    /// «Editar» for a wrong password, as on an own session). Internal for the tests.
+    /// </summary>
+    internal void ShowLastError(StreamErrorKind kind)
+    {
+        _errorKind = kind;
+        ShowFixButton = Manage && kind == StreamErrorKind.AuthFailed;
     }
 
     void ShowSmoothing(double seconds)

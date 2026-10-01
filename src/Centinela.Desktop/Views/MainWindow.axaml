@@ -49,9 +49,18 @@
             <Button Content="{Binding RecordAllText}" Click="RecordAll_Click" />
         </StackPanel>
         <Border x:Name="BottomBar" DockPanel.Dock="Bottom" Padding="8,3" Background="{StaticResource BarBackground}">
-            <!-- Clicking the message shows its file or folder, when it has one. -->
-            <TextBlock Text="{Binding StatusText}" Cursor="Hand" Background="Transparent" HorizontalAlignment="Left"
-                       PointerReleased="StatusText_PointerReleased" />
+            <DockPanel>
+                <!-- «Movimiento» opens the motion log (wired with motion detection); «Registro» the error log. -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0">
+                    <Button x:Name="MotionLogButton" Content="Movimiento" Padding="8,0" ToolTip.Tip="Registro de movimiento" />
+                    <Button x:Name="LogButton" Content="Registro" Padding="8,0" ToolTip.Tip="Registro de errores"
+                            Click="OpenLog_Click" />
+                </StackPanel>
+                <!-- Clicking the message shows its file or folder, when it has one. -->
+                <TextBlock Text="{Binding StatusText}" Cursor="Hand" Background="Transparent" HorizontalAlignment="Left"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           PointerReleased="StatusText_PointerReleased" />
+            </DockPanel>
         </Border>
         <Grid>
             <Grid x:Name="TileGrid" />

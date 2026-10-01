@@ -1,3 +1,4 @@
+using Centinela.Core;
 using Centinela.Desktop.Services.Audio;
 using Centinela.Desktop.ViewModels;
 
@@ -12,6 +13,8 @@ public partial class MainWindow
     {
         _audio = new AudioController(AudioTiles);
         _audio.Notice += message => _vm.Notify(message, null);
+        _audio.Failed += (camera, title, detail) =>
+            _errorLog.Add(new ErrorLogEntry(DateTime.Now, camera.Name, "Audio", title, detail));
         _tiles.AudioReleaseRequested += _audio.Release;
     }
 

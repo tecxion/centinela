@@ -138,6 +138,28 @@ public class TileDisplayTests
     }
 
     [Fact]
+    public void A_shared_session_that_already_failed_auth_shows_the_fix_button()
+    {
+        var tile = NewTile();
+        tile.ShowLastError(StreamErrorKind.AuthFailed);
+        Assert.True(tile.ShowFixButton);
+        tile.ShowState(SessionState.Reconnecting);
+        Assert.True(tile.ShowFixButton);
+        Assert.Equal(TileStatus.Text(SessionState.Reconnecting, StreamErrorKind.AuthFailed, tile.Camera), tile.StatusText);
+    }
+
+    [Fact]
+    public void A_shared_session_that_failed_otherwise_shows_no_fix_button()
+    {
+        var tile = NewTile();
+        tile.ShowLastError(StreamErrorKind.Unreachable);
+        Assert.False(tile.ShowFixButton);
+        var fullscreen = NewTile(manage: false);
+        fullscreen.ShowLastError(StreamErrorKind.AuthFailed);
+        Assert.False(fullscreen.ShowFixButton);
+    }
+
+    [Fact]
     public void No_fix_button_on_fullscreen_tiles()
     {
         var tile = NewTile(manage: false);

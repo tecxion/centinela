@@ -40,7 +40,12 @@ public partial class MainWindow
                 return;
             }
             if (result.Import is not { } imported) return;
-            var summary = _vm.ApplyImport(imported, DisposeTilesOf);
+            // Updated cameras may have new URLs or credentials: fresh notices and new sessions.
+            var summary = _vm.ApplyImport(imported, id =>
+            {
+                _errors.Forget(id);
+                DisposeTilesOf(id);
+            });
             await MessageDialog.ShowAsync(this, summary, "Importar");
         }
         finally

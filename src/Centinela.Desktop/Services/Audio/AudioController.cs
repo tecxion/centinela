@@ -20,6 +20,9 @@ sealed class AudioController(Func<IEnumerable<TileViewModel>> audioTiles) : IDis
     /// <summary>A message for the status line.</summary>
     public event Action<string>? Notice;
 
+    /// <summary>A camera's audio could not be played (for the error log): the camera, the title and the detail.</summary>
+    public event Action<Camera, string, string>? Failed;
+
     /// <summary>A new tile: silenced when its stream loses the audio track or its audio cannot be played.</summary>
     public void Attach(TileViewModel tile)
     {
@@ -98,13 +101,12 @@ sealed class AudioController(Func<IEnumerable<TileViewModel>> audioTiles) : IDis
         output.Dispose();
     }
 
-    /// <remarks>
-    /// The Windows version logs the title with <paramref name="message"/> in the error log and shows a toast;
-    /// until the Desktop error log exists (phase 2d) the status line shows the title and the toast's text.
-    /// </remarks>
+    /// <summary>The status line shows the title and «El vídeo sigue funcionando.»; the error log gets the detail.</summary>
     void ReportFailure(TileViewModel tile, string message)
     {
-        Notice?.Invoke($"No se pudo reproducir el audio de «{tile.Camera.Name}». El vídeo sigue funcionando.");
+        var title = $"No se pudo reproducir el audio de «{tile.Camera.Name}»";
+        Notice?.Invoke($"{title}. El vídeo sigue funcionando.");
+        Failed?.Invoke(tile.Camera, title, message);
     }
 
     /// <summary>Window closed: closes the output; later calls do nothing.</summary>

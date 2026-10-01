@@ -54,6 +54,7 @@ public partial class MainWindow
         if (!await MessageDialog.ConfirmAsync(this, $"¿Eliminar la cámara «{camera.Name}»?")) return;
         // Deleted meanwhile, or the window is closing.
         if (_closing || _vm.Cameras.Find(camera.Id) is null) return;
+        _errors.Forget(camera.Id);
         DisposeTilesOf(camera.Id);
         _vm.RemoveCamera(camera.Id);
     }
@@ -65,6 +66,7 @@ public partial class MainWindow
     {
         var dialog = new AddCameraDialog(prefilled, isNew: true);
         if (!await dialog.ShowDialog<bool>(owner) || _closing) return;
+        _errors.Forget(dialog.Result.Id);
         _vm.AddCamera(dialog.Result);
     }
 
@@ -81,6 +83,8 @@ public partial class MainWindow
         if (!await dialog.ShowDialog<bool>(OwnerFor(tile))) return;
         // Deleted meanwhile, or the window is closing.
         if (_closing || _vm.Cameras.Find(camera.Id) is null) return;
+        // New settings (often a corrected password) deserve fresh notices.
+        _errors.Forget(camera.Id);
         // The URL may change: its tiles and fullscreen views restart with the new settings.
         DisposeTilesOf(camera.Id);
         _vm.ReplaceCamera(dialog.Result);
