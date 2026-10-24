@@ -46,6 +46,15 @@ sealed class VideoSurface : Control
     /// <summary>Raised when <see cref="ContentRect"/> changes (control resized or new frame size).</summary>
     public event Action? ContentRectChanged;
 
+    /// <summary>Where the image is drawn (Task 4: moved by the zoom).</summary>
+    internal Rect DrawRect => ContentRect;
+
+    /// <summary>For <see cref="GlVideoView"/> (Task 4).</summary>
+    internal bool TryReadFrame(Action<VideoFrame> upload) => false;
+
+    /// <summary>Called by the OpenGL child once it can paint (Task 4).</summary>
+    internal void OnGlReady() { }
+
     public VideoSurface() => SizeChanged += (_, _) => UpdateContentRect();
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
