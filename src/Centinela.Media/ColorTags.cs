@@ -6,7 +6,7 @@ namespace Centinela.Media;
 /// The colour matrix and range a decoded frame really uses. Cameras often leave them unset; FFmpeg then assumes
 /// BT.601, which tints HD images, so an unset matrix follows the height as players do (720 lines or more: BT.709).
 /// </summary>
-public static class ColorTags
+internal static class ColorTags
 {
     public static (YuvMatrix Matrix, bool FullRange) Infer(AVColorSpace space, AVColorRange range, AVPixelFormat format, int height)
     {

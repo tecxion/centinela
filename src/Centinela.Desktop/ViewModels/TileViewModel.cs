@@ -144,7 +144,9 @@ sealed partial class TileViewModel : ObservableObject
             return;
         }
         var s = Session.Stats;
-        StatsText = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")} · conv. {s.ConvertMs:0.0} ms · pintado {(s.GpuPainting ? "GPU" : "CPU")}"
+        // One number format for the whole line: "conv. 2.3 ms" and "suav. 1.5 s".
+        StatsText = string.Create(CultureInfo.InvariantCulture,
+                $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")} · conv. {s.ConvertMs:0.0} ms · pintado {(s.GpuPainting ? "GPU" : "CPU")}")
             + (s.SmoothingSeconds > 0
                 ? string.Create(CultureInfo.InvariantCulture, $" · suav. {s.SmoothingSeconds:0.##} s · cortes {s.Rebuffers}")
                 : "");

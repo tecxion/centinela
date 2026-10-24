@@ -154,6 +154,26 @@ public unsafe class FrameConverterTests
         finally { ffmpeg.av_frame_free(&src); }
     }
 
+    [Fact]
+    public void Interlaced_image_is_scaled_as_one_picture_like_before()
+    {
+        // Even rows (top field) dark, odd rows (bottom field) bright: scaled as a whole they blend; field by field
+        // they would come out as alternating dark and bright rows (combing).
+        var src = Nv12(1280, 720, 0, 128, 128);
+        try
+        {
+            for (var row = 0; row < 720; row++)
+                new Span<byte>(src->data[0] + row * src->linesize[0], 1280).Fill(row % 2 == 0 ? (byte)50 : (byte)200);
+            src->flags |= ffmpeg.AV_FRAME_FLAG_INTERLACED;
+            var target = new VideoFrame(640, 360, FrameLayout.Nv12);
+            using var converter = new FrameConverter();
+            converter.Convert(src, target);
+            for (var i = 0; i < target.ChromaOffset; i++)
+                Assert.InRange(target.Data[i], 100, 150);
+        }
+        finally { ffmpeg.av_frame_free(&src); }
+    }
+
     [Theory]
     [InlineData(1920, SwsFlags.SWS_BICUBIC)]
     [InlineData(960, SwsFlags.SWS_BICUBIC)]
@@ -161,6 +181,14 @@ public unsafe class FrameConverterTests
     [InlineData(320, SwsFlags.SWS_BILINEAR)]
     public void Large_images_use_bicubic(int width, SwsFlags expected) =>
         Assert.Equal(expected, FrameConverter.FilterFor(width));
+
+    [Theory]
+    [InlineData(1920, true)]
+    [InlineData(960, true)]
+    [InlineData(959, false)]
+    [InlineData(320, false)]
+    public void Only_large_images_use_several_cores(int width, bool several) =>
+        Assert.Equal(several ? FrameConverter.Threads : 1, FrameConverter.ThreadsFor(width));
 
     [Fact]
     public void Nv12_output_keeps_the_samples_and_says_how_to_read_them()

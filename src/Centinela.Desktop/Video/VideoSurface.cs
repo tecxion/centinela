@@ -18,8 +18,9 @@ namespace Centinela.Desktop.Video;
 /// </summary>
 sealed class VideoSurface : Control
 {
-    // A view whose OpenGL never starts while NV12 frames arrive sends everybody back to the processor after this.
-    static readonly TimeSpan GlStartTimeout = TimeSpan.FromSeconds(3);
+    // A view that has frames to show but paints none for this long (its OpenGL never starts, or starts but Avalonia
+    // never runs its render) sends everybody back to the processor.
+    static readonly TimeSpan PaintTimeout = TimeSpan.FromSeconds(3);
 
     // Updated in place: panning must not allocate on every pointer move.
     readonly MatrixTransform _transform = new();
@@ -27,7 +28,7 @@ sealed class VideoSurface : Control
     GlVideoView? _gl;
     PixelSize _frameSize;
     Matrix? _zoom;
-    long _waitingForGl; // Stopwatch ticks of the first NV12 frame this view could not paint; 0 = none
+    long _unpaintedSince; // Stopwatch ticks since this view has had a frame it has not painted; 0 = none
     long _sequence;
     bool _attached;
     bool _firstFrame;
@@ -91,6 +92,7 @@ sealed class VideoSurface : Control
     {
         _attached = false;
         _frameRequested = false;
+        _unpaintedSince = 0;
         _generation++;
         GpuVideo.TurnedOff -= RemoveGl;
         _bitmap?.Dispose();
@@ -101,7 +103,7 @@ sealed class VideoSurface : Control
     /// <summary>Called by the OpenGL child once it can paint: the zoom moves into its drawing.</summary>
     internal void OnGlReady()
     {
-        _waitingForGl = 0;
+        _unpaintedSince = 0;
         ApplyZoom();
     }
 
@@ -116,6 +118,7 @@ sealed class VideoSurface : Control
                 upload(frame);
             }))
             return false;
+        _unpaintedSince = 0;
         if (_bitmap is not null)
         {
             // OpenGL paints now: the processor's last image must not linger underneath.
@@ -123,7 +126,7 @@ sealed class VideoSurface : Control
             _bitmap = null;
             InvalidateVisual();
         }
-        Shown(size);
+        Shown(size, inGlRender: true);
         return true;
     }
 
@@ -181,7 +184,11 @@ sealed class VideoSurface : Control
         {
             if (_gl is { Ready: true } gl)
             {
-                if (session.Mailbox.Sequence != _sequence) gl.RequestNextFrameRendering();
+                if (session.Mailbox.Sequence != _sequence)
+                {
+                    gl.RequestNextFrameRendering();
+                    WatchUnpainted();
+                }
             }
             else
             {
@@ -195,6 +202,7 @@ sealed class VideoSurface : Control
     {
         var size = default(PixelSize);
         var needsGl = false;
+        var before = _sequence;
         if (!session.Mailbox.TryRead(ref _sequence, frame =>
             {
                 if (frame.Layout != FrameLayout.Bgra)
@@ -208,20 +216,29 @@ sealed class VideoSurface : Control
             return;
         if (needsGl)
         {
-            // NV12 needs this view's OpenGL, which is still starting; if it never does, everybody uses the processor.
-            if (_waitingForGl == 0) _waitingForGl = Stopwatch.GetTimestamp();
-            else if (Stopwatch.GetElapsedTime(_waitingForGl) > GlStartTimeout) GpuVideo.TurnOff();
+            // NV12 needs this view's OpenGL, which is still starting: left unread, its first render takes this frame.
+            _sequence = before;
+            WatchUnpainted();
             return;
         }
-        _waitingForGl = 0;
+        _unpaintedSince = 0;
         InvalidateVisual();
-        Shown(size);
+        Shown(size, inGlRender: false);
     }
 
-    void Shown(PixelSize size)
+    /// <summary>A frame waits to be painted: after <see cref="PaintTimeout"/> of that, everybody uses the processor.</summary>
+    void WatchUnpainted()
+    {
+        if (_unpaintedSince == 0) _unpaintedSince = Stopwatch.GetTimestamp();
+        // Without a size OpenGL renders nothing on purpose.
+        else if (Stopwatch.GetElapsedTime(_unpaintedSince) > PaintTimeout && Bounds.Width > 0 && Bounds.Height > 0)
+            GpuVideo.TurnOff();
+    }
+
+    void Shown(PixelSize size, bool inGlRender)
     {
         _frameSize = size;
-        UpdateContentRect();
+        UpdateContentRect(inGlRender);
         if (_firstFrame) return;
         _firstFrame = true;
         // Posted: on the OpenGL path this runs inside Avalonia's GL callback, and listeners remove tiles (and their GL).
@@ -253,14 +270,16 @@ sealed class VideoSurface : Control
         context.DrawImage(bitmap, source, Letterbox(source.Size, Bounds.Size));
     }
 
-    void UpdateContentRect()
+    void UpdateContentRect(bool inGlRender = false)
     {
         var rect = _frameSize.Width > 0
             ? Letterbox(new Size(_frameSize.Width, _frameSize.Height), Bounds.Size)
             : default;
         if (rect == ContentRect) return;
         ContentRect = rect;
-        ContentRectChanged?.Invoke();
+        // In Avalonia's GL callback: this draw needs the rect now, but a throwing handler would turn OpenGL off for all.
+        if (inGlRender) UiThread.Post(() => ContentRectChanged?.Invoke());
+        else ContentRectChanged?.Invoke();
     }
 
     /// <summary>The largest rectangle with the image's aspect ratio that fits the control, centred.</summary>
