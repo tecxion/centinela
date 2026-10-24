@@ -12,7 +12,8 @@ public static class ColorTags
     {
         var matrix = space switch
         {
-            AVColorSpace.AVCOL_SPC_BT709 => YuvMatrix.Bt709,
+            // SMPTE 240M (BT.709's HD predecessor) is closest to BT.709; a tagged matrix never falls to the height guess.
+            AVColorSpace.AVCOL_SPC_BT709 or AVColorSpace.AVCOL_SPC_SMPTE240M => YuvMatrix.Bt709,
             AVColorSpace.AVCOL_SPC_BT2020_NCL or AVColorSpace.AVCOL_SPC_BT2020_CL => YuvMatrix.Bt2020,
             AVColorSpace.AVCOL_SPC_BT470BG or AVColorSpace.AVCOL_SPC_SMPTE170M or AVColorSpace.AVCOL_SPC_FCC => YuvMatrix.Bt601,
             _ => height >= 720 ? YuvMatrix.Bt709 : YuvMatrix.Bt601,
@@ -23,7 +24,7 @@ public static class ColorTags
             AVColorRange.AVCOL_RANGE_MPEG => false,
             // The deprecated "J" formats (MJPEG) are full range by definition.
             _ => format is AVPixelFormat.AV_PIX_FMT_YUVJ420P or AVPixelFormat.AV_PIX_FMT_YUVJ422P
-                or AVPixelFormat.AV_PIX_FMT_YUVJ444P,
+                or AVPixelFormat.AV_PIX_FMT_YUVJ444P or AVPixelFormat.AV_PIX_FMT_YUVJ440P or AVPixelFormat.AV_PIX_FMT_YUVJ411P,
         };
         return (matrix, fullRange);
     }

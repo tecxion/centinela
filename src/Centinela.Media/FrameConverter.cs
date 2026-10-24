@@ -44,6 +44,8 @@ sealed unsafe class FrameConverter : IDisposable
         // Same primaries and transfer as the source: only the matrix is converted, never the gamut.
         _dst->color_primaries = src->color_primaries;
         _dst->color_trc = src->color_trc;
+        // swscale refuses interlaced→progressive; matching the flag scales each field, like FFmpeg's scale filter.
+        _dst->flags = src->flags & ffmpeg.AV_FRAME_FLAG_INTERLACED;
         int err;
         fixed (byte* data = target.Data)
         {

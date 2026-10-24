@@ -105,6 +105,18 @@ public unsafe class FrameConverterTests
         finally { ffmpeg.av_frame_free(&src); }
     }
 
+    [Fact]
+    public void Interlaced_image_converts_too()
+    {
+        var src = Nv12(1920, 1080, RedY, RedU, RedV);
+        try
+        {
+            src->flags |= ffmpeg.AV_FRAME_FLAG_INTERLACED;
+            AssertPureRed(ToBgra(src, 1280, 720).Data);
+        }
+        finally { ffmpeg.av_frame_free(&src); }
+    }
+
     [Theory]
     [InlineData(1920, SwsFlags.SWS_BICUBIC)]
     [InlineData(960, SwsFlags.SWS_BICUBIC)]

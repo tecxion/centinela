@@ -4,6 +4,10 @@ namespace Centinela.Media;
 
 public static unsafe class SnapshotWriter
 {
+    /// <summary>
+    /// Saves <paramref name="source"/> as a PNG with its real colours. Writes the inferred colour tags into
+    /// <paramref name="source"/> (<see cref="ColorTags.Apply"/>), so callers pass a copy.
+    /// </summary>
     public static void SavePng(AVFrame* source, string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -30,6 +34,7 @@ public static unsafe class SnapshotWriter
             rgb->color_range = AVColorRange.AVCOL_RANGE_JPEG;
             rgb->color_primaries = source->color_primaries;
             rgb->color_trc = source->color_trc;
+            rgb->flags = source->flags & ffmpeg.AV_FRAME_FLAG_INTERLACED; // swscale refuses interlaced→progressive
             FFmpegException.ThrowIfError(ffmpeg.av_frame_get_buffer(rgb, 0), "alloc rgb frame");
 
             sws = ffmpeg.sws_alloc_context();
