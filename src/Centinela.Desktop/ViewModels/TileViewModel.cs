@@ -132,7 +132,7 @@ sealed partial class TileViewModel : ObservableObject
         if (value) RefreshStats();
     }
 
-    /// <summary>fps · ms · GPU/CPU (and smoothing); called twice a second by the view while stats are shown.</summary>
+    /// <summary>fps · ms · decoder · conversion · painter (and smoothing); called twice a second by the view while stats are shown.</summary>
     public void RefreshStats()
     {
         if (Session is null || _disposed) return;
@@ -144,7 +144,7 @@ sealed partial class TileViewModel : ObservableObject
             return;
         }
         var s = Session.Stats;
-        StatsText = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")}"
+        StatsText = $"{s.Fps:0} fps · {s.LatencyMs:0} ms · {(s.HardwareDecoding ? "GPU" : "CPU")} · conv. {s.ConvertMs:0.0} ms · pintado {(s.GpuPainting ? "GPU" : "CPU")}"
             + (s.SmoothingSeconds > 0
                 ? string.Create(CultureInfo.InvariantCulture, $" · suav. {s.SmoothingSeconds:0.##} s · cortes {s.Rebuffers}")
                 : "");

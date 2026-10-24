@@ -90,6 +90,8 @@ static class ManualDocument
         doc.Add(new InfoParagraph("fps: imágenes por segundo que llegan de la cámara."));
         doc.Add(new InfoParagraph("ms: lo que tarda el equipo en preparar cada imagen desde que llega de la red hasta que está lista para mostrarse."));
         doc.Add(new InfoParagraph("GPU/CPU: si el vídeo se descodifica con la tarjeta gráfica (GPU, consume menos) o con el procesador (CPU)."));
+        doc.Add(new InfoParagraph("conv.: lo que tarda el procesador en preparar cada imagen (reducirla al tamaño del recuadro y, si pinta el procesador, pasarla a color RGB)."));
+        doc.Add(new InfoParagraph("pintado GPU/CPU: si la imagen se pinta con la tarjeta gráfica (OpenGL, consume menos) o con el procesador. Si la tarjeta gráfica no puede, Centinela pinta con el procesador sin avisar."));
         doc.Add(new InfoParagraph("El retraso real entre la cámara y la pantalla no se puede medir, porque el reloj de la cámara no está sincronizado con el del equipo."));
         return doc;
     }

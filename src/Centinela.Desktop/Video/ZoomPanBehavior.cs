@@ -16,16 +16,12 @@ sealed class ZoomPanBehavior
     readonly VideoSurface _video;
     readonly Control _host;
     readonly ZoomState _zoom = new();
-    // One transform per tile, updated in place: panning must not allocate on every pointer move.
-    readonly MatrixTransform _transform = new();
     Point? _panLast;
 
     public ZoomPanBehavior(VideoSurface video, Control host)
     {
         _video = video;
         _host = host;
-        // Avalonia centres render transforms by default; the zoom matrix is built for the top-left corner.
-        _video.RenderTransformOrigin = RelativePoint.TopLeft;
         // Re-clamps to the new size or letterbox and updates the decode box.
         _video.ContentRectChanged += ApplyIfZoomed;
         _host.SizeChanged += (_, _) => ApplyIfZoomed();
@@ -72,19 +68,11 @@ sealed class ZoomPanBehavior
         Apply();
     }
 
-    /// <summary>Shows the zoom state: transform and scaling quality, then raises <see cref="Changed"/>.</summary>
+    /// <summary>Shows the zoom state: the surface's zoom and scaling quality, then raises <see cref="Changed"/>.</summary>
     public void Apply()
     {
         var o = Sync();
-        if (_zoom.IsZoomed)
-        {
-            _transform.Matrix = ZoomMatrix(_zoom.Scale, _zoom.OffsetX, _zoom.OffsetY, o);
-            if (!ReferenceEquals(_video.RenderTransform, _transform)) _video.RenderTransform = _transform;
-        }
-        else
-        {
-            _video.RenderTransform = null;
-        }
+        _video.SetZoom(_zoom.IsZoomed ? ZoomMatrix(_zoom.Scale, _zoom.OffsetX, _zoom.OffsetY, o) : null);
         RenderOptions.SetBitmapInterpolationMode(_video,
             _zoom.IsZoomed ? BitmapInterpolationMode.HighQuality : BitmapInterpolationMode.MediumQuality);
         Changed?.Invoke();
@@ -109,7 +97,7 @@ sealed class ZoomPanBehavior
     }
 
     /// <summary>
-    /// The surface's render transform: the zoom lives in host coordinates and the surface sits at layout offset
+    /// The surface's zoom matrix: the zoom lives in host coordinates and the surface sits at layout offset
     /// <paramref name="o"/>, so host = o + M(local) must equal scale·(o + local) + offset, i.e. M's translation is
     /// (scale − 1)·o + offset.
     /// </summary>

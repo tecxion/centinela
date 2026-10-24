@@ -187,7 +187,16 @@ sealed unsafe class GlVideoView : OpenGlControlBase
     Shader Link(GlInterface gl, string header, string fragment)
     {
         var vertexShader = Compile(gl, GL_VERTEX_SHADER, header + GlShaders.Vertex);
-        var fragmentShader = Compile(gl, GL_FRAGMENT_SHADER, header + fragment);
+        int fragmentShader;
+        try
+        {
+            fragmentShader = Compile(gl, GL_FRAGMENT_SHADER, header + fragment);
+        }
+        catch
+        {
+            gl.DeleteShader(vertexShader);
+            throw;
+        }
         var program = gl.CreateProgram();
         gl.AttachShader(program, vertexShader);
         gl.AttachShader(program, fragmentShader);
