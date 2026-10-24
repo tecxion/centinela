@@ -29,6 +29,43 @@ public unsafe class FrameConverterTests
         return frame;
     }
 
+    /// <summary>An NV12 image that only varies across: Y = x and each U/V pair = the x of its left column (mod 256).</summary>
+    static AVFrame* Gradient(int width, int height, bool interlaced)
+    {
+        var frame = Nv12(width, height, 0, 0, 0);
+        for (var row = 0; row < height; row++)
+        {
+            var y = new Span<byte>(frame->data[0] + row * frame->linesize[0], width);
+            for (var x = 0; x < y.Length; x++) y[x] = (byte)x;
+        }
+        for (var row = 0; row < (height + 1) / 2; row++)
+        {
+            var uv = new Span<byte>(frame->data[1] + row * frame->linesize[1], (width + 1) / 2 * 2);
+            for (var i = 0; i < uv.Length; i++) uv[i] = (byte)(i & ~1);
+        }
+        if (interlaced) frame->flags |= ffmpeg.AV_FRAME_FLAG_INTERLACED;
+        return frame;
+    }
+
+    /// <summary>Every row of the plane at <paramref name="offset"/> is within <paramref name="tolerance"/> of its first row, byte by byte.</summary>
+    static void AssertRowsMatch(byte[] data, int offset, int rowBytes, int rows, int tolerance, string plane)
+    {
+        for (var row = 1; row < rows; row++)
+            for (var i = 0; i < rowBytes; i++)
+            {
+                int first = data[offset + i], other = data[offset + row * rowBytes + i];
+                if (Math.Abs(other - first) > tolerance)
+                    Assert.Fail($"{plane}: row {row} byte {i} is {other}, row 0 has {first}");
+            }
+    }
+
+    /// <summary>swscale writing past a managed array corrupts the heap; a full collection walks into it.</summary>
+    static void CollectGarbage()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+    }
+
     static VideoFrame ToBgra(AVFrame* src, int width, int height)
     {
         var target = new VideoFrame(width, height);
@@ -142,5 +179,46 @@ public unsafe class FrameConverterTests
             Assert.Equal((YuvMatrix.Bt709, false), (target.Matrix, target.FullRange));
         }
         finally { ffmpeg.av_frame_free(&src); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_horizontal_gradient_keeps_every_row_identical(bool interlaced)
+    {
+        // Rows at slice boundaries (several threads) and every field's rows must not take bytes from their neighbours.
+        var src = Gradient(1280, 720, interlaced);
+        try
+        {
+            using var converter = new FrameConverter();
+            var nv12 = new VideoFrame(802, 450, FrameLayout.Nv12);
+            converter.Convert(src, nv12);
+            var bgra = new VideoFrame(802, 450);
+            converter.Convert(src, bgra);
+            AssertRowsMatch(nv12.Data, 0, nv12.Stride, nv12.Height, 0, "Y");
+            AssertRowsMatch(nv12.Data, nv12.ChromaOffset, nv12.ChromaWidth * 2, nv12.ChromaHeight, 0, "UV");
+            // swscale dithers RGB output, a few levels per row; a spill puts the far brighter end of a row at the next one's start.
+            AssertRowsMatch(bgra.Data, 0, bgra.Stride, bgra.Height, 32, "BGRA");
+        }
+        finally { ffmpeg.av_frame_free(&src); }
+        CollectGarbage();
+    }
+
+    [Fact]
+    public void Tiny_targets_convert_too()
+    {
+        var src = Nv12(64, 64, RedY, RedU, RedV, AVColorSpace.AVCOL_SPC_BT709, AVColorRange.AVCOL_RANGE_MPEG);
+        try
+        {
+            using var converter = new FrameConverter();
+            var nv12 = new VideoFrame(2, 2, FrameLayout.Nv12);
+            converter.Convert(src, nv12);
+            Assert.Equal(new byte[] { RedY, RedY, RedY, RedY, RedU, RedV }, nv12.Data);
+            var bgra = new VideoFrame(2, 2);
+            converter.Convert(src, bgra);
+            AssertPureRed(bgra.Data);
+        }
+        finally { ffmpeg.av_frame_free(&src); }
+        CollectGarbage();
     }
 }

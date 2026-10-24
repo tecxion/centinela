@@ -36,9 +36,18 @@ sealed unsafe class FrameConverter : IDisposable
             _sws->flags = (uint)filter;
             _filter = filter;
         }
+        var format = target.Layout == FrameLayout.Nv12 ? AVPixelFormat.AV_PIX_FMT_NV12 : AVPixelFormat.AV_PIX_FMT_BGRA;
         if (_dst is null) _dst = ffmpeg.av_frame_alloc();
-        _dst->width = target.Width;
-        _dst->height = target.Height;
+        // swscale writes past each row's width and, scaling fields, past the last row: it gets FFmpeg's padded buffer
+        // and the image is copied tight into the managed array afterwards.
+        if (_dst->buf[0] is null || _dst->width != target.Width || _dst->height != target.Height || _dst->format != (int)format)
+        {
+            ffmpeg.av_frame_unref(_dst);
+            _dst->format = (int)format;
+            _dst->width = target.Width;
+            _dst->height = target.Height;
+            FFmpegException.ThrowIfError(ffmpeg.av_frame_get_buffer(_dst, 0), "alloc frame");
+        }
         // Same primaries and transfer as the source: only the matrix is converted, never the gamut.
         _dst->color_primaries = src->color_primaries;
         _dst->color_trc = src->color_trc;
@@ -47,7 +56,6 @@ sealed unsafe class FrameConverter : IDisposable
         if (target.Layout == FrameLayout.Nv12)
         {
             // Scaled only, same matrix and range: the graphics card converts to RGB with them.
-            _dst->format = (int)AVPixelFormat.AV_PIX_FMT_NV12;
             _dst->colorspace = src->colorspace;
             _dst->color_range = src->color_range;
             target.Matrix = tags.Matrix;
@@ -55,26 +63,21 @@ sealed unsafe class FrameConverter : IDisposable
         }
         else
         {
-            _dst->format = (int)AVPixelFormat.AV_PIX_FMT_BGRA;
             _dst->colorspace = AVColorSpace.AVCOL_SPC_RGB;
             _dst->color_range = AVColorRange.AVCOL_RANGE_JPEG;
         }
-        int err;
-        fixed (byte* data = target.Data)
+        FFmpegException.ThrowIfError(ffmpeg.sws_scale_frame(_sws, _dst, src), "scale");
+        var planes = new byte_ptrArray4();
+        var linesizes = new int_array4();
+        for (uint i = 0; i < 4; i++)
         {
-            _dst->data[0] = data;
-            _dst->linesize[0] = target.Stride;
-            if (target.Layout == FrameLayout.Nv12)
-            {
-                _dst->data[1] = data + target.ChromaOffset;
-                _dst->linesize[1] = target.ChromaWidth * 2;
-            }
-            err = ffmpeg.sws_scale_frame(_sws, _dst, src);
-            _dst->data[0] = null; // managed buffer: never left behind in the frame
-            _dst->data[1] = null;
-            _dst->linesize[1] = 0;
+            planes[i] = _dst->data[i];
+            linesizes[i] = _dst->linesize[i];
         }
-        FFmpegException.ThrowIfError(err, "scale");
+        int copied;
+        fixed (byte* data = target.Data)
+            copied = ffmpeg.av_image_copy_to_buffer(data, target.Data.Length, planes, linesizes, format, target.Width, target.Height, 1);
+        FFmpegException.ThrowIfError(copied, "copy frame");
     }
 
     public void Dispose()

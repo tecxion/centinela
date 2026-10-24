@@ -217,13 +217,13 @@ public sealed class StreamSessionTests(RtspTestServer server, ITestOutputHelper 
             using var session = Open(server.Url("open"));
             session.SetTargetSize(320, 180);
             session.Start();
-            Assert.True(TestUtil.WaitFor(() => session.Mailbox.Sequence > 0, Ten), session.LastError);
+            // The stats are written just after the frame is published.
+            Assert.True(TestUtil.WaitFor(() => session.Mailbox.Sequence > 0 && session.Stats.GpuPainting, Ten), session.LastError);
 
             long seq = 0;
             (FrameLayout Layout, int Width) seen = default;
             session.Mailbox.TryRead(ref seq, f => seen = (f.Layout, f.Width));
             Assert.Equal((FrameLayout.Nv12, 320), seen);
-            Assert.True(session.Stats.GpuPainting);
         }
         finally
         {
