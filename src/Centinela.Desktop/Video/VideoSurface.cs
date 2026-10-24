@@ -229,10 +229,10 @@ sealed class VideoSurface : Control
     /// <summary>A frame waits to be painted: after <see cref="PaintTimeout"/> of that, everybody uses the processor.</summary>
     void WatchUnpainted()
     {
-        if (_unpaintedSince == 0) _unpaintedSince = Stopwatch.GetTimestamp();
-        // Without a size OpenGL renders nothing on purpose.
-        else if (Stopwatch.GetElapsedTime(_unpaintedSince) > PaintTimeout && Bounds.Width > 0 && Bounds.Height > 0)
-            GpuVideo.TurnOff();
+        // Without a size OpenGL renders nothing on purpose: only time spent with a size counts.
+        if (Bounds.Width <= 0 || Bounds.Height <= 0) _unpaintedSince = 0;
+        else if (_unpaintedSince == 0) _unpaintedSince = Stopwatch.GetTimestamp();
+        else if (Stopwatch.GetElapsedTime(_unpaintedSince) > PaintTimeout) GpuVideo.TurnOff();
     }
 
     void Shown(PixelSize size, bool inGlRender)
