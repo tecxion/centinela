@@ -207,4 +207,27 @@ public sealed class StreamSessionTests(RtspTestServer server, ITestOutputHelper 
         Assert.InRange(stats.Fps, 20, 30);
         lock (reported) Assert.Equal([1.0, 0], reported);
     }
+
+    [SkippableFact]
+    public void Publishes_nv12_frames_while_the_graphics_card_paints()
+    {
+        FrameOutput.Layout = FrameLayout.Nv12;
+        try
+        {
+            using var session = Open(server.Url("open"));
+            session.SetTargetSize(320, 180);
+            session.Start();
+            Assert.True(TestUtil.WaitFor(() => session.Mailbox.Sequence > 0, Ten), session.LastError);
+
+            long seq = 0;
+            (FrameLayout Layout, int Width) seen = default;
+            session.Mailbox.TryRead(ref seq, f => seen = (f.Layout, f.Width));
+            Assert.Equal((FrameLayout.Nv12, 320), seen);
+            Assert.True(session.Stats.GpuPainting);
+        }
+        finally
+        {
+            FrameOutput.Layout = FrameLayout.Bgra;
+        }
+    }
 }

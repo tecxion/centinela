@@ -124,4 +124,23 @@ public unsafe class FrameConverterTests
     [InlineData(320, SwsFlags.SWS_BILINEAR)]
     public void Large_images_use_bicubic(int width, SwsFlags expected) =>
         Assert.Equal(expected, FrameConverter.FilterFor(width));
+
+    [Fact]
+    public void Nv12_output_keeps_the_samples_and_says_how_to_read_them()
+    {
+        var src = Nv12(1280, 720, RedY, RedU, RedV);
+        try
+        {
+            var target = new VideoFrame(640, 360, FrameLayout.Nv12);
+            using var converter = new FrameConverter();
+            converter.Convert(src, target);
+            Assert.Equal(RedY, target.Data[0]);
+            Assert.Equal(RedY, target.Data[target.ChromaOffset - 1]);
+            Assert.Equal(RedU, target.Data[target.ChromaOffset]);
+            Assert.Equal(RedV, target.Data[target.ChromaOffset + 1]);
+            Assert.Equal(RedV, target.Data[^1]);
+            Assert.Equal((YuvMatrix.Bt709, false), (target.Matrix, target.FullRange));
+        }
+        finally { ffmpeg.av_frame_free(&src); }
+    }
 }

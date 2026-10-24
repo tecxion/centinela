@@ -49,4 +49,29 @@ public class GrayScalerTests
         GrayScaler.FromBgra(src, 90, 50, 100 * 4, frame); // stride wider than width·4, source smaller than 160×90
         Assert.All(frame.Pixels, p => Assert.Equal(0, p));
     }
+
+    [Fact]
+    public void Limited_range_luma_is_stretched_to_full_range()
+    {
+        var frame = GrayScaler.Create();
+        var luma = new byte[320 * 180];
+        Array.Fill(luma, (byte)16);
+        GrayScaler.FromLuma(luma, 320, 180, 320, fullRange: false, frame);
+        Assert.All(frame.Pixels, p => Assert.Equal(0, p));
+        Array.Fill(luma, (byte)235);
+        GrayScaler.FromLuma(luma, 320, 180, 320, fullRange: false, frame);
+        Assert.All(frame.Pixels, p => Assert.Equal(255, p));
+    }
+
+    [Fact]
+    public void Full_range_luma_is_kept_and_halves_stay_apart()
+    {
+        var frame = GrayScaler.Create();
+        var luma = new byte[640 * 360];
+        for (var y = 0; y < 360; y++)
+            for (var x = 320; x < 640; x++) luma[y * 640 + x] = 200;
+        GrayScaler.FromLuma(luma, 640, 360, 640, fullRange: true, frame);
+        Assert.Equal(0, frame.Pixels[10 * 160 + 10]);
+        Assert.Equal(200, frame.Pixels[10 * 160 + 150]);
+    }
 }

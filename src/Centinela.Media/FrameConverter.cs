@@ -3,8 +3,9 @@ using FFmpeg.AutoGen;
 namespace Centinela.Media;
 
 /// <summary>
-/// Turns a decoded frame into a mailbox frame with swscale: with the frame's real colours (<see cref="ColorTags"/>),
-/// over several cores, bicubic for large images. One per session; only its decoding thread calls it.
+/// Turns a decoded frame into a mailbox frame (BGRA, or NV12 for the graphics card) with swscale: with the frame's
+/// real colours (<see cref="ColorTags"/>), over several cores, bicubic for large images. One per session; only its
+/// decoding thread calls it.
 /// </summary>
 sealed unsafe class FrameConverter : IDisposable
 {
@@ -24,7 +25,7 @@ sealed unsafe class FrameConverter : IDisposable
     /// <summary>Converts <paramref name="src"/> into <paramref name="target"/>, scaled to its size; tags <paramref name="src"/> with its inferred colours.</summary>
     public void Convert(AVFrame* src, VideoFrame target)
     {
-        ColorTags.Apply(src);
+        var tags = ColorTags.Apply(src);
         var filter = FilterFor(target.Width);
         if (_sws is null || filter != _filter)
         {
@@ -36,23 +37,42 @@ sealed unsafe class FrameConverter : IDisposable
             _filter = filter;
         }
         if (_dst is null) _dst = ffmpeg.av_frame_alloc();
-        _dst->format = (int)AVPixelFormat.AV_PIX_FMT_BGRA;
         _dst->width = target.Width;
         _dst->height = target.Height;
-        _dst->colorspace = AVColorSpace.AVCOL_SPC_RGB;
-        _dst->color_range = AVColorRange.AVCOL_RANGE_JPEG;
         // Same primaries and transfer as the source: only the matrix is converted, never the gamut.
         _dst->color_primaries = src->color_primaries;
         _dst->color_trc = src->color_trc;
-        // swscale refuses interlaced→progressive; matching the flag scales each field, like FFmpeg's scale filter.
+        // swscale refuses source and destination with different interlacing; matching it scales each field apart.
         _dst->flags = src->flags & ffmpeg.AV_FRAME_FLAG_INTERLACED;
+        if (target.Layout == FrameLayout.Nv12)
+        {
+            // Scaled only, same matrix and range: the graphics card converts to RGB with them.
+            _dst->format = (int)AVPixelFormat.AV_PIX_FMT_NV12;
+            _dst->colorspace = src->colorspace;
+            _dst->color_range = src->color_range;
+            target.Matrix = tags.Matrix;
+            target.FullRange = tags.FullRange;
+        }
+        else
+        {
+            _dst->format = (int)AVPixelFormat.AV_PIX_FMT_BGRA;
+            _dst->colorspace = AVColorSpace.AVCOL_SPC_RGB;
+            _dst->color_range = AVColorRange.AVCOL_RANGE_JPEG;
+        }
         int err;
         fixed (byte* data = target.Data)
         {
             _dst->data[0] = data;
             _dst->linesize[0] = target.Stride;
+            if (target.Layout == FrameLayout.Nv12)
+            {
+                _dst->data[1] = data + target.ChromaOffset;
+                _dst->linesize[1] = target.ChromaWidth * 2;
+            }
             err = ffmpeg.sws_scale_frame(_sws, _dst, src);
             _dst->data[0] = null; // managed buffer: never left behind in the frame
+            _dst->data[1] = null;
+            _dst->linesize[1] = 0;
         }
         FFmpegException.ThrowIfError(err, "scale");
     }

@@ -227,8 +227,11 @@ sealed class MotionService : IDisposable
                 }
                 var gray = monitor.Gray;
                 // Only the downscale runs inside the mailbox lock; analysis runs after it.
-                var read = session.Mailbox.TryRead(ref monitor.Sequence,
-                    f => GrayScaler.FromBgra(f.Data, f.Width, f.Height, f.Stride, gray));
+                var read = session.Mailbox.TryRead(ref monitor.Sequence, f =>
+                {
+                    if (f.Layout == FrameLayout.Nv12) GrayScaler.FromLuma(f.Data, f.Width, f.Height, f.Stride, f.FullRange, gray);
+                    else GrayScaler.FromBgra(f.Data, f.Width, f.Height, f.Stride, gray);
+                });
                 var sample = read ? monitor.Detector.Analyze(gray) : NoMotion;
                 return monitor.Enqueue(monitor.Tracker.Update(sample, now));
             }

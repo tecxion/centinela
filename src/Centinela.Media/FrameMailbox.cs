@@ -1,14 +1,5 @@
 namespace Centinela.Media;
 
-/// <summary>A BGRA image. Stride is always Width * 4.</summary>
-public sealed class VideoFrame(int width, int height)
-{
-    public int Width { get; } = width;
-    public int Height { get; } = height;
-    public int Stride { get; } = width * 4;
-    public byte[] Data { get; } = new byte[width * 4 * height];
-}
-
 /// <summary>
 /// Single-slot, latest-wins handoff between the decode thread and the UI.
 /// Two buffers rotate: the producer fills the one it rented while the consumer reads the latest.
@@ -23,15 +14,15 @@ public sealed class FrameMailbox
 
     public long Sequence => Interlocked.Read(ref _sequence);
 
-    public VideoFrame Rent(int width, int height)
+    public VideoFrame Rent(int width, int height, FrameLayout layout = FrameLayout.Bgra)
     {
         lock (_gate)
         {
             var frame = _spare;
             _spare = null;
-            return frame is not null && frame.Width == width && frame.Height == height
+            return frame is not null && frame.Width == width && frame.Height == height && frame.Layout == layout
                 ? frame
-                : new VideoFrame(width, height);
+                : new VideoFrame(width, height, layout);
         }
     }
 

@@ -7,8 +7,8 @@ namespace Centinela.Media;
 public enum SessionState { Idle, Connecting, Playing, Reconnecting, AuthFailed, Stopped }
 
 /// <summary>
-/// One RTSP connection on its own thread. Decoding sessions push the newest frame (BGRA, scaled to
-/// the target size) into <see cref="Mailbox"/>; there is no buffering, clock or queue on purpose.
+/// One RTSP connection on its own thread. Decoding sessions push the newest frame (scaled to the target size, BGRA or
+/// NV12 by <see cref="FrameOutput"/>) into <see cref="Mailbox"/>; there is no buffering, clock or queue on purpose.
 /// </summary>
 public sealed unsafe partial class StreamSession : IDisposable
 {
@@ -483,15 +483,15 @@ public sealed unsafe partial class StreamSession : IDisposable
         if (!_infoPublished) PublishInfo(src->width, src->height);
 
         var (width, height) = FrameGeometry.FitSize(src->width, src->height, _targetWidth, _targetHeight);
-        var target = Mailbox.Rent(width, height);
+        var target = Mailbox.Rent(width, height, FrameOutput.Layout);
         var started = Stopwatch.GetTimestamp();
         _converter.Convert(src, target);
         var convertMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         Mailbox.Publish(target);
-        UpdateStats(hardware, convertMs);
+        UpdateStats(hardware, convertMs, target.Layout == FrameLayout.Nv12);
     }
 
-    void UpdateStats(bool hardware, double convertMs)
+    void UpdateStats(bool hardware, double convertMs, bool gpuPainting)
     {
         var now = Stopwatch.GetTimestamp();
         var latency = Stopwatch.GetElapsedTime(_packetTimestamp, now).TotalMilliseconds;
@@ -508,7 +508,7 @@ public sealed unsafe partial class StreamSession : IDisposable
         }
         Interlocked.Exchange(ref _lastFrameTimestamp, now);
         Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero, SmoothingSeconds,
-            Volatile.Read(ref _rebuffers), _convertEma));
+            Volatile.Read(ref _rebuffers), _convertEma, gpuPainting));
     }
 
     void KeepForSnapshot(AVFrame* src)
