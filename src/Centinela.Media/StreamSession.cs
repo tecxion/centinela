@@ -34,7 +34,7 @@ public sealed unsafe partial class StreamSession : IDisposable
     volatile int _targetHeight;
     bool _forceSoftware;
     int _decodeErrors;
-    SwsContext* _sws;
+    readonly FrameConverter _converter = new();
     AVFrame* _lastFrame; // native-resolution software frame for snapshots; guarded by _snapshotLock
     volatile bool _deadlineHit;
     volatile int _lastRtspStatus;          // 0 = none, for the current attempt
@@ -46,6 +46,7 @@ public sealed unsafe partial class StreamSession : IDisposable
     int _statsFrames;
     double _fps;
     double _latencyEma = -1;
+    double _convertEma = -1;
     long _packetTimestamp;          // when the packet being decoded was read (decoding thread)
     volatile bool _connectionPlayed; // the current connection showed a frame (reader or playout thread)
     volatile StreamInfo? _info;     // null until known for the current connection
@@ -209,8 +210,7 @@ public sealed unsafe partial class StreamSession : IDisposable
                 ffmpeg.av_frame_free(&last);
                 _lastFrame = null;
             }
-            ffmpeg.sws_freeContext(_sws);
-            _sws = null;
+            _converter.Dispose();
             ffmpeg.av_buffer_unref(&hwDevice);
             if (_state != SessionState.AuthFailed) SetState(SessionState.Stopped);
         }
@@ -226,6 +226,7 @@ public sealed unsafe partial class StreamSession : IDisposable
         _statsFrames = 0;
         _statsWindowStart = 0;
         _latencyEma = -1;
+        _convertEma = -1;
         _fps = 0;
         _info = null;
         _infoPublished = false;
@@ -247,6 +248,8 @@ public sealed unsafe partial class StreamSession : IDisposable
 
             AVDictionary* options = null;
             ffmpeg.av_dict_set(&options, "rtsp_transport", _useUdp ? "udp" : "tcp", 0);
+            // Keyframes of big images arrive as bursts of datagrams; a small socket buffer drops some and smears the image.
+            if (_useUdp) ffmpeg.av_dict_set(&options, "buffer_size", "4194304", 0);
             ffmpeg.av_dict_set(&options, "fflags", "nobuffer", 0);
             ffmpeg.av_dict_set(&options, "probesize", "32768", 0);
             ffmpeg.av_dict_set(&options, "max_delay", "0", 0);
@@ -473,30 +476,27 @@ public sealed unsafe partial class StreamSession : IDisposable
                 FFmpegException.ThrowIfError(err, "gpu transfer");
             }
             src = sw;
+            // The transfer copies pixels only; the colour tags are needed to convert them right.
+            FFmpegException.ThrowIfError(ffmpeg.av_frame_copy_props(sw, frame), "frame props");
         }
         KeepForSnapshot(src);
         if (!_infoPublished) PublishInfo(src->width, src->height);
 
         var (width, height) = FrameGeometry.FitSize(src->width, src->height, _targetWidth, _targetHeight);
         var target = Mailbox.Rent(width, height);
-        _sws = ffmpeg.sws_getCachedContext(_sws, src->width, src->height, (AVPixelFormat)src->format,
-            width, height, AVPixelFormat.AV_PIX_FMT_BGRA, (int)SwsFlags.SWS_BILINEAR, null, null, null);
-        if (_sws is null) throw new InvalidOperationException("sws_getCachedContext failed");
-
-        fixed (byte* dst = target.Data)
-        {
-            ffmpeg.sws_scale(_sws, src->data.ToArray(), src->linesize.ToArray(), 0, src->height,
-                new byte*[] { dst, null, null, null }, new[] { target.Stride, 0, 0, 0 });
-        }
+        var started = Stopwatch.GetTimestamp();
+        _converter.Convert(src, target);
+        var convertMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         Mailbox.Publish(target);
-        UpdateStats(hardware);
+        UpdateStats(hardware, convertMs);
     }
 
-    void UpdateStats(bool hardware)
+    void UpdateStats(bool hardware, double convertMs)
     {
         var now = Stopwatch.GetTimestamp();
         var latency = Stopwatch.GetElapsedTime(_packetTimestamp, now).TotalMilliseconds;
         _latencyEma = _latencyEma < 0 ? latency : _latencyEma * 0.9 + latency * 0.1;
+        _convertEma = _convertEma < 0 ? convertMs : _convertEma * 0.9 + convertMs * 0.1;
         _statsFrames++;
         if (_statsWindowStart == 0) _statsWindowStart = now;
         var window = Stopwatch.GetElapsedTime(_statsWindowStart, now).TotalSeconds;
@@ -508,7 +508,7 @@ public sealed unsafe partial class StreamSession : IDisposable
         }
         Interlocked.Exchange(ref _lastFrameTimestamp, now);
         Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero, SmoothingSeconds,
-            Volatile.Read(ref _rebuffers)));
+            Volatile.Read(ref _rebuffers), _convertEma));
     }
 
     void KeepForSnapshot(AVFrame* src)
