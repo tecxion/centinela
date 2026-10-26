@@ -38,11 +38,12 @@ flags="-arch $cpu -mmacosx-version-min=14.0"
 
 cd "$tmp/src"
 # --disable-autodetect keeps out Homebrew libraries the user's Mac does not have; it also drops threads,
-# hence --enable-pthreads.
+# hence --enable-pthreads. No iconv: on macOS it is a separate libiconv that libavcodec fails to link, and it only
+# converts subtitle charsets, which Centinela never decodes.
 ./configure \
     --prefix="$tmp/out" --enable-shared --disable-static --disable-programs --disable-doc --disable-debug \
     --disable-autodetect --enable-pthreads --enable-videotoolbox --enable-audiotoolbox \
-    --enable-zlib --enable-bzlib --enable-iconv \
+    --enable-zlib --enable-bzlib \
     --install-name-dir=@loader_path \
     --extra-cflags="$flags" --extra-ldflags="$flags" \
     ${cross[@]+"${cross[@]}"}
