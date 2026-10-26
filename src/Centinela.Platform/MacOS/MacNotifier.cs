@@ -54,11 +54,12 @@ public sealed class MacNotifier : INotifier
             var center = Send(centerClass, sel_registerName("currentNotificationCenter"));
             // Never released: the center holds its delegate weakly.
             var instance = Send(Send(delegateClass, sel_registerName("alloc")), sel_registerName("init"));
+            var grant = IgnoreGrantBlock();
             var notifier = new MacNotifier(ui, center);
+            // Published only once nothing managed can fail: a null result never leaves the delegate installed.
             _current = notifier;
             SendVoid(center, sel_registerName("setDelegate:"), instance);
-            SendVoid(center, sel_registerName("requestAuthorizationWithOptions:completionHandler:"), AuthorizationAlert,
-                IgnoreGrantBlock());
+            SendVoid(center, sel_registerName("requestAuthorizationWithOptions:completionHandler:"), AuthorizationAlert, grant);
             return notifier;
         }
         catch (Exception)
@@ -71,18 +72,17 @@ public sealed class MacNotifier : INotifier
     {
         if (_disposed) return;
         var pool = objc_autoreleasePoolPush(); // the request is autoreleased
+        IntPtr content = IntPtr.Zero, identifier = IntPtr.Zero;
         try
         {
-            var content = Send(Send(objc_getClass("UNMutableNotificationContent"), sel_registerName("alloc")),
+            content = Send(Send(objc_getClass("UNMutableNotificationContent"), sel_registerName("alloc")),
                 sel_registerName("init"));
             SetText(content, "setTitle:", title);
             SetText(content, "setBody:", text);
-            var identifier = NewString(_actions.Add(onClick ?? (() => { })));
+            identifier = NewString(_actions.Add(onClick ?? (() => { })));
             var request = Send(objc_getClass("UNNotificationRequest"),
                 sel_registerName("requestWithIdentifier:content:trigger:"), identifier, content, IntPtr.Zero);
-            Release(identifier);
             SendVoid(_center, sel_registerName("addNotificationRequest:withCompletionHandler:"), request, IntPtr.Zero);
-            Release(content);
         }
         catch (Exception)
         {
@@ -90,6 +90,8 @@ public sealed class MacNotifier : INotifier
         }
         finally
         {
+            if (identifier != IntPtr.Zero) Release(identifier);
+            if (content != IntPtr.Zero) Release(content);
             objc_autoreleasePoolPop(pool);
         }
     }
