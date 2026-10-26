@@ -66,7 +66,12 @@ find "$exe_dir" -type f -exec "${sign[@]}" {} +
 "${sign[@]}" "$app"
 codesign --verify --strict "$app"
 
-hdiutil create -volname Centinela -srcfolder "$work/dmg" -ov -format UDZO "$dmg"
+# «Resource busy» is an intermittent hdiutil failure on hosted runners: up to three tries.
+for try in 1 2 3; do
+    hdiutil create -volname Centinela -srcfolder "$work/dmg" -ov -format UDZO "$dmg" && break
+    [ "$try" -lt 3 ] || { echo "No se pudo crear el .dmg (hdiutil)." >&2; exit 1; }
+    sleep 5
+done
 if [ "$identity" != "-" ]; then
     codesign --force --timestamp --sign "$identity" "$dmg"
 fi

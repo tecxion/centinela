@@ -41,6 +41,8 @@ public partial class App : Application
     /// </summary>
     void SetApplicationMenu()
     {
+        // Only here: on Linux the name would also become the X11 window class.
+        Name = "Centinela";
         var about = new NativeMenuItem("Acerca de Centinela");
         about.Click += (_, _) => _window?.ShowAbout();
         NativeMenu.SetMenu(this, new NativeMenu { about });

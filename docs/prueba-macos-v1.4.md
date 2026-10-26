@@ -22,7 +22,8 @@ Terminal (⌘ + Espacio y escribe «Terminal») y se confirman con Intro.
 ## 2. Instalar y primer arranque
 
 - [ ] Doble clic en el `.dmg`. Se abre una ventana con Centinela y la carpeta Aplicaciones: arrastra Centinela
-      encima de Aplicaciones. Si ya había uno, sal antes de Centinela (Centinela › Salir) y elige «Reemplazar».
+      encima de Aplicaciones. Si ya había uno, sal antes de Centinela con ⌘Q (o «Salir» en el menú del icono de la
+      barra de menús) y elige «Reemplazar».
       Después expulsa el disco «Centinela» (botón ⏏ en la barra lateral de Finder).
 - [ ] Abre Centinela desde Aplicaciones. La primera vez macOS no lo deja abrir porque no está notarizado (el aviso
       dice que Apple no ha podido comprobarlo). Cierra el aviso sin elegir «Trasladar a la Papelera». Ve a Ajustes
@@ -43,6 +44,8 @@ Terminal (⌘ + Espacio y escribe «Terminal») y se confirman con Intro.
       espera (no sale o no responde): es normal. Pasa por la firma provisional de estos `.dmg` de prueba; con la firma
       de la versión final (fase 5) dejará de salir tras cada actualización. Apunta si sale también sin haber
       instalado un `.dmg` nuevo.
+- [ ] Como con el Llavero, tras instalar cada `.dmg` de prueba nuevo macOS puede volver a preguntar por la red local y
+      por la carpeta Documentos: también es por la firma provisional, no es un fallo. «Permitir» otra vez.
 
 ## 3. Comprobar
 
@@ -59,7 +62,9 @@ Terminal (⌘ + Espacio y escribe «Terminal») y se confirman con Intro.
 ### Barra de menús, Dock y menú de la aplicación
 
 - [ ] Arriba a la derecha, en la barra de menús, sale el icono de Centinela. Su menú tiene «Abrir», «Grabar todas»,
-      «Abrir al iniciar sesión» y «Salir»; «Abrir» muestra la ventana.
+      «Abrir al iniciar sesión» y «Salir»; «Abrir» muestra la ventana. En un MacBook con muesca, si hay muchos iconos
+      el de Centinela puede quedar escondido detrás de la muesca: cierra otras apps de la barra de menús, o mantén
+      pulsada ⌘ y arrastra iconos para hacerle sitio.
 - [ ] El botón rojo de la ventana la oculta (Centinela sigue abierto y las grabaciones siguen). La primera vez sale una
       notificación de macOS que lo explica; tiene que verse aunque Centinela esté delante.
 - [ ] Con la ventana oculta, un clic en el icono de Centinela del Dock la vuelve a abrir.
@@ -70,17 +75,21 @@ Terminal (⌘ + Espacio y escribe «Terminal») y se confirman con Intro.
 
 ### Abrir al iniciar sesión
 
+Antes de cada «Cierra la sesión» de esta sección, sal de Centinela con ⌘Q y, en la ventana que pregunta si quieres
+cerrar la sesión, desmarca «Volver a abrir las ventanas al volver a iniciar sesión». Si al entrar se abre sola la
+ventana de Centinela, viene de esa opción de macOS, no de Centinela.
+
 - [ ] Marca «Abrir al iniciar sesión» en el menú del icono. macOS avisa «Ítem añadido en segundo plano». Comprueba el
       archivo: `cat ~/Library/LaunchAgents/es.tecxart.centinela.plist`. Tiene `/Applications/Centinela.app/Contents/MacOS/Centinela`
       y `--tray`.
-- [ ] Cierra la sesión (menú de la manzana › Cerrar sesión) y vuelve a entrar. Centinela arranca solo, oculto en la barra de menús, y
-      las cámaras vigiladas siguen vigilándose.
+- [ ] Sal con ⌘Q. Cierra la sesión (menú de la manzana › Cerrar sesión) y vuelve a entrar. Centinela arranca solo,
+      oculto en la barra de menús, y las cámaras vigiladas siguen vigilándose.
 - [ ] En Ajustes del Sistema › General › Ítems de inicio (en macOS 15 se llama «Ítems de inicio y extensiones»), en
       «Permitir en segundo plano», apaga el interruptor de Centinela. Ojo: macOS no guarda ese interruptor en el
-      archivo de arriba, así que la casilla de Centinela puede seguir marcada aunque esté apagado. Cierra la sesión y
-      entra: apunta si Centinela arranca (con el interruptor apagado no debería). Vuelve a encenderlo.
-- [ ] Desmarca «Abrir al iniciar sesión» en Centinela: el archivo desaparece (`ls ~/Library/LaunchAgents`). Cierra la
-      sesión y entra: Centinela ya no arranca solo.
+      archivo de arriba, así que la casilla de Centinela puede seguir marcada aunque esté apagado. Sal con ⌘Q. Cierra
+      la sesión y entra: apunta si Centinela arranca (con el interruptor apagado no debería). Vuelve a encenderlo.
+- [ ] Desmarca «Abrir al iniciar sesión» en Centinela: el archivo desaparece (`ls ~/Library/LaunchAgents`). Sal con
+      ⌘Q. Cierra la sesión y entra: Centinela ya no arranca solo.
 
 ### Una sola copia abierta
 
@@ -104,6 +113,9 @@ Terminal (⌘ + Espacio y escribe «Terminal») y se confirman con Intro.
       la muestra en Finder.
 - [ ] Graba una cámara: los archivos MKV están en Películas/Centinela, en una carpeta por cámara. «📁 Grabaciones»
       abre esa carpeta en Finder.
+- [ ] App Nap: graba una cámara al menos 15 minutos con la ventana oculta en la barra de menús (botón rojo). En
+      Monitor de Actividad, la columna «App Nap» de Centinela dice «No» (si no está, añádela desde el menú de las
+      columnas: clic derecho en la cabecera de la tabla). La grabación no tiene cortes.
 
 ### Red
 

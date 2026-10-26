@@ -5,7 +5,7 @@ using Centinela.Core.Platform;
 namespace Centinela.Platform.Unix;
 
 /// <summary>
-/// A Unix domain socket marks the first instance (Linux, and macOS later): a later launch connects, sends
+/// A Unix domain socket marks the first instance (Linux and macOS): a later launch connects, sends
 /// <c>show</c> and exits. A CENTINELA_DATA_DIR run passes its own suffix to <see cref="PathFor"/>, so a test build
 /// never wakes (or yields to) the user's instance.
 /// </summary>

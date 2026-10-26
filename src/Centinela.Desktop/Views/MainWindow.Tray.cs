@@ -177,7 +177,7 @@ public partial class MainWindow
         {
             settings.TrayHintShown = true;
             _vm.Settings.Save();
-            ShowSystemNotice("Centinela sigue en la bandeja", TrayTexts.HiddenHint(Os));
+            ShowSystemNotice(TrayTexts.HiddenTitle(Os), TrayTexts.HiddenHint(Os));
         }
     }
 

@@ -24,6 +24,8 @@
 	<string>14.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>LSAppNapIsDisabled</key>
+	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Centinela se conecta a las cámaras de tu red local y las busca en ella.</string>
 	<key>NSDocumentsFolderUsageDescription</key>

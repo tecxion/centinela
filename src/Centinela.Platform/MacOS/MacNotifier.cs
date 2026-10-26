@@ -40,8 +40,10 @@ public sealed class MacNotifier : INotifier
     /// <summary>Null, never an exception, without libobjc, UserNotifications, an app bundle or the center class.</summary>
     public static MacNotifier? TryCreate(SynchronizationContext ui)
     {
+        var pool = IntPtr.Zero;
         try
         {
+            pool = objc_autoreleasePoolPush(); // called from Program.Main, before NSApplication provides one
             NativeLibrary.Load(Framework);
             // Without a bundle (dotnet run) UNUserNotificationCenter raises an Objective-C exception.
             var bundle = Send(objc_getClass("NSBundle"), sel_registerName("mainBundle"));
@@ -65,6 +67,10 @@ public sealed class MacNotifier : INotifier
         catch (Exception)
         {
             return null; // DllNotFoundException off macOS
+        }
+        finally
+        {
+            if (pool != IntPtr.Zero) objc_autoreleasePoolPop(pool);
         }
     }
 

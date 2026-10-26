@@ -103,11 +103,21 @@ public class TrayHintTests
     public void Windows_keeps_its_double_click() =>
         Assert.Equal("Las grabaciones continúan. Doble clic en el icono para abrirla; «Salir» la cierra.", TrayTexts.HiddenHint(OsKind.Windows));
 
+    [Fact]
+    public void Linux_a_single_click() =>
+        Assert.Equal("Las grabaciones continúan. Haz clic en el icono para abrirla; «Salir» la cierra.", TrayTexts.HiddenHint(OsKind.Linux));
+
+    [Fact]
+    public void MacOS_the_menu_bar_menu_or_the_Dock() =>
+        Assert.Equal("Las grabaciones continúan. Para volver a abrirla, usa «Abrir» en el menú del icono de la barra de menús o haz clic en Centinela en el Dock.",
+            TrayTexts.HiddenHint(OsKind.MacOS));
+
     [Theory]
-    [InlineData(OsKind.Linux)]
-    [InlineData(OsKind.MacOS)]
-    public void Elsewhere_a_single_click(OsKind os) =>
-        Assert.Equal("Las grabaciones continúan. Haz clic en el icono para abrirla; «Salir» la cierra.", TrayTexts.HiddenHint(os));
+    [InlineData(OsKind.Windows, "Centinela sigue en la bandeja")]
+    [InlineData(OsKind.Linux, "Centinela sigue en la bandeja")]
+    [InlineData(OsKind.MacOS, "Centinela sigue en la barra de menús")]
+    public void The_title_names_where_it_stays(OsKind os, string title) =>
+        Assert.Equal(title, TrayTexts.HiddenTitle(os));
 }
 
 public class TrayAvailabilityWaitTests
