@@ -16,7 +16,7 @@ Qué comprobar en Windows, macOS y Linux después de las mejoras de vídeo. Acti
 Para comparar con el pintado de antes, arranca Centinela con la variable `CENTINELA_CPU_VIDEO=1` (la línea dirá `pintado CPU`):
 
 - Windows (PowerShell): `$env:CENTINELA_CPU_VIDEO=1; & "C:\ruta\a\Centinela.exe"`. La variable se queda puesta en esa ventana de PowerShell: para volver a probar `pintado GPU`, abre otra ventana o ejecuta antes `Remove-Item Env:CENTINELA_CPU_VIDEO`.
-- macOS (cuando exista el .app de macOS, fase 4): `CENTINELA_CPU_VIDEO=1 /Applications/Centinela.app/Contents/MacOS/Centinela`
+- macOS (Terminal, con Centinela instalado en Aplicaciones y cerrado antes con ⌘Q): `CENTINELA_CPU_VIDEO=1 /Applications/Centinela.app/Contents/MacOS/Centinela`
 - Linux: `CENTINELA_CPU_VIDEO=1 centinela`
 
 - [ ] Con las mismas cámaras abiertas, el uso del procesador (Administrador de tareas, Monitor de Actividad o `top`) es menor con `pintado GPU` que con `pintado CPU`.

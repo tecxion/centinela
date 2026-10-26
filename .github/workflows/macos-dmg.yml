@@ -1,0 +1,47 @@
+name: macOS (.dmg de prueba)
+
+on:
+  push:
+    branches: [feat/v1.4]
+    paths-ignore: ['docs/**', '**/*.md']
+  workflow_dispatch:
+
+jobs:
+  dmg:
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: FFmpeg en caché
+        id: ffmpeg-cache
+        uses: actions/cache@v5
+        with:
+          path: ffmpeg/osx-${{ matrix.arch }}
+          key: ffmpeg-osx-${{ matrix.arch }}-${{ hashFiles('tools/get-ffmpeg-mac.sh') }}
+
+      - name: Instalar nasm
+        if: matrix.arch == 'x64' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: brew install nasm
+
+      - name: Compilar FFmpeg
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: bash tools/get-ffmpeg-mac.sh ${{ matrix.arch }}
+
+      - name: Crear el .dmg
+        run: bash tools/build-dmg.sh ${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Centinela-macos-${{ matrix.arch }}
+          path: dist/*.dmg
+          if-no-files-found: error
