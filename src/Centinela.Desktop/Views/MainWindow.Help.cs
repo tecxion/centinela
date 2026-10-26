@@ -18,6 +18,8 @@ public partial class MainWindow
     internal void ShowAbout()
     {
         if (IsHiddenInTray) ShowFromTray();
+        // While exiting the window stays hidden, and a dialog needs a visible owner.
+        if (!IsVisible) return;
         _ = new AboutWindow().ShowDialog(this);
     }
 }
