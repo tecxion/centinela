@@ -42,11 +42,20 @@ public class InfoDocumentsTests
         var kinds = Enum.GetValues<StreamErrorKind>();
         var expected = kinds.Select(kind =>
         {
-            var text = ErrorTranslator.Translate(kind, Brand.Custom, "La cámara");
+            var text = ErrorTranslator.Translate(kind, Brand.Custom, "La cámara", OsKind.Windows);
             return (InfoBlock)new InfoParagraph(text.Advice, text.Short + ": ");
         });
         Assert.Equal(expected, blocks.Skip(start).Take(kinds.Length));
         Assert.Equal(new InfoHeading("Estadísticas"), blocks[start + kinds.Length]);
+    }
+
+    [Fact]
+    public void Manual_on_macos_explains_the_local_network_permission()
+    {
+        var blocks = ManualDocument.Build(OsKind.MacOS).ToList();
+        var start = blocks.IndexOf(new InfoHeading("Errores frecuentes"));
+        Assert.Contains(blocks.Skip(start), b => b is InfoParagraph { Lead: "Sin conexión: " } p
+            && p.Text.EndsWith("permite a Centinela el acceso a la red local en Ajustes del Sistema › Privacidad y seguridad › Red local."));
     }
 
     static string[] Paragraphs(OsKind os) =>

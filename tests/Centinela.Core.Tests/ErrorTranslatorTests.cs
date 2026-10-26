@@ -1,4 +1,5 @@
 using Centinela.Core;
+using Centinela.Core.Platform;
 
 namespace Centinela.Core.Tests;
 
@@ -45,5 +46,28 @@ public class ErrorTranslatorTests
         Assert.Equal("Error de la cámara", ErrorTranslator.Translate(StreamErrorKind.ServerError, Brand.Custom, "X").Short);
         Assert.Equal("Imagen congelada", ErrorTranslator.Translate(StreamErrorKind.Stalled, Brand.Custom, "X").Short);
         Assert.Equal("Error de conexión", ErrorTranslator.Translate(StreamErrorKind.Unknown, Brand.Custom, "X").Short);
+    }
+
+    [Fact]
+    public void Unreachable_advice_on_macos_asks_for_local_network_access() =>
+        Assert.Equal(
+            "Comprueba que la cámara está encendida y en la misma red, y que su IP no ha cambiado (conviene reservarla en el router). Si es la primera vez, permite a Centinela el acceso a la red local en Ajustes del Sistema › Privacidad y seguridad › Red local.",
+            ErrorTranslator.Translate(StreamErrorKind.Unreachable, Brand.Custom, "X", OsKind.MacOS).Advice);
+
+    [Theory]
+    [InlineData(OsKind.Windows)]
+    [InlineData(OsKind.Linux)]
+    public void Unreachable_advice_elsewhere_is_unchanged(OsKind os) =>
+        Assert.Equal(
+            "Comprueba que la cámara está encendida y en la misma red, y que su IP no ha cambiado (conviene reservarla en el router).",
+            ErrorTranslator.Translate(StreamErrorKind.Unreachable, Brand.Custom, "X", os).Advice);
+
+    [Fact]
+    public void Other_errors_do_not_depend_on_the_system()
+    {
+        foreach (var kind in Enum.GetValues<StreamErrorKind>().Where(k => k != StreamErrorKind.Unreachable))
+            foreach (var brand in Enum.GetValues<Brand>())
+                foreach (var os in Enum.GetValues<OsKind>())
+                    Assert.Equal(ErrorTranslator.Translate(kind, brand, "X", OsKind.Windows), ErrorTranslator.Translate(kind, brand, "X", os));
     }
 }

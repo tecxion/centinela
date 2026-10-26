@@ -82,7 +82,7 @@ static class ManualDocument
         doc.Add(new InfoHeading("Errores frecuentes"));
         foreach (var kind in Enum.GetValues<StreamErrorKind>())
         {
-            var text = ErrorTranslator.Translate(kind, Brand.Custom, "La cámara");
+            var text = ErrorTranslator.Translate(kind, Brand.Custom, "La cámara", os);
             doc.Add(new InfoParagraph(text.Advice, text.Short + ": "));
         }
 
