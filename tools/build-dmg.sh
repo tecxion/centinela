@@ -62,7 +62,8 @@ if [ "$identity" != "-" ]; then
     sign+=(--timestamp)
 fi
 # Every file in Contents/MacOS first, then the bundle, which seals them. "-exec ... +" makes find fail if codesign does.
-find "$exe_dir" -type f -exec "${sign[@]}" {} +
+# The main executable is left to the bundle step: signing it is signing the bundle, which needs the rest signed first.
+find "$exe_dir" -type f ! -path "$exe_dir/Centinela" -exec "${sign[@]}" {} +
 "${sign[@]}" "$app"
 codesign --verify --strict "$app"
 
