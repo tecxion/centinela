@@ -35,7 +35,7 @@ jobs:
 
       - name: Compilar FFmpeg
         if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
-        run: bash tools/get-ffmpeg-mac.sh ${{ matrix.arch }}
+        run: bash tools/ci-annotate.sh "FFmpeg ${{ matrix.arch }}" bash tools/get-ffmpeg-mac.sh ${{ matrix.arch }}
 
       # Saved right after compiling, so a later failure does not lose the compiled FFmpeg.
       - name: Guardar FFmpeg en caché
@@ -46,7 +46,7 @@ jobs:
           key: ffmpeg-osx-${{ matrix.arch }}-${{ hashFiles('tools/get-ffmpeg-mac.sh') }}
 
       - name: Crear el .dmg
-        run: bash tools/build-dmg.sh ${{ matrix.arch }}
+        run: bash tools/ci-annotate.sh "dmg ${{ matrix.arch }}" bash tools/build-dmg.sh ${{ matrix.arch }}
 
       - uses: actions/upload-artifact@v6
         with:
