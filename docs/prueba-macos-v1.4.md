@@ -66,7 +66,8 @@ Terminal (⌘ + Espacio y escribe «Terminal») y se confirman con Intro.
       el de Centinela puede quedar escondido detrás de la muesca: cierra otras apps de la barra de menús, o mantén
       pulsada ⌘ y arrastra iconos para hacerle sitio.
 - [ ] El botón rojo de la ventana la oculta (Centinela sigue abierto y las grabaciones siguen). La primera vez sale una
-      notificación de macOS que lo explica; tiene que verse aunque Centinela esté delante.
+      notificación de macOS que lo explica («Centinela sigue en la barra de menús»; dice que uses «Abrir» en el menú
+      del icono o el Dock); tiene que verse aunque Centinela esté delante.
 - [ ] Con la ventana oculta, un clic en el icono de Centinela del Dock la vuelve a abrir.
 - [ ] En el menú de la aplicación (el menú «Centinela», junto a la manzana) sale «Acerca de Centinela», no «About
       Avalonia», y abre la ventana «Acerca de».
