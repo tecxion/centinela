@@ -1,12 +1,13 @@
 using Centinela.Core.Platform;
 
-namespace Centinela.Platform.Linux;
+namespace Centinela.Platform;
 
 /// <summary>
-/// Passwords in the Secret Service keychain (GNOME Keyring, KWallet) when there is one; otherwise in the encrypted
-/// file of <paramref name="fallback"/>. cameras.json keeps "secret-service:&lt;Id&gt;" or the "file:" value.
+/// Passwords in the system keychain (Secret Service on Linux, the Keychain on macOS) when there is one; otherwise in
+/// the encrypted file of <paramref name="fallback"/>. cameras.json keeps "<paramref name="prefix"/>&lt;Id&gt;" or the
+/// "file:" value.
 /// </summary>
-internal sealed class LinuxSecretStore(ISecretBackend? backend, FileSecretStore fallback) : ISecretStore
+internal sealed class KeychainSecretStore(string prefix, ISecretBackend? backend, FileSecretStore fallback) : ISecretStore
 {
     volatile bool _usesFileFallback;
 
@@ -18,7 +19,7 @@ internal sealed class LinuxSecretStore(ISecretBackend? backend, FileSecretStore 
         if (password.Length == 0) return "";
         if (backend is not null)
         {
-            if (backend.Store(cameraId, password)) return SecretServiceNames.StoredValue(cameraId);
+            if (backend.Store(cameraId, password)) return SecretReference.For(prefix, cameraId);
             // The camera may have an older password in the keychain: do not leave it behind.
             backend.Delete(cameraId);
         }
@@ -29,16 +30,16 @@ internal sealed class LinuxSecretStore(ISecretBackend? backend, FileSecretStore 
     public string? Unprotect(Guid cameraId, string storedValue)
     {
         if (storedValue.Length == 0) return "";
-        var (prefix, _) = SecretPrefix.Split(storedValue);
-        if (prefix == SecretPrefix.SecretService)
-            return SecretServiceNames.CameraOf(storedValue) == cameraId ? backend?.Lookup(cameraId) : null;
-        if (prefix != SecretPrefix.File) return null; // DPAPI (Windows) or keychain: (macOS)
+        var (valuePrefix, _) = SecretPrefix.Split(storedValue);
+        if (valuePrefix == prefix)
+            return SecretReference.CameraOf(prefix, storedValue) == cameraId ? backend?.Lookup(cameraId) : null;
+        if (valuePrefix != SecretPrefix.File) return null; // DPAPI (Windows) or the other system's keychain
         _usesFileFallback = true;
         return fallback.Unprotect(cameraId, storedValue);
     }
 
     public void Forget(Guid cameraId, string storedValue)
     {
-        if (SecretServiceNames.CameraOf(storedValue) == cameraId) backend?.Delete(cameraId);
+        if (SecretReference.CameraOf(prefix, storedValue) == cameraId) backend?.Delete(cameraId);
     }
 }

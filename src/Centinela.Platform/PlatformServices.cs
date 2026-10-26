@@ -29,10 +29,10 @@ public sealed class PlatformServices
     public ITrayAvailability? TrayAvailability { get; init; }
 
     /// <summary>
-    /// The passwords went to (or came from) the encrypted file because there is no keychain (Linux): the UI says so
-    /// once. Read after loading or saving the cameras.
+    /// The passwords went to (or came from) the encrypted file because there is no keychain (Linux, macOS): the UI
+    /// says so once. Read after loading or saving the cameras.
     /// </summary>
-    public bool SecretsUseFileFallback => Secrets is LinuxSecretStore { UsesFileFallback: true };
+    public bool SecretsUseFileFallback => Secrets is KeychainSecretStore { UsesFileFallback: true };
 
     /// <param name="exePath">The installed program, which starting with the system runs.</param>
     /// <param name="ui">
@@ -91,7 +91,7 @@ public sealed class PlatformServices
         var file = new FileSecretStore(Path.Combine(dataDir, "secret.key"));
         return new PlatformServices
         {
-            Secrets = testRun ? file : new LinuxSecretStore(new SecretServiceClient(bus), file),
+            Secrets = testRun ? file : new KeychainSecretStore(SecretPrefix.SecretService, new SecretServiceClient(bus), file),
             AutoStart = testRun ? null : new LinuxAutoStart(LinuxAutoStart.DefaultDirectory(env, home), exePath),
             SingleInstance = new UnixSingleInstance(UnixSingleInstance.PathFor(env("XDG_RUNTIME_DIR"), dataDir, AppPaths.InstanceSuffix)),
             Files = new ShellFileManager(),

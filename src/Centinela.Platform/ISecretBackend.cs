@@ -1,6 +1,6 @@
-namespace Centinela.Platform.Linux;
+namespace Centinela.Platform;
 
-/// <summary>The system keychain as <see cref="LinuxSecretStore"/> needs it. Never throws: failures are false/null.</summary>
+/// <summary>The system keychain as <see cref="KeychainSecretStore"/> needs it. Never throws: failures are false/null.</summary>
 internal interface ISecretBackend
 {
     /// <summary>Saves (or replaces) the camera's password; false when the keychain could not take it.</summary>

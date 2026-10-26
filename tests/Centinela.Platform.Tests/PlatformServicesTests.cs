@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Centinela.Core;
+using Centinela.Core.Platform;
 using Centinela.Platform.Linux;
 using Centinela.Platform.Unix;
 using Centinela.Platform.Windows;
@@ -62,7 +63,7 @@ public class PlatformServicesTests
     {
         var services = PlatformServices.ForLinux("/opt/centinela/Centinela", testRun: false, "/home/ana/.local/share/centinela",
             LinuxEnv, "/home/ana", new SynchronizationContext());
-        Assert.IsType<LinuxSecretStore>(services.Secrets);
+        Assert.IsType<KeychainSecretStore>(services.Secrets);
         Assert.IsType<LinuxAutoStart>(services.AutoStart);
         Assert.IsType<UnixSingleInstance>(services.SingleInstance);
         Assert.IsType<ShellFileManager>(services.Files);
@@ -85,12 +86,12 @@ public class PlatformServicesTests
     }
 
     [Fact]
-    public void Secrets_use_the_file_fallback_once_the_linux_store_used_its_file()
+    public void Secrets_use_the_file_fallback_once_the_keychain_store_used_its_file()
     {
         var dir = Path.Combine(Path.GetTempPath(), "centinela-svc-" + Guid.NewGuid());
         try
         {
-            var store = new LinuxSecretStore(backend: null, new FileSecretStore(Path.Combine(dir, "secret.key")));
+            var store = new KeychainSecretStore(SecretPrefix.SecretService, backend: null, new FileSecretStore(Path.Combine(dir, "secret.key")));
             var services = new PlatformServices { Secrets = store, SingleInstance = new UnixSingleInstance(Path.Combine(dir, "s.sock")), Files = new ShellFileManager() };
             Assert.False(services.SecretsUseFileFallback);
             store.Protect(Guid.NewGuid(), "clave");
