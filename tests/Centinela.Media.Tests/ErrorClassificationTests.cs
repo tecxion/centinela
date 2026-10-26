@@ -62,8 +62,8 @@ public class ErrorClassificationTests
         Assert.Equal(StreamErrorKind.AuthFailed, StreamErrorClassifier.Classify(-13, null, false, false));
         Assert.Equal(StreamErrorKind.NotFound, StreamErrorClassifier.Classify(ffmpeg.AVERROR_HTTP_NOT_FOUND, null, false, false));
         Assert.Equal(StreamErrorKind.ServerError, StreamErrorClassifier.Classify(ffmpeg.AVERROR_HTTP_SERVER_ERROR, null, false, false));
-        Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(-138, null, false, false));
-        Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(-107, null, false, false));
+        Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(-138, null, false, false, OsKind.Windows));
+        Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(-107, null, false, false, OsKind.Windows));
         Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(ffmpeg.AVERROR_EXIT, null, false, true));
         Assert.Equal(StreamErrorKind.Stalled, StreamErrorClassifier.Classify(ffmpeg.AVERROR_EXIT, null, true, true));
         Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(ffmpeg.AVERROR_EOF, null, true, false));

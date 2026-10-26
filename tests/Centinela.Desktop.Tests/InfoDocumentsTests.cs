@@ -54,8 +54,10 @@ public class InfoDocumentsTests
     {
         var blocks = ManualDocument.Build(OsKind.MacOS).ToList();
         var start = blocks.IndexOf(new InfoHeading("Errores frecuentes"));
-        Assert.Contains(blocks.Skip(start), b => b is InfoParagraph { Lead: "Sin conexión: " } p
-            && p.Text.EndsWith("permite a Centinela el acceso a la red local en Ajustes del Sistema › Privacidad y seguridad › Red local."));
+        Assert.True(start >= 0);
+        var text = ErrorTranslator.Translate(StreamErrorKind.Unreachable, Brand.Custom, "La cámara", OsKind.MacOS);
+        Assert.Contains(new InfoParagraph(text.Advice, text.Short + ": "),
+            blocks.Skip(start + 1).Take(Enum.GetValues<StreamErrorKind>().Length));
     }
 
     static string[] Paragraphs(OsKind os) =>
