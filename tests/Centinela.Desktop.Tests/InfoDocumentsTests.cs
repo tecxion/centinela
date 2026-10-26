@@ -92,7 +92,7 @@ public class InfoDocumentsTests
     public void Manual_on_macos_uses_the_menu_bar_and_its_folders()
     {
         var text = Paragraphs(OsKind.MacOS);
-        Assert.Contains(text, t => t.Contains("barra de menús"));
+        Assert.Contains("El botón rojo de la ventana la oculta en la barra de menús (el icono de arriba a la derecha) y las grabaciones continúan. Para volver a abrirla, usa ese icono o haz clic en Centinela en el Dock. «Salir» (o ⌘Q) cierra Centinela del todo.", text);
         Assert.Contains("Con «Abrir al iniciar sesión», Centinela se abre al iniciar sesión en el equipo.", text);
         Assert.Contains("Las grabaciones se guardan en Películas/Centinela y las capturas en Imágenes/Centinela.", text);
         Assert.Contains(text, t => t.Contains("en ~/Library/Application Support/Centinela/logs)"));

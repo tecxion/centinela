@@ -38,7 +38,7 @@ sealed record ManualSystemTexts(string Sound, string Folders, string TrayHeading
         Sound: "El sonido se para al ocultar Centinela en la barra de menús o al cerrar la pantalla completa. El volumen se ajusta en los ajustes de sonido del sistema.",
         Folders: "Las grabaciones se guardan en Películas/Centinela y las capturas en Imágenes/Centinela.",
         TrayHeading: "Barra de menús",
-        Tray: "La X de la ventana la oculta en la barra de menús (el icono de arriba a la derecha) y las grabaciones continúan. Si no aparece el icono, la X minimiza la ventana. «Salir» cierra Centinela del todo.",
+        Tray: "El botón rojo de la ventana la oculta en la barra de menús (el icono de arriba a la derecha) y las grabaciones continúan. Para volver a abrirla, usa ese icono o haz clic en Centinela en el Dock. «Salir» (o ⌘Q) cierra Centinela del todo.",
         MotionNotice: $"Sigue vigilando con Centinela oculta en la barra de menús. Si la ventana está minimizada o en la barra de menús, sale una notificación del sistema; haz clic en ella para abrir la ventana. {MotionLimit}",
         Logs: "~/Library/Application Support/Centinela/logs",
         Documents: "Documentos/Centinela");

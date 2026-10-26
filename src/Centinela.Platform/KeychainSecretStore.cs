@@ -11,6 +11,9 @@ internal sealed class KeychainSecretStore(string prefix, ISecretBackend? backend
 {
     volatile bool _usesFileFallback;
 
+    /// <summary>The prefix of the references it keeps ("secret-service:" or "keychain:").</summary>
+    public string Prefix => prefix;
+
     /// <summary>True once a password was saved to (or read from) the encrypted file: the UI tells the user once.</summary>
     public bool UsesFileFallback => _usesFileFallback;
 

@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using Centinela.Core;
 using Centinela.Core.Platform;
 using Centinela.Platform.Linux;
+using Centinela.Platform.MacOS;
 using Centinela.Platform.Unix;
 using Centinela.Platform.Windows;
 
@@ -83,6 +84,37 @@ public class PlatformServicesTests
         Assert.Null(services.AutoStart);
         Assert.IsType<UnixSingleInstance>(services.SingleInstance);
         Assert.Null(services.CreateTray);
+    }
+
+    const string MacExe = "/Applications/Centinela.app/Contents/MacOS/Centinela";
+
+    // Only builds the pieces: nothing here opens the Keychain, writes the agent or binds a socket.
+    [Fact]
+    [SupportedOSPlatform("macos")]
+    public void MacOS_gets_the_keychain_with_file_fallback_a_launch_agent_the_unix_socket_and_the_menu_bar()
+    {
+        var services = PlatformServices.ForMacOS(MacExe, testRun: false, "/Users/ana/Library/Application Support/Centinela",
+            "/Users/ana", new SynchronizationContext());
+        Assert.Equal(SecretPrefix.Keychain, Assert.IsType<KeychainSecretStore>(services.Secrets).Prefix);
+        Assert.IsType<MacAutoStart>(services.AutoStart);
+        Assert.IsType<UnixSingleInstance>(services.SingleInstance);
+        Assert.IsType<ShellFileManager>(services.Files);
+        // No libobjc on Windows, no app bundle for the test host on macOS.
+        Assert.Null(services.Notifier);
+        Assert.True(services.TrayAvailability!.IsAvailable);
+        Assert.Null(services.CreateTray);
+        Assert.False(services.SecretsUseFileFallback);
+    }
+
+    [Fact]
+    [SupportedOSPlatform("macos")]
+    public void MacOS_with_a_test_data_folder_gets_only_the_file_store_and_no_auto_start()
+    {
+        var services = PlatformServices.ForMacOS(MacExe, testRun: true, "/tmp/centinela-pruebas", "/Users/ana",
+            new SynchronizationContext());
+        Assert.IsType<FileSecretStore>(services.Secrets);
+        Assert.Null(services.AutoStart);
+        Assert.IsType<UnixSingleInstance>(services.SingleInstance);
     }
 
     [Fact]

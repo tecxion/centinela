@@ -12,5 +12,12 @@ public partial class MainWindow
 
     void Support_Click(object? sender, RoutedEventArgs e) => new InfoWindow("Soporte", InfoDocuments.Support()).Show(this);
 
-    void About_Click(object? sender, RoutedEventArgs e) => _ = new AboutWindow().ShowDialog(this);
+    void About_Click(object? sender, RoutedEventArgs e) => ShowAbout();
+
+    /// <summary>Also from the macOS application menu, while the window may be hidden in the menu bar.</summary>
+    internal void ShowAbout()
+    {
+        if (IsHiddenInTray) ShowFromTray();
+        _ = new AboutWindow().ShowDialog(this);
+    }
 }

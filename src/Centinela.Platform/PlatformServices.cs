@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using Centinela.Core;
 using Centinela.Core.Platform;
 using Centinela.Platform.Linux;
+using Centinela.Platform.MacOS;
 using Centinela.Platform.Unix;
 using Centinela.Platform.Windows;
 
@@ -9,7 +10,7 @@ namespace Centinela.Platform;
 
 /// <summary>
 /// The system pieces for this process. With CENTINELA_DATA_DIR (tests, smoke runs) nothing real is touched:
-/// passwords go to a key file in that folder and there is no auto start. macOS arrives in phase 4.
+/// passwords go to a key file in that folder and there is no auto start. Windows, Linux and macOS only.
 /// </summary>
 public sealed class PlatformServices
 {
@@ -18,9 +19,11 @@ public sealed class PlatformServices
     public IAutoStart? AutoStart { get; init; }
     public required ISingleInstance SingleInstance { get; init; }
     public required IFileManager Files { get; init; }
-    /// <summary>Makes the tray icon (on the UI thread); null where this system's tray is not there yet (phases 3–4).</summary>
+    /// <summary>Makes the tray icon (on the UI thread); null where the UI makes Avalonia's (Linux, macOS).</summary>
     public Func<ITray>? CreateTray { get; init; }
-    /// <summary>System notifications outside the tray (Linux); null on Windows, where the tray shows them.</summary>
+    /// <summary>
+    /// System notifications outside the tray (Linux, macOS); null on Windows, where the tray shows them.
+    /// </summary>
     public INotifier? Notifier { get; init; }
     /// <summary>
     /// Whether a tray icon (Avalonia's) can show, where <see cref="CreateTray"/> is null; null on Windows. Its check
@@ -36,8 +39,8 @@ public sealed class PlatformServices
 
     /// <param name="exePath">The installed program, which starting with the system runs.</param>
     /// <param name="ui">
-    /// Where a click on a system notification runs (Linux). It is only posted to once the app runs, so it may be
-    /// created before the UI exists.
+    /// Where a click on a system notification runs (Linux, macOS). It is only posted to once the app runs, so it may
+    /// be created before the UI exists.
     /// </param>
     public static PlatformServices Create(string exePath, SynchronizationContext ui)
     {
@@ -60,15 +63,10 @@ public sealed class PlatformServices
             return ForLinux(exePath, testRun, AppPaths.DataDirectory, Environment.GetEnvironmentVariable,
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ui);
         }
-        if (testRun)
+        if (OperatingSystem.IsMacOS())
         {
-            // Lets the cross-platform parts run in CI on macOS before its own services exist.
-            return new PlatformServices
-            {
-                Secrets = testSecrets!,
-                SingleInstance = new NoSingleInstance(),
-                Files = new ShellFileManager(),
-            };
+            return ForMacOS(exePath, testRun, AppPaths.DataDirectory,
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ui);
         }
         throw new PlatformNotSupportedException("Centinela todavía no está disponible en este sistema.");
     }
@@ -100,14 +98,36 @@ public sealed class PlatformServices
         };
     }
 
+    /// <summary>
+    /// macOS: the Keychain, falling back to the encrypted file; a launchd agent; a Unix socket in the data folder
+    /// (there is no XDG_RUNTIME_DIR) for the single instance; open; UserNotifications when run from the .app. The
+    /// menu bar always has room for Avalonia's tray icon, which the UI makes. With a test data folder only that
+    /// folder's key file and no auto start. Nothing is opened or written here.
+    /// </summary>
+    [SupportedOSPlatform("macos")]
+    internal static PlatformServices ForMacOS(string exePath, bool testRun, string dataDir, string home,
+        SynchronizationContext ui)
+    {
+        var file = new FileSecretStore(Path.Combine(dataDir, "secret.key"));
+        return new PlatformServices
+        {
+            Secrets = testRun ? file : new KeychainSecretStore(SecretPrefix.Keychain, new MacKeychain(), file),
+            AutoStart = testRun ? null : new MacAutoStart(MacAutoStart.DefaultDirectory(home), exePath),
+            SingleInstance = new UnixSingleInstance(UnixSingleInstance.PathFor(null, dataDir, AppPaths.InstanceSuffix)),
+            Files = new ShellFileManager(),
+            // Also for test runs: notifications touch no data.
+            Notifier = MacNotifier.TryCreate(ui),
+            TrayAvailability = new MenuBar(),
+        };
+    }
+
     // A method group, not a lambda: the platform analyzer does not carry the IsWindows() guard into a lambda.
     [SupportedOSPlatform("windows")]
     static ITray NewWindowsTray() => new WindowsTray();
 
-    /// <summary>Every launch is the first one: for test runs only, until each system has its own.</summary>
-    sealed class NoSingleInstance : ISingleInstance
+    /// <summary>macOS always has a menu bar for the tray icon.</summary>
+    sealed class MenuBar : ITrayAvailability
     {
-        public bool TryClaim() => true;
-        public void ListenForActivation(Action onActivate) { }
+        public bool IsAvailable => true;
     }
 }

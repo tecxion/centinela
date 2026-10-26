@@ -1,8 +1,11 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using Centinela.Core;
+using Centinela.Core.Platform;
 using Centinela.Desktop.Services.Ui;
 using Centinela.Desktop.Views;
 using Centinela.Media;
@@ -26,7 +29,22 @@ public partial class App : Application
     // The main window, also while it is hidden in the tray (then it is not the lifetime's MainWindow).
     static MainWindow? _window;
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        if (OsInfo.Current == OsKind.MacOS) SetApplicationMenu();
+    }
+
+    /// <summary>
+    /// macOS: «Acerca de Centinela» instead of Avalonia's default «About Avalonia»; Avalonia adds the standard
+    /// items (Hide, Quit ⌘Q).
+    /// </summary>
+    void SetApplicationMenu()
+    {
+        var about = new NativeMenuItem("Acerca de Centinela");
+        about.Click += (_, _) => _window?.ShowAbout();
+        NativeMenu.SetMenu(this, new NativeMenu { about });
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -77,6 +95,14 @@ public partial class App : Application
                 window.ExitForShutdown();
             };
             Platform.SingleInstance.ListenForActivation(() => UiThread.Post(window.ShowFromTray));
+            // Only macOS raises Reopen: a click on the Dock icon.
+            if (Current?.TryGetFeature<IActivatableLifetime>() is { } activatable)
+            {
+                activatable.Activated += (_, e) =>
+                {
+                    if (e.Kind == ActivationKind.Reopen) UiThread.Post(window.ShowFromTray);
+                };
+            }
         }
         catch (Exception ex)
         {
