@@ -24,6 +24,10 @@
   <a href="#solución-de-problemas">Solución de problemas</a>
 </p>
 
+<p align="center">
+  <img src="docs/img/interfaz_centinela.png" width="900" alt="Ventana de Centinela con siete cámaras en la vista «Principal + miniaturas»">
+</p>
+
 ---
 
 Centinela reúne todas tus cámaras de vigilancia en una sola ventana. La imagen va **directamente de la cámara a tu
