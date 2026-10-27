@@ -1,169 +1,174 @@
 <p align="center">
-  <img src="src/Centinela.Desktop/Assets/centinela.png" width="140" alt="Logo de Centinela">
+  <img src="src/Centinela.Desktop/Assets/centinela.png" width="128" alt="Logo de Centinela">
 </p>
 
 <h1 align="center">Centinela</h1>
 
 <p align="center">
-  <strong>Visor de cámaras IP para Windows, rápido, local y sin nube.</strong><br>
-  TP-Link Tapo · Imou · cualquier cámara RTSP/ONVIF
+  <strong>Tus cámaras de seguridad, en directo y en privado.</strong><br>
+  Visor de cámaras IP para Windows, macOS y Linux. Sin nube, sin cuentas y con el mínimo retraso.
 </p>
 
 <p align="center">
-  <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white">
-  <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white">
-  <a href="https://github.com/tecxion/centinela/releases"><img alt="Última versión" src="https://img.shields.io/github/v/release/tecxion/centinela?label=versi%C3%B3n"></a>
-  <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-green"></a>
+  <a href="https://github.com/tecxion/centinela/releases/latest"><img alt="Última versión" src="https://img.shields.io/github/v/release/tecxion/centinela?label=versi%C3%B3n&color=2ea44f"></a>
+  <img alt="Windows · macOS · Linux" src="https://img.shields.io/badge/sistemas-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-0a66c2">
+  <a href="https://github.com/tecxion/centinela/releases"><img alt="Descargas" src="https://img.shields.io/github/downloads/tecxion/centinela/total?label=descargas"></a>
+  <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-blue"></a>
+</p>
+
+<p align="center">
+  <a href="#descarga"><strong>Descargar</strong></a> ·
+  <a href="#características">Características</a> ·
+  <a href="#instalación">Instalación</a> ·
+  <a href="#guía-rápida">Guía rápida</a> ·
+  <a href="#solución-de-problemas">Solución de problemas</a>
 </p>
 
 ---
 
-Centinela muestra tus cámaras de vigilancia en una sola ventana, con el **mínimo retraso posible** y **sin pasar
-por la nube**: la imagen va directamente de la cámara a tu PC por tu red local. Graba, hace capturas, detecta
-movimiento, avisa cuando algo pasa y se queda vigilando en la bandeja del sistema.
+Centinela reúne todas tus cámaras de vigilancia en una sola ventana. La imagen va **directamente de la cámara a tu
+ordenador** por tu red local: no pasa por servidores ajenos, no hay que crear ninguna cuenta y el retraso es el
+mínimo que permite la cámara. Graba, hace capturas, detecta movimiento, te avisa cuando pasa algo y sigue vigilando
+con la ventana cerrada.
 
-## Índice
+Funciona con **TP-Link Tapo**, **Imou** y cualquier cámara **RTSP/ONVIF**.
 
-- [Características](#características)
-- [Requisitos](#requisitos)
-- [Instalación paso a paso](#instalación-paso-a-paso)
-- [Preparar las cámaras](#preparar-las-cámaras)
-- [Primeros pasos](#primeros-pasos)
-- [Guía de uso](#guía-de-uso)
-- [Cámaras con mala conexión (wifi lejana)](#cámaras-con-mala-conexión-wifi-lejana)
-- [Atajos](#atajos)
-- [Dónde se guardan tus datos](#dónde-se-guardan-tus-datos)
-- [Privacidad y seguridad](#privacidad-y-seguridad)
-- [Solución de problemas](#solución-de-problemas)
-- [Actualizar y desinstalar](#actualizar-y-desinstalar)
-- [Para desarrolladores](#para-desarrolladores)
-- [Soporte y licencia](#soporte-y-licencia)
+## Por qué Centinela
+
+| | |
+|---|---|
+| ⚡ **En directo de verdad**<br>Recibe el vídeo sin búfer y lo decodifica y dibuja con la tarjeta gráfica. Lo que ves es lo que está pasando. | 🔒 **Tus imágenes no salen de casa**<br>Sin nube, sin cuentas, sin publicidad. Las contraseñas se guardan en el almacén seguro de tu sistema. |
+| 👁 **Vigila aunque no mires**<br>Detección de movimiento por cámara, avisos del sistema, horas de silencio y registro de eventos. | 🖥️ **Una app, tres sistemas**<br>Las mismas funciones en Windows, macOS (Apple Silicon e Intel) y Linux, con paquetes que lo traen todo. |
 
 ## Características
 
 | | |
 |---|---|
-| 🎥 **Imagen en directo** | Latencia mínima (FFmpeg sin búfer y decodificación por GPU). Tapo, Imou y cualquier cámara RTSP. |
-| 🔍 **Búsqueda automática** | Encuentra las cámaras de tu red por ONVIF; o añádelas a mano. |
-| 🧩 **Vistas** | Cuadrícula (Auto, 1, 4, 9, 16), *Principal + miniaturas* (derecha o izquierda) y *Dos principales + miniaturas*. |
-| ⏺ **Grabación y capturas** | Grabación MKV sin recodificar (una o todas a la vez) y capturas PNG a resolución completa. |
-| 👁 **Detección de movimiento** | Por cámara, con marco rojo, aviso junto al reloj, registro, sensibilidad y horas de silencio. |
+| 🎥 **Imagen en directo** | Latencia mínima con FFmpeg, decodificación y pintado por GPU y colores fieles a la cámara. |
+| 🔍 **Búsqueda automática** | Encuentra las cámaras de tu red por ONVIF, también en otras redes o VLAN. O añádelas a mano. |
+| 🧩 **Vistas** | Cuadrícula (Auto, 1, 4, 9, 16), *Principal + miniaturas* y *Dos principales + miniaturas*. Arrastra para reordenar. |
+| ⏺ **Grabación y capturas** | Vídeo MKV sin recodificar (una cámara o todas a la vez) y capturas PNG a resolución completa. |
+| 🚨 **Detección de movimiento** | Marco rojo, notificaciones, registro, sensibilidad, tiempo entre avisos y horas de silencio. |
 | 🔊 **Sonido** | Escucha una cámara a la vez, con silencio de un clic. |
-| 🔎 **Zoom digital** | Rueda del ratón hasta 8×, arrastrar para moverse. |
+| 🔎 **Zoom digital** | Hasta 8× con la rueda del ratón; arrastra para moverte. |
 | 📶 **Cámaras con wifi pobre** | Cambio HD/SD, ajuste de resolución, fps y bitrate de la propia cámara y modo *Suavizar imagen*. |
-| 🛡️ **Privado** | Sin cuentas ni nube. Contraseñas cifradas con Windows. |
-| 🔔 **Bandeja del sistema** | Sigue vigilando y grabando con la ventana cerrada; puede arrancar con Windows. |
+| 💾 **Copias de seguridad** | Exporta e importa tus cámaras (con contraseñas protegidas por clave) y copia automática. |
+| 🔔 **En segundo plano** | Sigue grabando y vigilando desde la bandeja del sistema o la barra de menús, y arranca al iniciar sesión. |
+| 🔄 **Actualizaciones** | Te avisa cuando hay una versión nueva. Nunca descarga ni instala nada por su cuenta. |
 
-## Requisitos
+## Descarga
 
-- **Windows 10 u 11** de 64 bits.
-- **Git** para descargar el código.
-- **.NET 10 SDK** para compilar y ejecutar Centinela.
-- Unos **300 MB** libres (código, FFmpeg y compilación) y conexión a Internet para la instalación.
-- Cámaras IP en la **misma red** que el PC, con RTSP activado (ver [Preparar las cámaras](#preparar-las-cámaras)).
+Descarga la última versión desde **[Releases](https://github.com/tecxion/centinela/releases/latest)**. Cada paquete
+lleva todo lo necesario (.NET, FFmpeg y OpenAL): no hay que instalar nada más.
 
-## Instalación paso a paso
+| Sistema | Archivo | Requisitos |
+|---|---|---|
+| **Windows** | `Centinela-<versión>-windows-x64.exe` | Windows 10 u 11 de 64 bits |
+| **macOS** con Apple Silicon (M1 o posterior) | `Centinela-<versión>-macos-arm64.dmg` | macOS 14 Sonoma o posterior |
+| **macOS** con Intel | `Centinela-<versión>-macos-intel.dmg` | macOS 14 Sonoma o posterior |
+| **Linux** | `centinela_<versión>_amd64.deb` | Ubuntu 22.04 o posterior, o una derivada (64 bits) |
 
-Todos los comandos se escriben en **PowerShell** (pulsa <kbd>Inicio</kbd>, escribe `PowerShell` y ábrelo).
-Copia cada bloque, pégalo con clic derecho y pulsa <kbd>Intro</kbd>.
+> ¿Qué Mac tengo? Menú Apple › **Acerca de este Mac**: si pone «Chip Apple M…» es Apple Silicon; si pone
+> «Procesador … Intel», es Intel.
 
-### 1. Instala Git y .NET 10
+> [!IMPORTANT]
+> Los únicos archivos oficiales son los de [github.com/tecxion/centinela/releases](https://github.com/tecxion/centinela/releases).
+> Los de macOS van firmados por el autor y notarizados por Apple. Quien compila Centinela desde el código fuente
+> obtiene un programa **sin esa firma**, así que no te fíes de copias descargadas de otros sitios.
 
-```powershell
-winget install --id Git.Git -e
-winget install --id Microsoft.DotNet.SDK.10 -e
+### Comprobar la descarga
+
+Cada versión publica un `SHA256SUMS.txt` con la huella de cada archivo. Calcula la del tuyo y comprueba que coincide
+con su línea:
+
+| Sistema | Orden (en la carpeta de la descarga) |
+|---|---|
+| Windows (PowerShell) | `Get-FileHash .\Centinela-*-windows-x64.exe -Algorithm SHA256` |
+| macOS (Terminal) | `shasum -a 256 Centinela-*.dmg` |
+| Linux (Terminal) | `sha256sum centinela_*_amd64.deb` |
+
+## Instalación
+
+### Windows
+
+1. Abre `Centinela-<versión>-windows-x64.exe`.
+2. Si aparece **«Windows protegió su PC»**, pulsa **Más información › Ejecutar de todas formas**. El aviso sale
+   porque el instalador de Windows no lleva firma de código; si lo has bajado de Releases y su huella coincide, es el
+   oficial.
+3. Sigue el asistente. Centinela se instala solo para tu usuario, en `%LOCALAPPDATA%\Programs\Centinela`, y puedes
+   marcar **Arrancar con Windows**.
+
+¿Tenías la 1.3? Instala la nueva encima: tus cámaras, ajustes y contraseñas se conservan.
+
+### macOS
+
+1. Abre el `.dmg` y arrastra **Centinela** a la carpeta **Aplicaciones**.
+2. Abre Centinela desde Aplicaciones o Launchpad.
+3. La primera vez, macOS te pide algunos permisos:
+   - **Red local**: imprescindible, sin él Centinela no ve las cámaras. Si lo denegaste, actívalo en
+     *Ajustes del Sistema › Privacidad y seguridad › Red local*.
+   - **Notificaciones**: para los avisos de movimiento y de conexión.
+   - **Documentos**: para guardar la copia automática de tus cámaras.
+
+El botón rojo esconde la ventana en la barra de menús y Centinela sigue grabando. Para cerrarla del todo, <kbd>⌘</kbd><kbd>Q</kbd>.
+
+### Linux
+
+Desde la carpeta de la descarga (normalmente `~/Descargas`):
+
+```bash
+sudo apt install ./centinela_*_amd64.deb
 ```
 
-Cierra PowerShell y ábrelo de nuevo para que reconozca los programas recién instalados. Puedes comprobarlo con:
+Ábrelo desde el menú de aplicaciones o escribiendo `centinela` en una terminal.
 
-```powershell
-git --version
-dotnet --version
-```
-
-> Si `winget` no existe en tu equipo, descarga los instaladores de [git-scm.com](https://git-scm.com/download/win)
-> y de [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) (elige **SDK x64**).
-
-### 2. Descarga Centinela
-
-```powershell
-cd $HOME\Documents
-git clone https://github.com/tecxion/centinela.git
-cd centinela
-```
-
-### 3. Descarga FFmpeg
-
-Centinela usa [FFmpeg](https://ffmpeg.org) (licencia LGPL) para recibir y mostrar el vídeo. Este script descarga
-la versión adecuada (unos 80 MB) en la carpeta `ffmpeg\` del proyecto:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\get-ffmpeg.ps1
-```
-
-### 4. Pruébalo
-
-```powershell
-dotnet run --project src\Centinela.Desktop -c Release
-```
-
-La primera vez tarda un poco porque compila. Si se abre la ventana de Centinela, todo está bien.
-
-### 5. Instálalo como un programa normal (recomendado)
-
-Así tendrás un `Centinela.exe` que puedes abrir sin PowerShell:
-
-```powershell
-dotnet publish src\Centinela.Desktop -c Release -r win-x64 --self-contained false -o "$env:LOCALAPPDATA\Programs\Centinela"
-explorer "$env:LOCALAPPDATA\Programs\Centinela"
-```
-
-En la carpeta que se abre, haz clic derecho sobre **Centinela.exe** › *Mostrar más opciones* › *Enviar a* ›
-*Escritorio (crear acceso directo)*. Desde el acceso directo también puedes anclarlo a Inicio o a la barra de tareas.
-
-> Ese `Centinela.exe` necesita .NET 10 en el equipo. Si lo copias a otro PC donde no hayas instalado el SDK,
-> instala allí el runtime de escritorio: `winget install --id Microsoft.DotNet.DesktopRuntime.10 -e`.
+- **Icono en la barra superior:** en Ubuntu sale de serie. En otros escritorios GNOME hace falta la extensión
+  *AppIndicator and KStatusNotifierItem Support*. Sin bandeja, la X minimiza la ventana en lugar de esconderla.
+- **Contraseñas:** se guardan en el llavero del escritorio (por ejemplo, GNOME Keyring). Si no hay llavero,
+  Centinela las guarda cifradas en un archivo que solo puede leer tu usuario, y te lo dice.
 
 ## Preparar las cámaras
 
-Centinela se conecta a las cámaras por **RTSP** (el vídeo) y **ONVIF** (búsqueda y ajustes). Cada marca lo
-activa de una forma:
+Centinela se conecta a las cámaras por **RTSP** (el vídeo) y **ONVIF** (búsqueda y ajustes). Cada marca lo activa
+de una forma:
 
 | Marca | Qué hacer | Usuario y contraseña en Centinela |
 |---|---|---|
-| **TP-Link Tapo** | App Tapo › la cámara › ⚙️ › *Ajustes avanzados* › **Cuenta de la cámara**: crea un usuario y contraseña. | Los de esa cuenta (no los de tu cuenta TP-Link). |
-| **Imou** | En algunos modelos hay que activar RTSP/ONVIF en la app Imou. | Usuario `admin`; contraseña = **código de seguridad** de la pegatina de la cámara. |
-| **Otras** | Activa RTSP en su app o web y apunta la URL del flujo principal y el secundario. | Los que tenga configurados la cámara. |
+| **TP-Link Tapo** | App Tapo › la cámara › ⚙️ › *Ajustes avanzados* › **Cuenta de la cámara**: crea un usuario y una contraseña. | Los de esa cuenta, no los de tu cuenta TP-Link. |
+| **Imou** | En algunos modelos hay que activar RTSP/ONVIF en la app Imou. | Usuario `admin`; contraseña: el **código de seguridad** de la pegatina. |
+| **Otras** | Activa RTSP en su app o su web y apunta la dirección del flujo principal y del secundario. | Los que tenga configurados la cámara. |
 
-Direcciones que usa Centinela (no hace falta escribirlas, las pone solo según la marca):
+<details>
+<summary>Direcciones RTSP que usa Centinela (las pone sola según la marca)</summary>
 
 | Marca | Calidad alta (principal) | Calidad baja (secundario) |
 |---|---|---|
 | Tapo | `rtsp://IP:554/stream1` | `rtsp://IP:554/stream2` |
 | Imou | `rtsp://IP:554/cam/realmonitor?channel=1&subtype=0` | `…&subtype=1` |
 
-> **Consejo:** da a cada cámara una IP fija en tu router (reserva DHCP) para que no cambie de dirección.
+</details>
+
+> **Consejo:** reserva en tu router una IP fija para cada cámara (reserva DHCP) para que no cambie de dirección.
 
 ## Primeros pasos
 
 1. Pulsa **🔍 Buscar en red** para encontrar tus cámaras, o **➕ Añadir cámara** para escribir sus datos a mano
-   (nombre, marca, IP, usuario y contraseña). La búsqueda mira siempre la red de tu PC; si tus cámaras están en
-   otra red y no sabes cuál, pulsa **📡 Detectar otras redes** (ver
-   [La búsqueda en red no encuentra una cámara](#solución-de-problemas)).
-2. En la ventana de la cámara pulsa **Probar**: comprueba la calidad alta y la baja y te dice resolución, códec y
-   si tiene audio, o qué falla («Contraseña incorrecta», «Sin conexión»…).
+   (nombre, marca, IP, usuario y contraseña).
+2. En la ventana de la cámara pulsa **Probar**: comprueba la calidad alta y la baja y te dice la resolución, el códec
+   y si tiene audio, o qué falla («Contraseña incorrecta», «Sin conexión»…).
 3. Guarda. La cámara aparece en la ventana principal.
-4. Elige cómo verlas en **Vista** (cuadrícula, principal + miniaturas…).
+4. Elige cómo verlas en **Vista**.
 
-## Guía de uso
+## Guía rápida
+
+Lo más importante, en breve. Dentro de Centinela, **Ayuda › Manual** lo explica todo, adaptado a tu sistema.
 
 ### Ventana principal
 
-- **Vista**: cuadrícula (Auto, 1, 4, 9 o 16) o una cámara grande con miniaturas. En *Principal + miniaturas*,
-  un clic en una miniatura la pone en grande. En *Dos principales + miniaturas*, el clic sustituye a la grande que
-  lleva más tiempo sin cambiar, y arrastrar una miniatura sobre una grande la pone ahí.
-- **Arrastrar** una cámara sobre otra las cambia de sitio.
-- **Doble clic**: pantalla completa en calidad alta (<kbd>Esc</kbd> para salir).
+- **Vista**: cuadrícula (Auto, 1, 4, 9 o 16) o una cámara grande con miniaturas. En *Principal + miniaturas*, un
+  clic en una miniatura la pone en grande. En *Dos principales + miniaturas*, el clic sustituye a la grande que lleva
+  más tiempo sin cambiar, y arrastrar una miniatura sobre una grande la pone ahí.
+- **Arrastrar** una cámara sobre otra las cambia de sitio. **Doble clic**: pantalla completa en calidad alta.
 - **📁 Grabaciones** abre la carpeta de vídeos; **⏺ Grabar todas** / **⏹ Detener todas**.
 - Barra inferior: estado de las cámaras, **Movimiento** (eventos sin ver) y **Registro** (errores).
 
@@ -173,113 +178,106 @@ Aparecen al pasar el ratón: en las cámaras grandes, abajo en el centro; en las
 
 | Botón | Qué hace |
 |---|---|
-| **HD / SD** | *(solo cámaras grandes)* Cambia entre calidad alta y baja para esa cámara. Se recuerda. |
-| 🔇 / 🔊 | *(solo cámaras grandes con audio)* Activa o silencia el sonido. Solo suena una cámara a la vez. |
-| 👁 | Activa o desactiva la detección de movimiento de esa cámara. |
+| **HD / SD** | *(cámaras grandes)* Cambia entre calidad alta y baja. Se recuerda. |
+| 🔇 / 🔊 | *(cámaras grandes con audio)* Activa o silencia el sonido. Solo suena una cámara a la vez. |
+| 👁 | Activa o desactiva la detección de movimiento. |
 | 📷 | Captura PNG a resolución completa. |
 | ⏺ | Empieza o detiene la grabación (un punto rojo junto al nombre indica que graba). |
 | ✎ | Editar la cámara. |
 | 🗑 | Eliminar la cámara. |
 
-### Menú del clic derecho
-
-Pantalla completa · Captura · Grabar · Editar… · **Duplicar…** (copia con los mismos datos) ·
-**Calidad de la cámara…** · Detección de movimiento · **Suavizar imagen** · Restablecer zoom · Eliminar.
+El **clic derecho** añade: Pantalla completa · Duplicar… · Calidad de la cámara… · Suavizar imagen · Restablecer zoom.
 
 ### Zoom digital
 
 En las cámaras grandes y a pantalla completa: **rueda del ratón** para acercar (hasta 8×, hacia el puntero),
-**arrastrar** para moverse y <kbd>0</kbd> (con el puntero encima) para volver a 1×.
+**arrastrar** para moverse y <kbd>0</kbd> con el puntero encima para volver a 1×.
 
-### Detección de movimiento y avisos
+### Movimiento y avisos
 
-- Actívala con el botón 👁 de cada cámara (viene apagada). Un 👁 tachado junto al nombre indica que está apagada.
-- Mientras hay movimiento, la cámara muestra un **marco rojo**.
-- Con la ventana minimizada o en la bandeja, aparece un aviso junto al reloj: *«Detección de movimiento: Nombre»*.
-  Un clic en el aviso abre Centinela.
-- **Movimiento** (barra inferior) abre el registro de eventos: hora, cámara, duración e intensidad.
-- **Ver › Opciones de avisos…**: por cámara, la sensibilidad (Baja, Media, Alta), el tiempo mínimo entre avisos
-  (30 s, 1, 5 o 15 min) y qué avisos quieres; además, los sonidos de Windows y unas **horas de silencio**
-  (por ejemplo 23:00–07:00) en las que no suena ni avisa nada, aunque se sigue registrando.
+- Actívala con el botón 👁 de cada cámara (viene apagada). Mientras hay movimiento, la cámara muestra un **marco rojo**.
+- Con la ventana minimizada o escondida, sale una notificación del sistema; un clic en ella abre Centinela.
+- **Movimiento** (barra inferior) abre el registro: hora, cámara, duración e intensidad.
+- **Ver › Opciones de avisos…**: por cámara, la sensibilidad, el tiempo mínimo entre avisos y qué avisos quieres;
+  además, los sonidos de aviso y unas **horas de silencio** (por ejemplo, 23:00–07:00) en las que no suena ni avisa
+  nada, aunque todo se sigue registrando.
 
-### Grabaciones y capturas
+### En segundo plano
 
-- Las grabaciones se guardan en `Vídeos\Centinela\<cámara>\` en formato **MKV**, sin perder calidad. Ábrelas con
-  [VLC](https://www.videolan.org) o con el reproductor de Windows.
-- Las capturas van a `Imágenes\Centinela\`.
+Cerrar la ventana no cierra Centinela: la esconde y sigue grabando y vigilando.
 
-### Bandeja del sistema
+| | Al cerrar la ventana | Para volver | Arranque automático |
+|---|---|---|---|
+| **Windows** | Se esconde en la bandeja, junto al reloj | Clic en el icono de la bandeja | **Arrancar con Windows** |
+| **macOS** | Se esconde en la barra de menús | El icono de la barra de menús o el Dock | **Abrir al iniciar sesión** |
+| **Linux** | Se esconde en la barra superior (sin bandeja, se minimiza) | El icono de la barra superior | **Arrancar al iniciar sesión** |
 
-- La **X** no cierra Centinela: la esconde junto al reloj y sigue grabando y vigilando.
-  Para cerrarla del todo, clic derecho en su icono › **Salir** (o *Archivo › Salir*).
-- En ese mismo menú está **Arrancar con Windows**: se inicia escondida en la bandeja al encender el PC.
+La opción de arranque está en el menú del icono (o en **Archivo**) e inicia Centinela escondida. Para cerrarla del
+todo: **Salir** en ese menú o en *Archivo › Salir*.
 
-### Copias de seguridad
+### Grabaciones, capturas y copias
 
-- **Archivo › Exportar JSON…** guarda la lista de cámaras. Puedes proteger las contraseñas con una clave; sin
-  clave se exporta sin contraseñas. **Importar JSON…** añade las nuevas y actualiza las existentes.
-- Además, Centinela hace una **copia automática sin contraseñas** en `Documentos\Centinela\camaras-copia.json`
-  cada vez que cambias algo (carpeta configurable en *Archivo › Carpeta de copia automática…*).
-- Ejemplo de formato: [`docs/ejemplo-camaras.json`](docs/ejemplo-camaras.json).
+- Las grabaciones van a la carpeta de vídeos de tu sistema, en `Centinela/<cámara>/`, en formato **MKV** sin perder
+  calidad; se abren con [VLC](https://www.videolan.org). Las capturas van a `Imágenes/Centinela/`.
+- **Archivo › Exportar JSON…** guarda la lista de cámaras. Puedes proteger las contraseñas con una clave; sin clave se
+  exporta sin contraseñas. **Importar JSON…** añade las nuevas y actualiza las que ya tienes.
+- Así también pasas tus cámaras **a otro equipo o a otro sistema**: exporta con clave en uno e importa en el otro.
+- Además, Centinela guarda una **copia automática sin contraseñas** (`Documentos/Centinela/camaras-copia.json`) cada
+  vez que cambias algo. Formato de ejemplo: [`docs/ejemplo-camaras.json`](docs/ejemplo-camaras.json).
 
-### Estadísticas
+### Estadísticas y actualizaciones
 
-**Ver › Mostrar estadísticas** muestra en cada cámara `fps · ms · GPU/CPU`. Los ms son lo que tarda el PC en
-preparar cada imagen, **no** el retraso total desde la cámara (ese no se puede medir).
+- **Ver › Mostrar estadísticas** muestra en cada cámara los fps, lo que tarda el ordenador en preparar cada imagen y
+  si usa la tarjeta gráfica (GPU) o el procesador (CPU). Esos milisegundos **no** son el retraso total desde la cámara
+  (ese no se puede medir).
+- Una vez al día Centinela mira si hay una versión nueva y te avisa con el archivo que corresponde a tu equipo.
+  También puedes mirarlo en **Ayuda › Buscar actualizaciones…**.
 
-### Actualizaciones
-
-Una vez al día, al arrancar, Centinela mira si hay una versión nueva en GitHub y te avisa. También puedes
-comprobarlo en **Ayuda › Buscar actualizaciones…**. Nunca descarga nada sola: el botón abre la página de
-GitHub. Para actualizar, sigue [Actualizar y desinstalar](#actualizar-y-desinstalar).
-
-## Cámaras con mala conexión (wifi lejana)
-
-Si una cámara va a tirones, casi siempre es porque su señal wifi no da para la cantidad de datos que envía.
-Prueba en este orden:
-
-1. **Botón HD/SD** en la cámara grande: pasa a la calidad baja, mucho más ligera.
-2. **Clic derecho › Calidad de la cámara…**: muestra la resolución, los fps y el bitrate con los que emite la
-   cámara y, si la cámara lo permite por ONVIF, deja cambiarlos.
-   - **Recomendados (wifi pobre)** rellena valores ligeros (≈720p · 10 fps · 768 kbps en alta y ≈360p · 10 fps ·
-     256 kbps en baja). No cambia nada hasta que pulses **Aplicar…** y confirmes.
-   - El cambio se guarda en la propia cámara, así que también afecta a su app y a sus grabaciones en la nube.
-   - **Valores originales** vuelve a rellenar los que tenía antes del primer cambio.
-3. **Clic derecho › Suavizar imagen**: la imagen va 1–2 s por detrás, pero repartida a su ritmo, sin avances
-   rápidos tras un corte. Un ⏱ junto al nombre indica que está activo.
-4. Si nada de lo anterior basta, la solución es de red: acercar el router o poner un **repetidor wifi** (o cable).
-
-## Atajos
+### Atajos
 
 | Atajo | Acción |
 |---|---|
-| <kbd>F11</kbd> | Ventana principal a pantalla completa (y volver) |
+| <kbd>F11</kbd> | Ventana principal a pantalla completa y vuelta |
 | <kbd>Esc</kbd> | Salir de pantalla completa |
-| Doble clic en una cámara | Abrirla a pantalla completa en calidad alta |
+| Doble clic en una cámara | Pantalla completa en calidad alta |
 | Rueda del ratón | Zoom en cámaras grandes y a pantalla completa |
 | <kbd>0</kbd> | Quitar el zoom de la cámara bajo el puntero |
 | Arrastrar | Reordenar cámaras (o moverse con zoom) |
 
-## Dónde se guardan tus datos
+## Cámaras con mala conexión (wifi lejana)
 
-| Qué | Dónde |
-|---|---|
-| Cámaras y sus opciones | `%AppData%\Centinela\cameras.json` (contraseñas cifradas; solo tu usuario de Windows puede leerlas) |
-| Ajustes, sonidos y horas de silencio | `%AppData%\Centinela\settings.json` |
-| Registros de errores y de movimiento | `%AppData%\Centinela\logs\` (se borran solos a los 14 días) |
-| Copia automática | `Documentos\Centinela\camaras-copia.json` (o la carpeta que elijas) |
-| Grabaciones | `Vídeos\Centinela\<cámara>\` |
-| Capturas | `Imágenes\Centinela\` |
+Si una cámara va a tirones, casi siempre es porque su señal wifi no da para los datos que envía. Prueba en este orden:
 
-Para abrir `%AppData%`, pulsa <kbd>Win</kbd>+<kbd>R</kbd>, escribe `%AppData%\Centinela` y pulsa <kbd>Intro</kbd>.
+1. **Botón HD/SD** de la cámara grande: pasa a la calidad baja, mucho más ligera.
+2. **Clic derecho › Calidad de la cámara…**: muestra la resolución, los fps y el bitrate con los que emite la cámara
+   y, si la cámara lo permite por ONVIF, deja cambiarlos.
+   - **Recomendados (wifi pobre)** rellena valores ligeros (≈720p · 10 fps · 768 kbps en alta y ≈360p · 10 fps ·
+     256 kbps en baja). No cambia nada hasta que pulsas **Aplicar…** y confirmas.
+   - El cambio se guarda en la propia cámara, así que también afecta a su app y a sus grabaciones en la nube.
+   - **Valores originales** vuelve a rellenar los que tenía antes del primer cambio.
+3. **Clic derecho › Suavizar imagen**: la imagen va 1–2 s por detrás, pero fluida, sin acelerones tras un corte.
+   Un ⏱ junto al nombre indica que está activo.
+4. Si nada de eso basta, la solución es de red: acercar el router, poner un **repetidor wifi** o usar cable.
+
+## Tus datos
+
+| Qué | Windows | macOS | Linux |
+|---|---|---|---|
+| Cámaras, ajustes y registros | `%AppData%\Centinela` | `~/Library/Application Support/Centinela` | `~/.local/share/centinela` |
+| Contraseñas | Cifradas por Windows (DPAPI) para tu usuario | Llavero de macOS | Llavero del escritorio, o archivo cifrado |
+| Grabaciones | `Vídeos\Centinela\<cámara>` | `Películas/Centinela/<cámara>` | `Vídeos/Centinela/<cámara>` |
+| Capturas | `Imágenes\Centinela` | `Imágenes/Centinela` | `Imágenes/Centinela` |
+| Copia automática | `Documentos\Centinela` | `Documentos/Centinela` | `Documentos/Centinela` |
+
+Los registros de errores y de movimiento están en la subcarpeta `logs` y se borran solos a los 14 días.
 
 ## Privacidad y seguridad
 
-- **Sin nube ni cuentas.** El vídeo va directamente de la cámara a tu PC.
-- **Contraseñas cifradas** con la protección de datos de Windows (DPAPI). No aparecen en registros, avisos ni copias
-  sin clave.
+- **Sin nube ni cuentas.** El vídeo va directamente de la cámara a tu ordenador por tu red local.
+- **Contraseñas en el almacén seguro del sistema**: la protección de datos de Windows, el Llavero de macOS o el
+  llavero del escritorio en Linux. Nunca aparecen en registros, avisos ni copias sin clave.
 - Para la búsqueda y los ajustes de la cámara (ONVIF) solo se usa autenticación Digest: la contraseña no viaja en claro.
-- La comprobación de actualizaciones solo envía a GitHub la versión de Centinela.
+- La única conexión a Internet es la comprobación de actualizaciones, que solo envía a GitHub la versión de Centinela.
 
 ## Solución de problemas
 
@@ -294,75 +292,74 @@ Para abrir `%AppData%`, pulsa <kbd>Win</kbd>+<kbd>R</kbd>, escribe `%AppData%\Ce
 <details>
 <summary><strong>«Sin conexión · reintentando»</strong></summary>
 
-- Comprueba que el PC y la cámara están en la misma red y que la IP no ha cambiado (mira la app de la cámara).
+- Comprueba que el ordenador y la cámara están en la misma red y que la IP no ha cambiado (mira la app de la cámara).
 - Reserva una IP fija para la cámara en el router.
 - Algunas Imou necesitan activar RTSP/ONVIF en su app.
+- **En el Mac**, comprueba que Centinela tiene permiso en *Ajustes del Sistema › Privacidad y seguridad › Red local*.
 </details>
 
 <details>
 <summary><strong>La búsqueda en red no encuentra una cámara</strong></summary>
 
-- **¿Están las cámaras en otra red que el PC?** (por ejemplo, PC en `192.168.1.x` y cámaras en `192.168.2.x`,
-  o una red de invitados o VLAN para cámaras). La búsqueda normal no cruza el router. En *Redes donde buscar*:
-  - pulsa **📡 Detectar otras redes**: Centinela pregunta a todas las direcciones de tu zona de red (p. ej. de
-    `192.168.0.x` a `192.168.255.x`; unos 20–30 s, con barra de progreso), muestra las cámaras que encuentre y
-    añade sus redes a la lista, sin marcar. También añade las demás redes que existan (su router responde al
-    ping) como «sin cámaras ONVIF», por si alguna cámara tiene ONVIF apagado;
-  - marca las redes que quieras (o **Marcar todas**) y pulsa **🔍 Buscar**. Las redes marcadas se recuerdan para
-    la próxima vez, y las de las cámaras que ya tienes aparecen marcadas solas;
+- **¿Están las cámaras en otra red?** Por ejemplo, el ordenador en `192.168.1.x` y las cámaras en `192.168.2.x`, o
+  en una red de invitados o una VLAN. La búsqueda normal no cruza el router. En *Redes donde buscar*:
+  - pulsa **📡 Detectar otras redes**: Centinela recorre tu zona de red (unos 20–30 s), muestra las cámaras que
+    encuentra y añade sus redes a la lista;
+  - marca las redes que quieras y pulsa **🔍 Buscar**. Las redes marcadas se recuerdan para la próxima vez;
   - si conoces la red, escríbela (`192.168.2.0/24`, `192.168.2.*` o `192.168.2.1-50`) y pulsa **Añadir red**.
-- Algunas cámaras no responden a la búsqueda ONVIF, sobre todo si está desactivada. Añádela con
+- Algunas cámaras no responden a la búsqueda ONVIF, sobre todo si la tienen desactivada. Añádela con
   **➕ Añadir cámara** escribiendo su IP.
-- Las cámaras que ya tienes aparecen igualmente, marcadas como *Ya añadida*.
 </details>
 
 <details>
 <summary><strong>La imagen va a tirones</strong></summary>
 
-Mira [Cámaras con mala conexión](#cámaras-con-mala-conexión-wifi-lejana). Activa *Ver › Mostrar estadísticas*:
-si los fps saltan entre 0 y valores muy altos, es la wifi de esa cámara.
+Mira [Cámaras con mala conexión](#cámaras-con-mala-conexión-wifi-lejana). Con *Ver › Mostrar estadísticas*, si los
+fps saltan entre 0 y valores muy altos, el problema es la wifi de esa cámara.
 </details>
 
 <details>
 <summary><strong>No se oye nada</strong></summary>
 
-- El botón 🔊 solo aparece en cámaras grandes o a pantalla completa y si la cámara envía audio (actívalo en su app).
-- Todas empiezan en silencio; pulsa 🔇 para escuchar. El volumen se regula en el mezclador de Windows.
+- El botón 🔊 solo aparece en cámaras grandes o a pantalla completa, y si la cámara envía audio (actívalo en su app).
+- Todas empiezan en silencio: pulsa 🔇 para escuchar. El volumen se regula en el mezclador de sonido del sistema.
 </details>
 
 <details>
-<summary><strong>«No se encuentran las DLLs de FFmpeg»</strong></summary>
+<summary><strong>Una cámara dice «Falta la contraseña»</strong></summary>
 
-Falta el paso 3 de la instalación. Ejecuta `powershell -ExecutionPolicy Bypass -File tools\get-ffmpeg.ps1`
-y vuelve a compilar o publicar.
+Pasa cuando los datos vienen de otro equipo o sistema (por ejemplo, al copiar la carpeta de datos de Windows al Mac):
+las contraseñas cifradas solo se pueden leer en el equipo donde se guardaron. Pulsa **Editar** y escríbela de nuevo,
+o pasa las cámaras con *Exportar JSON…* con clave e *Importar JSON…*.
 </details>
 
 <details>
-<summary><strong>PowerShell dice que la ejecución de scripts está deshabilitada</strong></summary>
+<summary><strong>Linux: no sale el icono en la barra superior</strong></summary>
 
-Usa el comando tal cual aparece arriba, con `-ExecutionPolicy Bypass`: permite ese script sin cambiar la
-configuración de tu equipo.
+Tu escritorio no tiene bandeja del sistema. En GNOME, instala y activa la extensión *AppIndicator and
+KStatusNotifierItem Support* (en Ubuntu viene de serie como *Ubuntu AppIndicators*) y vuelve a abrir Centinela.
+Mientras tanto, Centinela funciona igual: la X minimiza la ventana y la opción de arranque está en el menú **Archivo**.
 </details>
 
 Si el problema sigue, abre **Registro** (barra inferior), pulsa *Copiar* y escríbenos (ver [Soporte](#soporte-y-licencia)).
 
 ## Actualizar y desinstalar
 
-**Actualizar** (cierra antes Centinela con clic derecho en su icono de la bandeja › *Salir*):
+**Actualizar:** cuando Centinela te avise, descarga el paquete nuevo e instálalo encima, como la primera vez (cierra
+antes Centinela con **Salir**). Tus cámaras y ajustes se conservan.
 
-```powershell
-cd $HOME\Documents\centinela
-git pull
-dotnet publish src\Centinela.Desktop -c Release -r win-x64 --self-contained false -o "$env:LOCALAPPDATA\Programs\Centinela"
-```
+**Desinstalar:** primero desactiva el arranque automático en el menú del icono y sal de Centinela. Después:
 
-Tus cámaras y ajustes se conservan.
+- **Windows:** *Configuración › Aplicaciones*, busca Centinela y pulsa **Desinstalar**.
+- **macOS:** arrastra Centinela de Aplicaciones a la Papelera.
+- **Linux:** `sudo apt remove centinela`.
 
-**Desinstalar:**
+Tus datos no se borran al desinstalar. Si quieres borrarlos, elimina la carpeta de datos (ver [Tus datos](#tus-datos))
+y, si quieres, las grabaciones y capturas. En el Mac, las contraseñas siguen en el Llavero: ábrelo con *Acceso a
+Llaveros* y busca `es.tecxart.centinela`.
 
-1. En el menú de la bandeja, desactiva **Arrancar con Windows** y pulsa **Salir**.
-2. Borra la carpeta `%LOCALAPPDATA%\Programs\Centinela` y la carpeta del código (`Documentos\centinela`).
-3. Si quieres borrar también tus datos: `%AppData%\Centinela` (y, si quieres, las grabaciones y capturas).
+> **¿Venías de CamaraWin?** Centinela se llamaba así antes. En Windows, la primera vez copia tus cámaras y ajustes de
+> `%AppData%\CamaraWin` sin tocar la carpeta antigua. Las grabaciones antiguas siguen en `Vídeos\CamaraWin`.
 
 ## Para desarrolladores
 
@@ -370,77 +367,127 @@ Tus cámaras y ajustes se conservan.
 
 ```
 src/
-  Centinela.Desktop/ Aplicación Avalonia (ventanas, vistas, bandeja)
-  Centinela.Core/    Lógica sin dependencias: modelo, vistas, ONVIF, movimiento, copias, reproducción
-  Centinela.Media/   FFmpeg: sesiones RTSP, decodificación, grabación, capturas, audio
-tests/
-  Centinela.Core.Tests/    Pruebas unitarias
-  Centinela.Media.Tests/   Pruebas de integración con un servidor RTSP local
-tools/               Scripts: FFmpeg, mediamtx, icono
-docs/                Ejemplo de copia y documentos de diseño
+  Centinela.Desktop/   Interfaz Avalonia: ventanas, vistas, vídeo, bandeja
+  Centinela.Core/      Lógica sin dependencias: modelo, vistas, ONVIF, movimiento, copias, actualizaciones
+  Centinela.Media/     FFmpeg: sesiones RTSP, decodificación por GPU, grabación, capturas, audio
+  Centinela.Platform/  Lo propio de cada sistema: contraseñas, arranque, notificaciones, instancia única
+tests/                 Pruebas de Core, Media (con un servidor RTSP local), Platform y Desktop
+packaging/             Archivos del .dmg (macOS) y del .deb (Linux)
+tools/                 Scripts: FFmpeg, paquetes, mediamtx, icono
+docs/                  Guías de prueba, ejemplo de copia y documentos de diseño
 ```
 
-Tecnologías: C# / .NET 10, WPF, [FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen) (FFmpeg 9.0 LGPL),
-[NAudio](https://github.com/naudio/NAudio), xUnit.
+Tecnologías: C# / .NET 10, [Avalonia UI](https://avaloniaui.net), [FFmpeg](https://ffmpeg.org) 9.0 (LGPL) con
+[FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen), [OpenAL Soft](https://openal-soft.org) con
+[Silk.NET](https://github.com/dotnet/Silk.NET), CommunityToolkit.Mvvm, Tmds.DBus y xUnit.
+
+### Compilar desde el código
+
+> [!WARNING]
+> Lo que compiles tú no lleva la firma del autor. En macOS, Gatekeeper bloquea la primera apertura: permítela en
+> *Ajustes del Sistema › Privacidad y seguridad › Abrir igualmente*.
+
+Necesitas Git y el [SDK de .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0).
+
+<details>
+<summary><strong>Windows</strong> (PowerShell)</summary>
+
+```powershell
+winget install --id Git.Git -e
+winget install --id Microsoft.DotNet.SDK.10 -e
+git clone https://github.com/tecxion/centinela.git
+cd centinela
+powershell -ExecutionPolicy Bypass -File tools\get-ffmpeg.ps1     # FFmpeg LGPL en ffmpeg\
+dotnet run --project src\Centinela.Desktop -c Release
+```
+
+`-ExecutionPolicy Bypass` permite ese script sin cambiar la configuración de tu equipo.
+</details>
+
+<details>
+<summary><strong>Linux</strong> (Ubuntu)</summary>
+
+```bash
+sudo apt install git curl xz-utils dpkg-dev dotnet-sdk-10.0
+git clone https://github.com/tecxion/centinela.git
+cd centinela
+bash tools/get-ffmpeg.sh                                    # FFmpeg LGPL en ffmpeg/lib
+dotnet run --project src/Centinela.Desktop -c Release
+bash tools/build-deb.sh                                     # crea dist/centinela_<versión>_amd64.deb
+```
+
+Si `apt` no encuentra `dotnet-sdk-10.0`, sigue las [instrucciones de Microsoft](https://learn.microsoft.com/dotnet/core/install/linux-ubuntu).
+Con `imagemagick` instalado, el icono del paquete sale con el tamaño justo.
+</details>
+
+<details>
+<summary><strong>macOS</strong> (Terminal)</summary>
+
+```bash
+xcode-select --install                                      # herramientas de compilación de Apple
+git clone https://github.com/tecxion/centinela.git
+cd centinela
+bash tools/get-ffmpeg-mac.sh arm64                          # compila FFmpeg (x64 para Intel; necesita nasm)
+dotnet run --project src/Centinela.Desktop -c Release
+bash tools/build-dmg.sh arm64                               # crea dist/Centinela-<versión>-macos-arm64.dmg
+```
+
+Las notificaciones solo funcionan dentro del `.app` (no con `dotnet run`). El `.dmg` lleva una firma ad hoc; con
+`CODESIGN_IDENTITY` firma con tu propia identidad.
+</details>
 
 ### Pruebas
 
-```powershell
-dotnet test tests\Centinela.Core.Tests
-powershell -ExecutionPolicy Bypass -File tools\get-mediamtx.ps1   # servidor RTSP para las pruebas de vídeo
-dotnet test tests\Centinela.Media.Tests                            # necesita ffmpeg/ffprobe (con libx264) en el PATH
+```bash
+dotnet test tests/Centinela.Core.Tests
+dotnet test tests/Centinela.Platform.Tests
+dotnet test tests/Centinela.Desktop.Tests
 ```
 
-La aplicación (`src/Centinela.Desktop`) no tiene pruebas automáticas. Para probarla sin cámaras reales usa dos
-terminales:
+Las de `Centinela.Media.Tests` levantan un servidor RTSP local (de momento solo en Windows): descárgalo con
+`powershell -ExecutionPolicy Bypass -File tools\get-mediamtx.ps1` y ten `ffmpeg` (con libx264) en el `PATH`.
+
+<details>
+<summary>Probar la aplicación sin cámaras reales</summary>
+
+En una terminal, el servidor RTSP: `tools\bin\mediamtx.exe`. En otra, un vídeo de prueba:
 
 ```powershell
-# Terminal 1: servidor RTSP
-tools\bin\mediamtx.exe
-```
-
-```powershell
-# Terminal 2: vídeo de prueba
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=25 -c:v libx264 -pix_fmt yuv420p -tune zerolatency -f rtsp rtsp://127.0.0.1:8554/prueba
 ```
 
-Después añade una cámara de marca **Otra (RTSP)** con la URL principal `rtsp://127.0.0.1:8554/prueba`
-(en «Avanzado»).
+Después añade una cámara de marca **Otra (RTSP)** con la URL principal `rtsp://127.0.0.1:8554/prueba` (en «Avanzado»).
+</details>
 
-### CENTINELA_DATA_DIR: probar sin tocar tu instalación
+### Variables de entorno
 
-```powershell
-$env:CENTINELA_DATA_DIR = "$env:TEMP\centinela-prueba"
-dotnet run --project src\Centinela.Desktop            # añade "-- --tray" para arrancar oculta en la bandeja
+- **`CENTINELA_DATA_DIR`**: guarda todo (cámaras, ajustes, registros, copias, grabaciones y capturas) en esa carpeta.
+  Es una instancia aparte de la que tengas abierta, usa un almacén de contraseñas de archivo en lugar del llavero, no
+  toca el arranque automático y no busca actualizaciones al arrancar. Ideal para probar sin tocar tu instalación.
+- **`CENTINELA_CPU_VIDEO=1`**: dibuja el vídeo con el procesador en lugar de la tarjeta gráfica, para comparar.
+
+```bash
+CENTINELA_DATA_DIR=/tmp/centinela-prueba dotnet run --project src/Centinela.Desktop     # añade "-- --tray" para arrancar escondida
 ```
 
-Con esta variable, todo lo que escribe Centinela (cámaras, ajustes, registros, `backup\`, `recordings\` y
-`snapshots\`) queda en esa carpeta. Es una instancia aparte de la que tengas abierta, no toca el registro de
-Windows («Arrancar con Windows» no aparece) y no busca actualizaciones al arrancar.
+En PowerShell: `$env:CENTINELA_DATA_DIR = "$env:TEMP\centinela-prueba"` y después el `dotnet run`.
 
 ### Publicar una versión
 
-1. Cambia `<Version>` en `Directory.Build.props` (p. ej. `1.3.0`).
-2. Publica en GitHub (`tecxion/centinela`) una *release* con la etiqueta `vX.Y.Z` (los borradores y las
-   *pre-releases* no cuentan). Las copias instaladas la verán en su siguiente comprobación.
+1. Cambia `<Version>` en `Directory.Build.props`.
+2. Sube la etiqueta `vX.Y.Z`. GitHub Actions crea los cuatro paquetes, firma y notariza los de macOS y deja una
+   *release* **borrador** con todo y el `SHA256SUMS.txt`.
+3. Prueba el borrador y publícalo. Las copias instaladas lo verán en su siguiente comprobación (los borradores y las
+   *pre-releases* no cuentan).
 
-### Icono
-
-`src/Centinela.Desktop/Assets/centinela.png` es el original. Tras cambiarlo, regenera el `.ico` (16–256 px):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\make-icon.ps1
-```
-
-### Si venías de CamaraWin
-
-Centinela antes se llamaba CamaraWin. Al arrancar por primera vez copia `cameras.json` y `settings.json` de
-`%AppData%\CamaraWin` (sin tocar la carpeta antigua), actualiza «Arrancar con Windows» e importa las copias JSON
-de CamaraWin. Las grabaciones y capturas antiguas siguen en `Vídeos\CamaraWin` e `Imágenes\CamaraWin`.
+Para cambiar el icono, sustituye `src/Centinela.Desktop/Assets/centinela.png` y regenera el `.ico` con
+`powershell -ExecutionPolicy Bypass -File tools\make-icon.ps1`.
 
 ## Soporte y licencia
 
 - **Soporte:** [www.tecxart.es](https://www.tecxart.es) · [tecxart@gmail.com](mailto:tecxart@gmail.com) · en la
   aplicación, *Ayuda › Soporte*.
-- **Errores y sugerencias:** [issues en GitHub](https://github.com/tecxion/centinela/issues).
-- **Licencia:** [MIT](LICENSE). FFmpeg se distribuye bajo LGPL; ver [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+- **Errores y sugerencias:** [issues en GitHub](https://github.com/tecxion/centinela/issues). Si te resulta útil,
+  una ⭐ ayuda a que más gente lo encuentre.
+- **Licencia:** [MIT](LICENSE). FFmpeg y OpenAL Soft se distribuyen bajo LGPL; ver
+  [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
