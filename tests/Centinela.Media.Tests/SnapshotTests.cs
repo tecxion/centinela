@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using Centinela.Media.Tests.Rtsp;
+using FFmpeg.AutoGen;
 
 namespace Centinela.Media.Tests;
 
@@ -30,6 +31,20 @@ public sealed class SnapshotTests(RtspTestServer server) : IDisposable
         Assert.Equal(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, bytes[..4]);
         Assert.Equal(640, BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(16, 4)));
         Assert.Equal(360, BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(20, 4)));
+    }
+
+    [Fact]
+    public unsafe void Saves_png_of_an_interlaced_frame()
+    {
+        var src = FrameConverterTests.Nv12(64, 64, 63, 102, 240);
+        try
+        {
+            src->flags |= ffmpeg.AV_FRAME_FLAG_INTERLACED;
+            var path = Path.Combine(_dir, "interlaced.png");
+            SnapshotWriter.SavePng(src, path);
+            Assert.True(File.Exists(path));
+        }
+        finally { ffmpeg.av_frame_free(&src); }
     }
 
     [Fact]

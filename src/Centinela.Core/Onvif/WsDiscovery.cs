@@ -54,12 +54,90 @@ public static class WsDiscovery
         return result;
     }
 
-    public static async Task<IReadOnlyList<DiscoveredDevice>> ProbeAsync(TimeSpan timeout, CancellationToken ct = default)
+    /// <summary>
+    /// Multicast probe on every local network, plus the same probe sent to each of <paramref name="unicastTargets"/>
+    /// (cameras on other subnets: multicast does not cross routers, a unicast probe does).
+    /// </summary>
+    public static async Task<IReadOnlyList<DiscoveredDevice>> ProbeAsync(TimeSpan timeout,
+        IReadOnlyCollection<IPAddress>? unicastTargets = null, CancellationToken ct = default)
     {
         var payload = Encoding.UTF8.GetBytes(BuildProbe(Guid.NewGuid()));
         var found = new ConcurrentDictionary<string, DiscoveredDevice>();
-        await Task.WhenAll(LocalIPv4Addresses().Select(local => ProbeFromAsync(local, payload, timeout, found, ct)));
-        return found.Values.OrderBy(d => SortKey(d.Host)).ToList();
+        var probes = LocalAddresses().Select(local => ProbeFromAsync(local, payload, timeout, found, ct)).ToList();
+        // UDP may drop a datagram: the (few) chosen addresses get the probe twice.
+        if (unicastTargets is { Count: > 0 }) probes.Add(ProbeUnicastAsync(unicastTargets, payload, rounds: 2, timeout, null, found, ct));
+        await Task.WhenAll(probes);
+        return Sorted(found);
+    }
+
+    /// <summary>
+    /// «Detectar otras redes»: the probe sent once to each of many addresses (e.g. <see cref="ProbeTargets.Zone"/>),
+    /// paced at about 5 000 per second so the network is not flooded, then a short wait for late answers.
+    /// <paramref name="progress"/> goes from 0 to 1 while sending.
+    /// </summary>
+    public static async Task<IReadOnlyList<DiscoveredDevice>> SweepAsync(IReadOnlyCollection<IPAddress> targets,
+        IProgress<double>? progress = null, CancellationToken ct = default)
+    {
+        var payload = Encoding.UTF8.GetBytes(BuildProbe(Guid.NewGuid()));
+        var found = new ConcurrentDictionary<string, DiscoveredDevice>();
+        await ProbeUnicastAsync(targets, payload, rounds: 1, TimeSpan.FromSeconds(2.5), progress, found, ct);
+        ct.ThrowIfCancellationRequested();
+        return Sorted(found);
+    }
+
+    /// <summary>This PC's IPv4 addresses on interfaces that are up (no loopback).</summary>
+    public static IReadOnlyList<IPAddress> LocalAddresses() => LocalIPv4Addresses().ToList();
+
+    const int BatchSize = 250;
+    static readonly TimeSpan BatchPause = TimeSpan.FromMilliseconds(50);
+
+    /// <param name="listen">How long to keep reading answers after the last probe was sent.</param>
+    static async Task ProbeUnicastAsync(IReadOnlyCollection<IPAddress> targets, byte[] payload, int rounds, TimeSpan listen,
+        IProgress<double>? progress, ConcurrentDictionary<string, DiscoveredDevice> found, CancellationToken ct)
+    {
+        try
+        {
+            using var udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
+            using var receiveCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var receiving = ReceiveAsync(udp, found, receiveCts.Token);
+            var total = targets.Count * rounds;
+            var sent = 0;
+            for (var round = 0; round < rounds; round++)
+            {
+                foreach (var target in targets)
+                {
+                    try { await udp.SendAsync(payload, new IPEndPoint(target, MulticastEndpoint.Port), ct); }
+                    catch (SocketException) { /* unreachable address: keep going */ }
+                    if (++sent % BatchSize != 0) continue;
+                    progress?.Report((double)sent / total);
+                    await Task.Delay(BatchPause, ct);
+                }
+            }
+            progress?.Report(1);
+            receiveCts.CancelAfter(listen);
+            await receiving;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
+        catch (SocketException) { }
+    }
+
+    static List<DiscoveredDevice> Sorted(ConcurrentDictionary<string, DiscoveredDevice> found) =>
+        found.Values.OrderBy(d => SortKey(d.Host)).ToList();
+
+    static async Task ReceiveAsync(UdpClient udp, ConcurrentDictionary<string, DiscoveredDevice> found, CancellationToken ct)
+    {
+        try
+        {
+            while (true)
+            {
+                UdpReceiveResult received;
+                try { received = await udp.ReceiveAsync(ct); }
+                catch (SocketException) { continue; } // an ICMP "port unreachable" from a host without ONVIF
+                foreach (var device in ParseProbeMatches(Encoding.UTF8.GetString(received.Buffer)))
+                    found.TryAdd(device.Host, device);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
     }
 
     static async Task ProbeFromAsync(IPAddress local, byte[] payload, TimeSpan timeout,

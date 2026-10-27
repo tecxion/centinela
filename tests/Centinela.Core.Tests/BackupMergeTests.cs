@@ -52,6 +52,22 @@ public class BackupMergeTests
     }
 
     [Fact]
+    public void Imported_password_clears_the_unreadable_mark()
+    {
+        var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "", UnreadablePassword = "keychain:x" } };
+        var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Password = "new" }]);
+        Assert.Equal(("new", false), (r.Cameras[0].Password, r.Cameras[0].PasswordMissing));
+    }
+
+    [Fact]
+    public void Passwordless_import_cannot_redirect_an_unreadable_stored_password_to_other_urls()
+    {
+        var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "", UnreadablePassword = "keychain:x", MainUrlOverride = "rtsp://h/main", SubUrlOverride = "rtsp://h/sub" } };
+        var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Password = "", MainUrlOverride = "rtsp://evil/x", SubUrlOverride = "rtsp://evil/y" }]);
+        Assert.Equal(("rtsp://h/main", "rtsp://h/sub", true), (r.Cameras[0].MainUrlOverride, r.Cameras[0].SubUrlOverride, r.Cameras[0].PasswordMissing));
+    }
+
+    [Fact]
     public void Import_with_password_may_change_urls()
     {
         var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "keep" } };
@@ -103,5 +119,40 @@ public class BackupMergeTests
         var existing = new List<Camera> { new() { Host = "h", Port = 554, Password = "" } };
         var r = BackupMerge.Merge(existing, [new Camera { Host = "h", Port = 554, Name = "A" }, new Camera { Host = "h", Port = 554, Name = "B" }]);
         Assert.Equal((0, 1, 1), (r.Added, r.Updated, r.WithoutPassword));
+    }
+
+    [Fact]
+    public void Merge_copies_motion_fields_and_counts_them_as_changes()
+    {
+        var existing = new Camera { Name = "A", Host = "h", Port = 554 };
+        var incoming = existing.Clone();
+        incoming.MotionEnabled = true;
+        incoming.MotionAlerts = false;
+        var result = BackupMerge.Merge([existing], [incoming]);
+        Assert.Equal(1, result.Updated);
+        Assert.True(result.Cameras[0].MotionEnabled);
+        Assert.False(result.Cameras[0].MotionAlerts);
+    }
+
+    [Fact]
+    public void Merge_copies_low_quality_when_big_and_counts_it_as_a_change()
+    {
+        var existing = new Camera { Name = "A", Host = "h", Port = 554 };
+        var incoming = existing.Clone();
+        incoming.LowQualityWhenBig = true;
+        var result = BackupMerge.Merge([existing], [incoming]);
+        Assert.Equal(1, result.Updated);
+        Assert.True(result.Cameras[0].LowQualityWhenBig);
+    }
+
+    [Fact]
+    public void Merge_copies_smoothing_and_counts_it_as_a_change()
+    {
+        var existing = new Camera { Name = "A", Host = "h", Port = 554 };
+        var incoming = existing.Clone();
+        incoming.Smoothing = true;
+        var result = BackupMerge.Merge([existing], [incoming]);
+        Assert.Equal(1, result.Updated);
+        Assert.True(result.Cameras[0].Smoothing);
     }
 }

@@ -1,9 +1,9 @@
-# Builds src/Centinela.App/Assets/centinela.ico (16-256 px, PNG-compressed entries) from centinela.png.
+# Builds src/Centinela.Desktop/Assets/centinela.ico (16-256 px, PNG-compressed entries) from centinela.png.
 # Usage: pwsh tools/make-icon.ps1
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
-$assets = Join-Path $PSScriptRoot '..\src\Centinela.App\Assets'
+$assets = Join-Path $PSScriptRoot '..\src\Centinela.Desktop\Assets'
 $source = [System.Drawing.Image]::FromFile((Resolve-Path (Join-Path $assets 'centinela.png')))
 $sizes = 16, 24, 32, 48, 64, 128, 256
 $images = foreach ($size in $sizes) {

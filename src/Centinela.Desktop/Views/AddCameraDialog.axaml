@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:video="using:Centinela.Desktop.Video"
+        x:Class="Centinela.Desktop.Views.AddCameraDialog"
+        Title="Añadir cámara" Width="480" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="/Assets/centinela.ico">
+    <StackPanel Margin="16">
+        <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+            <Grid.Styles>
+                <Style Selector="TextBlock">
+                    <Setter Property="VerticalAlignment" Value="Center" />
+                    <Setter Property="Margin" Value="0,4" />
+                </Style>
+                <Style Selector="TextBox">
+                    <Setter Property="Margin" Value="0,4" />
+                </Style>
+                <Style Selector="ComboBox">
+                    <Setter Property="Margin" Value="0,4" />
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                </Style>
+            </Grid.Styles>
+            <TextBlock Text="Marca" />
+            <ComboBox x:Name="BrandBox" Grid.Column="1" SelectionChanged="Brand_Changed">
+                <ComboBoxItem Content="Tapo" />
+                <ComboBoxItem Content="Imou" />
+                <ComboBoxItem Content="Otra (RTSP)" />
+            </ComboBox>
+            <TextBlock Grid.Row="1" Text="Nombre" />
+            <TextBox x:Name="NameBox" Grid.Row="1" Grid.Column="1" />
+            <TextBlock Grid.Row="2" Text="IP" />
+            <TextBox x:Name="HostBox" Grid.Row="2" Grid.Column="1" />
+            <TextBlock Grid.Row="3" Text="Puerto RTSP" />
+            <TextBox x:Name="PortBox" Grid.Row="3" Grid.Column="1" />
+            <TextBlock Grid.Row="4" Text="Usuario" />
+            <TextBox x:Name="UserBox" Grid.Row="4" Grid.Column="1" />
+            <TextBlock Grid.Row="5" Text="Contraseña" />
+            <TextBox x:Name="PasswordInput" Grid.Row="5" Grid.Column="1" PasswordChar="●" />
+        </Grid>
+        <Expander x:Name="AdvancedBox" Header="Avanzado" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+            <StackPanel Margin="0,4,0,0">
+                <TextBlock Text="URL principal (opcional salvo en «Otra»)" />
+                <TextBox x:Name="MainUrlBox" Margin="0,2,0,6" />
+                <TextBlock Text="URL secundaria (opcional)" />
+                <TextBox x:Name="SubUrlBox" Margin="0,2,0,6" />
+                <CheckBox x:Name="UdpBox" Content="Usar UDP (menos retardo, puede mostrar artefactos)" />
+            </StackPanel>
+        </Expander>
+        <TextBlock x:Name="HintText" Foreground="Gray" TextWrapping="Wrap" Margin="0,8" />
+        <Border Height="180" Background="Black" Margin="0,4">
+            <Grid>
+                <video:VideoSurface x:Name="Preview" />
+                <TextBlock x:Name="TestStatus" Foreground="White" TextWrapping="Wrap" TextAlignment="Center"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+        <TextBlock x:Name="TestResult" TextWrapping="Wrap" Margin="0,4,0,0" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0" Spacing="8">
+            <Button Content="Probar" Width="90" HorizontalContentAlignment="Center" Click="Test_Click" />
+            <Button Content="Guardar" Width="90" HorizontalContentAlignment="Center" IsDefault="True" Click="Save_Click" />
+            <Button Content="Cancelar" Width="90" HorizontalContentAlignment="Center" IsCancel="True" Click="Cancel_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

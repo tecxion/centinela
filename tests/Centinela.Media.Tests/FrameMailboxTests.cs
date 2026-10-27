@@ -74,4 +74,30 @@ public class FrameMailboxTests
         Assert.NotSame(a, c);
         Assert.Equal(32, c.Stride);
     }
+
+    [Fact]
+    public void Nv12_frame_has_a_y_plane_and_a_half_size_chroma_plane()
+    {
+        var f = new VideoFrame(6, 4, FrameLayout.Nv12);
+        Assert.Equal((6, 3, 2, 24), (f.Stride, f.ChromaWidth, f.ChromaHeight, f.ChromaOffset));
+        Assert.Equal(6 * 4 + 3 * 2 * 2, f.Data.Length);
+    }
+
+    [Fact]
+    public void Odd_nv12_sizes_round_the_chroma_plane_up()
+    {
+        var f = new VideoFrame(5, 3, FrameLayout.Nv12);
+        Assert.Equal((3, 2), (f.ChromaWidth, f.ChromaHeight));
+        Assert.Equal(15 + 3 * 2 * 2, f.Data.Length);
+    }
+
+    [Fact]
+    public void Rent_does_not_reuse_a_frame_of_another_layout()
+    {
+        var mailbox = new FrameMailbox();
+        mailbox.Publish(mailbox.Rent(4, 2));
+        mailbox.Publish(mailbox.Rent(4, 2)); // the first one is now the spare
+        var frame = mailbox.Rent(4, 2, FrameLayout.Nv12);
+        Assert.Equal(FrameLayout.Nv12, frame.Layout);
+    }
 }

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Centinela
+Comment=Visor de cámaras IP
+Exec=centinela
+Icon=centinela
+Categories=AudioVideo;Video;Security;
+Terminal=false
+StartupWMClass=Centinela

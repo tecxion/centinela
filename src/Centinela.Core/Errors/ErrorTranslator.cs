@@ -1,10 +1,18 @@
+using Centinela.Core.Platform;
+
 namespace Centinela.Core;
 
 public sealed record TranslatedError(string Short, string Title, string Advice);
 
 public static class ErrorTranslator
 {
-    public static TranslatedError Translate(StreamErrorKind kind, Brand brand, string cameraName) => kind switch
+    const string UnreachableAdvice =
+        "Comprueba que la cámara está encendida y en la misma red, y que su IP no ha cambiado (conviene reservarla en el router).";
+
+    public static TranslatedError Translate(StreamErrorKind kind, Brand brand, string cameraName) =>
+        Translate(kind, brand, cameraName, OsInfo.Current);
+
+    public static TranslatedError Translate(StreamErrorKind kind, Brand brand, string cameraName, OsKind os) => kind switch
     {
         StreamErrorKind.AuthFailed => new("Contraseña incorrecta", $"{cameraName}: usuario o contraseña incorrectos", brand switch
         {
@@ -13,7 +21,9 @@ public static class ErrorTranslator
             _ => "Revisa el usuario y la contraseña de la cámara.",
         }),
         StreamErrorKind.Unreachable => new("Sin conexión", $"{cameraName}: no se puede conectar con la cámara",
-            "Comprueba que la cámara está encendida y en la misma red, y que su IP no ha cambiado (conviene reservarla en el router)."),
+            os == OsKind.MacOS // macOS blocks local-network connections until the user allows them
+                ? UnreachableAdvice + " Si es la primera vez, permite a Centinela el acceso a la red local en Ajustes del Sistema › Privacidad y seguridad › Red local."
+                : UnreachableAdvice),
         StreamErrorKind.NotFound => new("Vídeo no disponible", $"{cameraName}: la cámara no ofrece el vídeo pedido", brand switch
         {
             Brand.Imou => "Activa RTSP/ONVIF en la app Imou (ajustes de la cámara) y vuelve a intentarlo.",

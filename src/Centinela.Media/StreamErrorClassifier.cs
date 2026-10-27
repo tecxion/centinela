@@ -1,15 +1,29 @@
 using Centinela.Core;
+using Centinela.Core.Platform;
 using FFmpeg.AutoGen;
 
 namespace Centinela.Media;
 
 public static class StreamErrorClassifier
 {
-    // FFmpeg maps Winsock errors to UCRT errno values on Windows (ETIMEDOUT observed as -138).
-    const int Etimedout = 138, Econnrefused = 107, Ehostunreach = 110, Enetunreach = 118,
-        Eaddrnotavail = 101, Econnreset = 108, Eacces = 13;
+    const int Eacces = 13;
 
-    public static StreamErrorKind Classify(int ffmpegCode, int? rtspStatus, bool wasPlaying, bool deadlineHit)
+    // FFmpeg returns -errno: ETIMEDOUT, ECONNREFUSED, EHOSTUNREACH, ENETUNREACH, EADDRNOTAVAIL, ECONNRESET (EHOSTDOWN).
+    static readonly HashSet<int> WindowsErrno = [138, 107, 110, 118, 101, 108]; // UCRT values FFmpeg maps Winsock errors to (ETIMEDOUT observed as -138)
+    static readonly HashSet<int> LinuxErrno = [110, 111, 113, 101, 99, 104, 112]; // Linux errno
+    static readonly HashSet<int> MacErrno = [60, 61, 65, 51, 49, 54, 64]; // BSD errno on macOS
+
+    static IReadOnlySet<int> UnreachableErrno(OsKind os) => os switch
+    {
+        OsKind.Windows => WindowsErrno,
+        OsKind.MacOS => MacErrno,
+        _ => LinuxErrno,
+    };
+
+    public static StreamErrorKind Classify(int ffmpegCode, int? rtspStatus, bool wasPlaying, bool deadlineHit) =>
+        Classify(ffmpegCode, rtspStatus, wasPlaying, deadlineHit, OsInfo.Current);
+
+    public static StreamErrorKind Classify(int ffmpegCode, int? rtspStatus, bool wasPlaying, bool deadlineHit, OsKind os)
     {
         if (rtspStatus is { } status)
         {
@@ -28,8 +42,7 @@ public static class StreamErrorClassifier
         if (ffmpegCode == ffmpeg.AVERROR_HTTP_SERVER_ERROR) return StreamErrorKind.ServerError;
         if (deadlineHit || ffmpegCode == ffmpeg.AVERROR_EXIT)
             return wasPlaying ? StreamErrorKind.Stalled : StreamErrorKind.Unreachable;
-        if (-ffmpegCode is Etimedout or Econnrefused or Ehostunreach or Enetunreach or Eaddrnotavail or Econnreset
-            || ffmpegCode == ffmpeg.AVERROR_EOF)
+        if (UnreachableErrno(os).Contains(-ffmpegCode) || ffmpegCode == ffmpeg.AVERROR_EOF)
             return StreamErrorKind.Unreachable;
         return StreamErrorKind.Unknown;
     }

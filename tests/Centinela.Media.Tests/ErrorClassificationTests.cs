@@ -1,4 +1,5 @@
 using Centinela.Core;
+using Centinela.Core.Platform;
 using Centinela.Media;
 using FFmpeg.AutoGen;
 
@@ -61,11 +62,46 @@ public class ErrorClassificationTests
         Assert.Equal(StreamErrorKind.AuthFailed, StreamErrorClassifier.Classify(-13, null, false, false));
         Assert.Equal(StreamErrorKind.NotFound, StreamErrorClassifier.Classify(ffmpeg.AVERROR_HTTP_NOT_FOUND, null, false, false));
         Assert.Equal(StreamErrorKind.ServerError, StreamErrorClassifier.Classify(ffmpeg.AVERROR_HTTP_SERVER_ERROR, null, false, false));
-        Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(-138, null, false, false));
-        Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(-107, null, false, false));
+        Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(-138, null, false, false, OsKind.Windows));
+        Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(-107, null, false, false, OsKind.Windows));
         Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(ffmpeg.AVERROR_EXIT, null, false, true));
         Assert.Equal(StreamErrorKind.Stalled, StreamErrorClassifier.Classify(ffmpeg.AVERROR_EXIT, null, true, true));
         Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(ffmpeg.AVERROR_EOF, null, true, false));
         Assert.Equal(StreamErrorKind.Unknown, StreamErrorClassifier.Classify(-22, null, false, false));
     }
+
+    [Theory]
+    [InlineData(OsKind.Windows, 138)]
+    [InlineData(OsKind.Windows, 107)]
+    [InlineData(OsKind.Windows, 110)]
+    [InlineData(OsKind.Windows, 118)]
+    [InlineData(OsKind.Windows, 101)]
+    [InlineData(OsKind.Windows, 108)]
+    [InlineData(OsKind.Linux, 110)]
+    [InlineData(OsKind.Linux, 111)]
+    [InlineData(OsKind.Linux, 113)]
+    [InlineData(OsKind.Linux, 101)]
+    [InlineData(OsKind.Linux, 99)]
+    [InlineData(OsKind.Linux, 104)]
+    [InlineData(OsKind.Linux, 112)]
+    [InlineData(OsKind.MacOS, 60)]
+    [InlineData(OsKind.MacOS, 61)]
+    [InlineData(OsKind.MacOS, 65)]
+    [InlineData(OsKind.MacOS, 51)]
+    [InlineData(OsKind.MacOS, 49)]
+    [InlineData(OsKind.MacOS, 54)]
+    [InlineData(OsKind.MacOS, 64)]
+    public void Network_errno_of_each_system_is_unreachable(OsKind os, int errno) =>
+        Assert.Equal(StreamErrorKind.Unreachable, StreamErrorClassifier.Classify(-errno, null, false, false, os));
+
+    [Theory]
+    [InlineData(OsKind.Windows)]
+    [InlineData(OsKind.Linux)]
+    [InlineData(OsKind.MacOS)]
+    public void Eacces_is_auth_failed_on_every_system(OsKind os) =>
+        Assert.Equal(StreamErrorKind.AuthFailed, StreamErrorClassifier.Classify(-13, null, false, false, os));
+
+    [Fact]
+    public void Windows_errno_is_not_mistaken_on_macos() =>
+        Assert.Equal(StreamErrorKind.Unknown, StreamErrorClassifier.Classify(-138, null, false, false, OsKind.MacOS));
 }

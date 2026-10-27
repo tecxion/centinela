@@ -1,0 +1,58 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:core="using:Centinela.Core"
+        xmlns:views="using:Centinela.Desktop.Views"
+        x:Class="Centinela.Desktop.Views.MotionLogWindow"
+        Title="Registro de movimiento" Width="640" Height="480" MinWidth="420" MinHeight="300"
+        WindowStartupLocation="CenterOwner" Icon="/Assets/centinela.ico">
+    <Window.Styles>
+        <Style Selector="Grid.header > TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="6,0" />
+        </Style>
+        <Style Selector="Grid.row > TextBlock">
+            <Setter Property="Margin" Value="6,0" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style Selector="ListBox#Rows > ListBoxItem">
+            <Setter Property="Padding" Value="0,3" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+    </Window.Styles>
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Copiar" Padding="10,4" Margin="0,0,8,0" Click="Copy_Click"
+                    ToolTip.Tip="Copia las filas seleccionadas (o todas si no hay ninguna seleccionada)" />
+            <Button Content="Abrir carpeta" Padding="10,4" Margin="0,0,8,0" Click="OpenFolder_Click" />
+            <Button Content="Vaciar" Padding="10,4" Click="Clear_Click"
+                    ToolTip.Tip="Vacía la lista; los archivos de registro se conservan" />
+        </StackPanel>
+        <!-- The table: a header row, then one Grid row per entry with the same columns; newest first. -->
+        <Border BorderBrush="Gray" BorderThickness="1">
+            <DockPanel>
+                <Grid DockPanel.Dock="Top" Classes="header" Height="28" Background="#22888888"
+                      ColumnDefinitions="120,*,90,110">
+                    <TextBlock Grid.Column="0" Text="Hora" />
+                    <TextBlock Grid.Column="1" Text="Cámara" />
+                    <TextBlock Grid.Column="2" Text="Duración" />
+                    <TextBlock Grid.Column="3" Text="Cambio máx." />
+                </Grid>
+                <ListBox x:Name="Rows" SelectionMode="Multiple" Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="core:MotionLogEntry">
+                            <Grid Classes="row" ColumnDefinitions="120,*,90,110">
+                                <TextBlock Grid.Column="0" Text="{Binding Start, StringFormat='{}{0:dd/MM HH:mm:ss}'}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Camera}" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding Duration, Converter={x:Static views:MotionLogWindow.DurationText}}" />
+                                <TextBlock Grid.Column="3" Text="{Binding Peak, Converter={x:Static views:MotionLogWindow.PeakText}}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</Window>

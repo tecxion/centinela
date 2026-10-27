@@ -59,6 +59,13 @@ public static class CameraBackup
                     MainUrl = mainUrl,
                     SubUrl = subUrl,
                     UseUdp = c.UseUdp,
+                    MotionEnabled = c.MotionEnabled,
+                    MotionSensitivity = c.MotionSensitivity,
+                    MotionCooldownSeconds = c.MotionCooldownSeconds,
+                    ConnectionAlerts = c.ConnectionAlerts,
+                    MotionAlerts = c.MotionAlerts,
+                    LowQualityWhenBig = c.LowQualityWhenBig,
+                    Smoothing = c.Smoothing,
                 };
             }).ToList(),
         };
@@ -113,6 +120,13 @@ public static class CameraBackup
                 SubUrlOverride = entry.SubUrl,
                 UseUdp = entry.UseUdp,
                 Order = index,
+                MotionEnabled = entry.MotionEnabled,
+                MotionSensitivity = Enum.IsDefined(entry.MotionSensitivity) ? entry.MotionSensitivity : MotionSensitivity.Medium,
+                MotionCooldownSeconds = Camera.NormalizeCooldown(entry.MotionCooldownSeconds),
+                ConnectionAlerts = entry.ConnectionAlerts,
+                MotionAlerts = entry.MotionAlerts,
+                LowQualityWhenBig = entry.LowQualityWhenBig,
+                Smoothing = entry.Smoothing,
             });
         }
         return new BackupImport(cameras, key is not null);
@@ -219,21 +233,13 @@ public static class CameraBackup
         public string? MainUrl { get; set; }
         public string? SubUrl { get; set; }
         public bool UseUdp { get; set; }
-    }
-
-    /// <summary>Unknown brand names or numbers map to <see cref="Brand.Custom"/> instead of failing the whole file.</summary>
-    sealed class LenientBrandConverter : JsonConverter<Brand>
-    {
-        public override Brand Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
-            reader.TokenType switch
-            {
-                JsonTokenType.String => Enum.TryParse<Brand>(reader.GetString(), ignoreCase: true, out var b) && Enum.IsDefined(b) ? b : Brand.Custom,
-                JsonTokenType.Number => reader.TryGetInt32(out var n) && Enum.IsDefined((Brand)n) ? (Brand)n : Brand.Custom,
-                JsonTokenType.Null => Brand.Custom,
-                _ => throw new JsonException("Invalid brand."),
-            };
-
-        public override void Write(Utf8JsonWriter writer, Brand value, JsonSerializerOptions options) =>
-            writer.WriteStringValue(value.ToString());
+        public bool MotionEnabled { get; set; }
+        [JsonConverter(typeof(LenientSensitivityConverter))]
+        public MotionSensitivity MotionSensitivity { get; set; } = MotionSensitivity.Medium;
+        public int MotionCooldownSeconds { get; set; } = 60;
+        public bool ConnectionAlerts { get; set; } = true;
+        public bool MotionAlerts { get; set; } = true;
+        public bool LowQualityWhenBig { get; set; }
+        public bool Smoothing { get; set; }
     }
 }

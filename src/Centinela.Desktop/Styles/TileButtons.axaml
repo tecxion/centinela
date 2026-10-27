@@ -1,0 +1,47 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- The tile's action buttons (TileButton / TileButtonLarge in the Windows version). -->
+    <Style Selector="Button.tile, Button.tile-large">
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Margin" Value="2,0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="#E0181818" />
+        <Setter Property="BorderBrush" Value="#60FFFFFF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontFamily" Value="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border x:Name="Chrome" Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="5">
+                    <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.tile-large">
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Margin" Value="3,0" />
+        <Setter Property="FontSize" Value="18" />
+    </Style>
+    <Style Selector="Button.tile:pointerover /template/ Border#Chrome, Button.tile-large:pointerover /template/ Border#Chrome">
+        <Setter Property="Background" Value="#E0404040" />
+        <Setter Property="BorderBrush" Value="White" />
+    </Style>
+    <Style Selector="Button.tile:pressed /template/ Border#Chrome, Button.tile-large:pressed /template/ Border#Chrome">
+        <Setter Property="Background" Value="#F0080808" />
+    </Style>
+    <!-- Fluent shrinks a pressed button; the Windows version does not. -->
+    <Style Selector="Button.tile:pressed, Button.tile-large:pressed">
+        <Setter Property="RenderTransform" Value="none" />
+    </Style>
+    <Style Selector="Button.tile:disabled /template/ Border#Chrome, Button.tile-large:disabled /template/ Border#Chrome">
+        <Setter Property="Opacity" Value="0.45" />
+    </Style>
+</Styles>

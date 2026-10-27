@@ -7,8 +7,8 @@ namespace Centinela.Media;
 public enum SessionState { Idle, Connecting, Playing, Reconnecting, AuthFailed, Stopped }
 
 /// <summary>
-/// One RTSP connection on its own thread. Decoding sessions push the newest frame (BGRA, scaled to
-/// the target size) into <see cref="Mailbox"/>; there is no buffering, clock or queue on purpose.
+/// One RTSP connection on its own thread. Decoding sessions push the newest frame (scaled to the target size, BGRA or
+/// NV12 by <see cref="FrameOutput"/>) into <see cref="Mailbox"/>; there is no buffering, clock or queue on purpose.
 /// </summary>
 public sealed unsafe partial class StreamSession : IDisposable
 {
@@ -34,7 +34,7 @@ public sealed unsafe partial class StreamSession : IDisposable
     volatile int _targetHeight;
     bool _forceSoftware;
     int _decodeErrors;
-    SwsContext* _sws;
+    readonly FrameConverter _converter = new();
     AVFrame* _lastFrame; // native-resolution software frame for snapshots; guarded by _snapshotLock
     volatile bool _deadlineHit;
     volatile int _lastRtspStatus;          // 0 = none, for the current attempt
@@ -46,7 +46,23 @@ public sealed unsafe partial class StreamSession : IDisposable
     int _statsFrames;
     double _fps;
     double _latencyEma = -1;
-    long _packetTimestamp;          // when the packet being decoded was read
+    double _convertEma = -1;
+    long _packetTimestamp;          // when the packet being decoded was read (decoding thread)
+    volatile bool _connectionPlayed; // the current connection showed a frame (reader or playout thread)
+    volatile StreamInfo? _info;     // null until known for the current connection
+    bool _infoPublished;            // session thread only
+    int _audioIndex = -1;           // current connection's audio stream, -1 = none
+    string? _videoCodecName;
+    string? _audioCodecName;
+    volatile IAudioSink? _audioSink;
+    volatile AudioPump? _audioPump;  // current connection's pump; created lazily and disposed on the session thread
+    long _audioFramesDecodedBefore;  // frames of earlier connections
+    AVCodecParameters* _audioParameters; // current connection's audio codecpar (owned by fmt); session thread only
+    volatile string? _audioFailure;  // current connection's audio failure; audio stays off until the next connection
+    object _audioConnection = new(); // identity of the current connection for pump callbacks; guarded by _audioFailureLock
+    readonly object _audioFailureLock = new();
+    long _audioAttachGeneration;     // incremented by every SetAudioSink(non-null)
+    long _audioFailureReported;      // attach generation whose failure was already reported
 
     public StreamSession(string url, bool useUdp = false, bool decode = true)
     {
@@ -71,6 +87,32 @@ public sealed unsafe partial class StreamSession : IDisposable
     public event Action<SessionState>? StateChanged;
     /// <summary>Raised on the session thread for every failed attempt or stall; subscriber exceptions are isolated.</summary>
     public event Action<StreamError>? ErrorOccurred;
+    /// <summary>Resolution and codecs of the current connection; null until known.</summary>
+    public StreamInfo? Info => _info;
+    /// <summary>Raised on the session thread once per connection when <see cref="Info"/> is known; subscriber exceptions are isolated.</summary>
+    public event Action<StreamInfo>? InfoAvailable;
+
+    /// <summary>
+    /// Attaches (or with null, detaches) the audio output. Any thread; never reconnects. The audio decoder only
+    /// starts once an audio packet arrives with a sink attached.
+    /// </summary>
+    public void SetAudioSink(IAudioSink? sink)
+    {
+        if (sink is not null) Interlocked.Increment(ref _audioAttachGeneration);
+        _audioSink = sink;
+    }
+
+    /// <summary>
+    /// Raised on the audio or session thread when this connection's audio cannot be decoded; video continues.
+    /// Raised at most once per <see cref="SetAudioSink"/> attach: attaching again to a connection whose audio
+    /// already failed raises it again when the next audio packet arrives.
+    /// </summary>
+    public event Action<string>? AudioFailed;
+
+    internal long AudioFramesDecoded => Interlocked.Read(ref _audioFramesDecodedBefore) + (_audioPump?.FramesDecoded ?? 0);
+
+    /// <summary>True while the current connection has an audio pump (thread + decoder).</summary>
+    internal bool HasAudioPump => _audioPump is not null;
 
     public StreamStats Stats
     {
@@ -120,7 +162,7 @@ public sealed unsafe partial class StreamSession : IDisposable
     void Run()
     {
         AVBufferRef* hwDevice = null;
-        if (_decode && ffmpeg.av_hwdevice_ctx_create(&hwDevice, AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA, null, null, 0) < 0)
+        if (_decode && ffmpeg.av_hwdevice_ctx_create(&hwDevice, HardwareAcceleration.Current.Device, null, null, 0) < 0)
             hwDevice = null;
         var backoff = 1;
         try
@@ -168,8 +210,7 @@ public sealed unsafe partial class StreamSession : IDisposable
                 ffmpeg.av_frame_free(&last);
                 _lastFrame = null;
             }
-            ffmpeg.sws_freeContext(_sws);
-            _sws = null;
+            _converter.Dispose();
             ffmpeg.av_buffer_unref(&hwDevice);
             if (_state != SessionState.AuthFailed) SetState(SessionState.Stopped);
         }
@@ -185,13 +226,21 @@ public sealed unsafe partial class StreamSession : IDisposable
         _statsFrames = 0;
         _statsWindowStart = 0;
         _latencyEma = -1;
+        _convertEma = -1;
         _fps = 0;
+        _info = null;
+        _infoPublished = false;
+        _audioIndex = -1;
+        _videoCodecName = null;
+        _audioCodecName = null;
         var logSink = (Action<string>)OnFFmpegLog; // identity for Unregister: fmt's address may be reused by another session
         FFmpegLog.Register(fmt, logSink);
         AVCodecContext* dec = null;
         var pkt = ffmpeg.av_packet_alloc();
         var frame = ffmpeg.av_frame_alloc();
         var sw = ffmpeg.av_frame_alloc();
+        Playout? playout = null;
+        _connectionPlayed = false;
         try
         {
             fmt->interrupt_callback.callback = _interrupt;
@@ -199,6 +248,8 @@ public sealed unsafe partial class StreamSession : IDisposable
 
             AVDictionary* options = null;
             ffmpeg.av_dict_set(&options, "rtsp_transport", _useUdp ? "udp" : "tcp", 0);
+            // Keyframes of big images arrive as bursts of datagrams; a small socket buffer drops some and smears the image.
+            if (_useUdp) ffmpeg.av_dict_set(&options, "buffer_size", "4194304", 0);
             ffmpeg.av_dict_set(&options, "fflags", "nobuffer", 0);
             ffmpeg.av_dict_set(&options, "probesize", "32768", 0);
             ffmpeg.av_dict_set(&options, "max_delay", "0", 0);
@@ -220,25 +271,56 @@ public sealed unsafe partial class StreamSession : IDisposable
                     : ffmpeg.av_find_best_stream(fmt, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, null, 0),
                 "find video");
             var stream = fmt->streams[videoIndex];
+            var audio = ffmpeg.av_find_best_stream(fmt, AVMediaType.AVMEDIA_TYPE_AUDIO, -1, videoIndex, null, 0);
+            _audioIndex = audio >= 0 ? audio : -1;
+            _videoCodecName = ffmpeg.avcodec_get_name(stream->codecpar->codec_id);
+            _audioCodecName = _audioIndex >= 0 ? ffmpeg.avcodec_get_name(fmt->streams[_audioIndex]->codecpar->codec_id) : null;
+            // Remux sessions ran avformat_find_stream_info, so the size is known now; decode sessions wait for a frame.
+            if (!_decode && stream->codecpar->width > 0) PublishInfo(stream->codecpar->width, stream->codecpar->height);
             if (_decode) dec = OpenDecoder(codec, stream->codecpar, hwDevice);
+            if (_decode && _audioIndex >= 0) _audioParameters = fmt->streams[_audioIndex]->codecpar;
 
+            var awaitKeyframe = false; // after smoothing is switched off, until the decoder can show a clean image
             while (!_stopping)
             {
+                if (dec is not null) FollowSmoothing(ref playout, dec, frame, sw, ref awaitKeyframe);
+                if (playout is not null) ThrowIfPlayoutFailed(playout);
                 ArmDeadline(StallTimeoutMs);
-                FFmpegException.ThrowIfError(ffmpeg.av_read_frame(fmt, pkt), "read");
-                _packetTimestamp = Stopwatch.GetTimestamp();
+                var read = ffmpeg.av_read_frame(fmt, pkt);
+                if (playout?.Failure is not null)
+                {
+                    _deadlineHit = false; // the playout thread interrupted the read: its error is the real one
+                    ThrowIfPlayoutFailed(playout);
+                }
+                FFmpegException.ThrowIfError(read, "read");
+                var arrival = Stopwatch.GetTimestamp();
                 if (pkt->stream_index == videoIndex)
                 {
                     OnVideoPacket(stream, pkt);
                     if (dec is null) MarkPlaying(ref reachedPlaying);
-                    else DecodePacket(dec, pkt, frame, sw, ref reachedPlaying);
+                    else if (playout is not null) EnqueueVideo(playout, pkt, arrival);
+                    else if (!awaitKeyframe || (pkt->flags & ffmpeg.AV_PKT_FLAG_KEY) != 0)
+                    {
+                        awaitKeyframe = false;
+                        _packetTimestamp = arrival;
+                        DecodePacket(dec, pkt, frame, sw, present: true);
+                    }
+                }
+                else if (pkt->stream_index == _audioIndex && _audioParameters is not null && _audioSink is not null)
+                {
+                    if (playout is not null) EnqueueAudio(playout, pkt, arrival);
+                    else OnAudioPacket(pkt);
                 }
                 ffmpeg.av_packet_unref(pkt);
             }
         }
         finally
         {
+            // The playout thread uses the decoder, frames and audio pump freed below.
+            StopPlayout(playout);
+            if (_connectionPlayed) reachedPlaying = true;
             FFmpegLog.Unregister((void*)logContext, logSink);
+            StopAudioPump();
             OnConnectionClosed();
             ffmpeg.av_frame_free(&sw);
             ffmpeg.av_frame_free(&frame);
@@ -246,6 +328,67 @@ public sealed unsafe partial class StreamSession : IDisposable
             ffmpeg.avcodec_free_context(&dec);
             ffmpeg.avformat_close_input(&fmt);
         }
+    }
+
+    /// <summary>Session thread; only called with a sink attached. Starts the pump on the first packet.</summary>
+    void OnAudioPacket(AVPacket* pkt)
+    {
+        if (_audioFailure is not null)
+        {
+            ReportAudioFailure(); // no-op unless the sink was attached again since the last report
+            return;
+        }
+        if (_audioPump is null)
+        {
+            try
+            {
+                // The token ties a late failure callback to this connection only.
+                var connection = _audioConnection;
+                _audioPump = new AudioPump(_audioParameters, () => _audioSink, message => OnAudioPumpFailed(connection, message));
+            }
+            catch (Exception ex)
+            {
+                // Audio must never take the video down: report and play without it.
+                OnAudioPumpFailed(_audioConnection, CredentialSanitizer.Sanitize(ex.Message));
+                return;
+            }
+        }
+        _audioPump.Enqueue(pkt);
+    }
+
+    /// <summary>Audio or session thread.</summary>
+    void OnAudioPumpFailed(object connection, string message)
+    {
+        lock (_audioFailureLock)
+        {
+            if (!ReferenceEquals(connection, _audioConnection)) return; // that connection is gone
+            _audioFailure = message;
+        }
+        ReportAudioFailure();
+    }
+
+    /// <summary>Raises <see cref="AudioFailed"/> at most once per attach generation. Any thread.</summary>
+    void ReportAudioFailure()
+    {
+        if (_audioFailure is not { } message) return;
+        var generation = Interlocked.Read(ref _audioAttachGeneration);
+        if (Interlocked.Exchange(ref _audioFailureReported, generation) == generation) return;
+        try { AudioFailed?.Invoke(message); }
+        catch (Exception) { /* isolated */ }
+    }
+
+    void StopAudioPump()
+    {
+        _audioParameters = null; // owned by fmt, which is about to close
+        lock (_audioFailureLock)
+        {
+            _audioConnection = new object();
+            _audioFailure = null;
+        }
+        if (_audioPump is not { } pump) return;
+        pump.Dispose();
+        Interlocked.Add(ref _audioFramesDecodedBefore, pump.FramesDecoded);
+        _audioPump = null;
     }
 
     AVCodecContext* OpenDecoder(AVCodec* codec, AVCodecParameters* parameters, AVBufferRef* hwDevice)
@@ -275,11 +418,15 @@ public sealed unsafe partial class StreamSession : IDisposable
     static AVPixelFormat GetFormat(AVCodecContext* context, AVPixelFormat* formats)
     {
         for (var p = formats; *p != AVPixelFormat.AV_PIX_FMT_NONE; p++)
-            if (*p == AVPixelFormat.AV_PIX_FMT_D3D11) return *p;
+            if (*p == HardwareAcceleration.Current.Format) return *p;
         return ffmpeg.avcodec_default_get_format(context, formats);
     }
 
-    void DecodePacket(AVCodecContext* dec, AVPacket* pkt, AVFrame* frame, AVFrame* sw, ref bool reachedPlaying)
+    /// <summary>
+    /// Reader thread, or the playout thread while smoothing. <paramref name="present"/> false decodes without
+    /// showing (a smoothed view catching up).
+    /// </summary>
+    void DecodePacket(AVCodecContext* dec, AVPacket* pkt, AVFrame* frame, AVFrame* sw, bool present)
     {
         var again = ffmpeg.AVERROR(ffmpeg.EAGAIN);
         var err = ffmpeg.avcodec_send_packet(dec, pkt);
@@ -298,9 +445,12 @@ public sealed unsafe partial class StreamSession : IDisposable
                 return;
             }
             _decodeErrors = 0;
-            PresentFrame(frame, sw);
+            if (present)
+            {
+                PresentFrame(frame, sw);
+                MarkPlaying();
+            }
             ffmpeg.av_frame_unref(frame);
-            MarkPlaying(ref reachedPlaying);
         }
     }
 
@@ -314,9 +464,9 @@ public sealed unsafe partial class StreamSession : IDisposable
 
     void PresentFrame(AVFrame* frame, AVFrame* sw)
     {
-        var hardware = frame->format == (int)AVPixelFormat.AV_PIX_FMT_D3D11;
+        var hardware = frame->format == (int)HardwareAcceleration.Current.Format;
         var src = frame;
-        if (frame->format == (int)AVPixelFormat.AV_PIX_FMT_D3D11)
+        if (frame->format == (int)HardwareAcceleration.Current.Format)
         {
             ffmpeg.av_frame_unref(sw);
             var err = ffmpeg.av_hwframe_transfer_data(sw, frame, 0);
@@ -326,29 +476,27 @@ public sealed unsafe partial class StreamSession : IDisposable
                 FFmpegException.ThrowIfError(err, "gpu transfer");
             }
             src = sw;
+            // The transfer copies pixels only; the colour tags are needed to convert them right.
+            FFmpegException.ThrowIfError(ffmpeg.av_frame_copy_props(sw, frame), "frame props");
         }
         KeepForSnapshot(src);
+        if (!_infoPublished) PublishInfo(src->width, src->height);
 
         var (width, height) = FrameGeometry.FitSize(src->width, src->height, _targetWidth, _targetHeight);
-        var target = Mailbox.Rent(width, height);
-        _sws = ffmpeg.sws_getCachedContext(_sws, src->width, src->height, (AVPixelFormat)src->format,
-            width, height, AVPixelFormat.AV_PIX_FMT_BGRA, (int)SwsFlags.SWS_BILINEAR, null, null, null);
-        if (_sws is null) throw new InvalidOperationException("sws_getCachedContext failed");
-
-        fixed (byte* dst = target.Data)
-        {
-            ffmpeg.sws_scale(_sws, src->data.ToArray(), src->linesize.ToArray(), 0, src->height,
-                new byte*[] { dst, null, null, null }, new[] { target.Stride, 0, 0, 0 });
-        }
+        var target = Mailbox.Rent(width, height, FrameOutput.Layout);
+        var started = Stopwatch.GetTimestamp();
+        _converter.Convert(src, target);
+        var convertMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         Mailbox.Publish(target);
-        UpdateStats(hardware);
+        UpdateStats(hardware, convertMs, target.Layout == FrameLayout.Nv12);
     }
 
-    void UpdateStats(bool hardware)
+    void UpdateStats(bool hardware, double convertMs, bool gpuPainting)
     {
         var now = Stopwatch.GetTimestamp();
         var latency = Stopwatch.GetElapsedTime(_packetTimestamp, now).TotalMilliseconds;
         _latencyEma = _latencyEma < 0 ? latency : _latencyEma * 0.9 + latency * 0.1;
+        _convertEma = _convertEma < 0 ? convertMs : _convertEma * 0.9 + convertMs * 0.1;
         _statsFrames++;
         if (_statsWindowStart == 0) _statsWindowStart = now;
         var window = Stopwatch.GetElapsedTime(_statsWindowStart, now).TotalSeconds;
@@ -359,7 +507,8 @@ public sealed unsafe partial class StreamSession : IDisposable
             _statsWindowStart = now;
         }
         Interlocked.Exchange(ref _lastFrameTimestamp, now);
-        Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero));
+        Volatile.Write(ref _stats, new StreamStats(_fps, _latencyEma, hardware, TimeSpan.Zero, SmoothingSeconds,
+            Volatile.Read(ref _rebuffers), _convertEma, gpuPainting));
     }
 
     void KeepForSnapshot(AVFrame* src)
@@ -375,6 +524,12 @@ public sealed unsafe partial class StreamSession : IDisposable
     void MarkPlaying(ref bool reachedPlaying)
     {
         reachedPlaying = true;
+        MarkPlaying();
+    }
+
+    void MarkPlaying()
+    {
+        _connectionPlayed = true;
         if (_state == SessionState.Playing) return;
         _lastError = null;
         // Lines logged before playback (non-fatal warnings) must not reclassify a later stall.
@@ -396,6 +551,15 @@ public sealed unsafe partial class StreamSession : IDisposable
     {
         _lastError = error;
         try { ErrorOccurred?.Invoke(error); }
+        catch (Exception) { /* isolated like StateChanged */ }
+    }
+
+    void PublishInfo(int width, int height)
+    {
+        _infoPublished = true;
+        var info = new StreamInfo(width, height, _videoCodecName ?? "?", _audioCodecName);
+        _info = info;
+        try { InfoAvailable?.Invoke(info); }
         catch (Exception) { /* isolated like StateChanged */ }
     }
 

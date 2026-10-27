@@ -4,6 +4,10 @@ namespace Centinela.Media;
 
 public static unsafe class SnapshotWriter
 {
+    /// <summary>
+    /// Saves <paramref name="source"/> as a PNG with its real colours. Writes the inferred colour tags into
+    /// <paramref name="source"/> (<see cref="ColorTags.Apply"/>), so callers pass a copy.
+    /// </summary>
     public static void SavePng(AVFrame* source, string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -22,16 +26,21 @@ public static unsafe class SnapshotWriter
             encoder->time_base = new AVRational { num = 1, den = 1 };
             FFmpegException.ThrowIfError(ffmpeg.avcodec_open2(encoder, codec, null), "open png encoder");
 
+            ColorTags.Apply(source);
             rgb->format = (int)AVPixelFormat.AV_PIX_FMT_RGB24;
             rgb->width = source->width;
             rgb->height = source->height;
+            rgb->colorspace = AVColorSpace.AVCOL_SPC_RGB;
+            rgb->color_range = AVColorRange.AVCOL_RANGE_JPEG;
+            rgb->color_primaries = source->color_primaries;
+            rgb->color_trc = source->color_trc;
+            rgb->flags = source->flags & ffmpeg.AV_FRAME_FLAG_INTERLACED; // swscale refuses interlaced→progressive
             FFmpegException.ThrowIfError(ffmpeg.av_frame_get_buffer(rgb, 0), "alloc rgb frame");
 
-            sws = ffmpeg.sws_getContext(source->width, source->height, (AVPixelFormat)source->format,
-                source->width, source->height, AVPixelFormat.AV_PIX_FMT_RGB24, (int)SwsFlags.SWS_BICUBIC, null, null, null);
-            if (sws is null) throw new InvalidOperationException("sws_getContext failed");
-            ffmpeg.sws_scale(sws, source->data.ToArray(), source->linesize.ToArray(), 0, source->height,
-                rgb->data.ToArray(), rgb->linesize.ToArray());
+            sws = ffmpeg.sws_alloc_context();
+            if (sws is null) throw new InvalidOperationException("sws_alloc_context failed");
+            sws->flags = (uint)SwsFlags.SWS_BICUBIC;
+            FFmpegException.ThrowIfError(ffmpeg.sws_scale_frame(sws, rgb, source), "scale png");
 
             FFmpegException.ThrowIfError(ffmpeg.avcodec_send_frame(encoder, rgb), "encode png");
             FFmpegException.ThrowIfError(ffmpeg.avcodec_receive_packet(encoder, packet), "encode png");
@@ -40,7 +49,7 @@ public static unsafe class SnapshotWriter
         }
         finally
         {
-            ffmpeg.sws_freeContext(sws);
+            ffmpeg.sws_free_context(&sws);
             ffmpeg.av_packet_free(&packet);
             ffmpeg.av_frame_free(&rgb);
             ffmpeg.avcodec_free_context(&encoder);

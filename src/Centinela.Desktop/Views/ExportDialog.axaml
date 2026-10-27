@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Centinela.Desktop.Views.ExportDialog"
+        Title="Exportar cámaras" Width="400" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="/Assets/centinela.ico">
+    <StackPanel Margin="16">
+        <CheckBox x:Name="IncludeBox" Content="Incluir contraseñas (cifradas con una clave)"
+                  IsCheckedChanged="Include_Changed" />
+        <StackPanel x:Name="KeyPanel" Margin="20,8,0,0" IsEnabled="False">
+            <TextBlock Text="Clave" />
+            <TextBox x:Name="First" PasswordChar="●" Margin="0,4,0,8" />
+            <TextBlock Text="Repite la clave" />
+            <TextBox x:Name="Second" PasswordChar="●" Margin="0,4,0,8" />
+            <TextBlock TextWrapping="Wrap" Foreground="Gray"
+                       Text="Guarda la clave en un lugar seguro: sin ella no se pueden recuperar las contraseñas." />
+        </StackPanel>
+        <TextBlock x:Name="Error" Foreground="Red" TextWrapping="Wrap" Margin="0,8,0,0" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Exportar" IsDefault="True" Width="90" Margin="0,0,8,0" Click="Export_Click" />
+            <Button Content="Cancelar" IsCancel="True" Width="90" Click="Cancel_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

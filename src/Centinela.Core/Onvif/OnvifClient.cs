@@ -29,10 +29,11 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
     /// HttpClient that also answers HTTP Digest challenges (some Dahua/Imou firmwares). It never answers
     /// Basic (or any other scheme), so the password is never sent in cleartext over plain HTTP.
     /// </summary>
-    public static HttpClient CreateHttpClient(Uri deviceServiceUrl, string user, string password) =>
+    /// <param name="timeout">Per request, including the Digest retry; 5 s by default.</param>
+    public static HttpClient CreateHttpClient(Uri deviceServiceUrl, string user, string password, TimeSpan? timeout = null) =>
         new(new HttpClientHandler { Credentials = CreateDigestCredentials(deviceServiceUrl, user, password), PreAuthenticate = false })
         {
-            Timeout = TimeSpan.FromSeconds(5),
+            Timeout = timeout ?? TimeSpan.FromSeconds(5),
         };
 
     /// <summary>Credentials offered only for HTTP Digest challenges from the device's host (any port).</summary>
@@ -64,6 +65,47 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
         var main = await GetStreamUriAsync(media, ordered[0].Token, ct);
         var sub = ordered.Count > 1 ? await GetStreamUriAsync(media, ordered[^1].Token, ct) : main;
         return (main, sub);
+    }
+
+    /// <summary>
+    /// Read-only: every video encoder configuration with what it accepts (options null when the camera does not
+    /// answer that query).
+    /// </summary>
+    public async Task<IReadOnlyList<(string Token, EncoderSettings Settings, EncoderOptions? Options)>> GetEncoderSettingsAsync(
+        CancellationToken ct = default)
+    {
+        var media = await GetMediaServiceUrlAsync(ct);
+        var configurations = EncoderSettingsParser.ParseOnvifConfigurations(
+            await SendAsync(media, $"<GetVideoEncoderConfigurations xmlns=\"{MediaNs}\"/>", ct));
+        var result = new List<(string, EncoderSettings, EncoderOptions?)>();
+        foreach (var (token, settings) in configurations)
+        {
+            EncoderOptions? options = null;
+            try
+            {
+                options = EncoderSettingsParser.ParseOnvifOptions(await SendAsync(media,
+                    $"<GetVideoEncoderConfigurationOptions xmlns=\"{MediaNs}\"><ConfigurationToken>{SecurityElement.Escape(token)}</ConfigurationToken></GetVideoEncoderConfigurationOptions>",
+                    ct));
+            }
+            catch (OnvifException ex) when (ex is not OnvifAuthException)
+            {
+                // Options are a nice-to-have: the settings alone still answer the question.
+            }
+            result.Add((token, settings, options));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Writes a new resolution, frame rate and bitrate to one encoder configuration (persistent on the camera),
+    /// starting from its current full configuration so nothing else changes. Throws <see cref="OnvifException"/>
+    /// with the camera's reason when it refuses.
+    /// </summary>
+    public async Task SetEncoderAsync(string token, EncoderChange change, CancellationToken ct = default)
+    {
+        var media = await GetMediaServiceUrlAsync(ct);
+        var current = await SendAsync(media, $"<GetVideoEncoderConfigurations xmlns=\"{MediaNs}\"/>", ct);
+        await SendAsync(media, EncoderChangeBuilder.BuildSetConfiguration(current, token, change), ct);
     }
 
     async Task<Uri> GetMediaServiceUrlAsync(CancellationToken ct)
@@ -130,7 +172,9 @@ public sealed class OnvifClient(HttpClient http, Uri deviceServiceUrl, string us
             || text.Contains("NotAuthorized", StringComparison.Ordinal))
             throw new OnvifAuthException("Usuario o contraseña ONVIF incorrectos.");
         if (!response.IsSuccessStatusCode)
-            throw new OnvifException($"ONVIF respondió {(int)response.StatusCode}.");
+            throw new OnvifException(EncoderChangeBuilder.FaultReason(text) is { Length: > 0 } reason
+                ? $"ONVIF respondió {(int)response.StatusCode}: {reason}"
+                : $"ONVIF respondió {(int)response.StatusCode}.");
         return text;
     }
 
