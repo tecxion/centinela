@@ -63,17 +63,20 @@ Funciona con **TP-Link Tapo**, **Imou** y cualquier cámara **RTSP/ONVIF**.
 
 ## Descarga
 
-Descarga la última versión desde **[Releases](https://github.com/tecxion/centinela/releases/latest)**. Cada paquete
-lleva todo lo necesario (.NET, FFmpeg y OpenAL): no hay que instalar nada más.
+Versión actual: **1.4.0**. Cada paquete lleva todo lo necesario (.NET, FFmpeg y OpenAL): no hay que instalar nada
+más.
 
-| Sistema | Archivo | Requisitos |
+| Sistema | Descarga directa | Requisitos |
 |---|---|---|
-| **Windows** | [`Centinela-<versión>-windows-x64.exe`](https://github.com/tecxion/centinela/releases/latest) | Windows 10 u 11 de 64 bits |
-| **macOS** con Apple Silicon (M1 o posterior) | [`Centinela-<versión>-macos-arm64.dmg`](https://github.com/tecxion/centinela/releases/latest) | macOS 14 Sonoma o posterior |
-| **macOS** con Intel | [`Centinela-<versión>-macos-intel.dmg`](https://github.com/tecxion/centinela/releases/latest) | macOS 14 Sonoma o posterior |
-| **Linux** | [`centinela_<versión>_amd64.deb`](https://github.com/tecxion/centinela/releases/latest) | Ubuntu 22.04 o posterior, o una derivada (64 bits) |
+| **Windows** | [`Centinela-1.4.0-windows-x64.exe`](https://github.com/tecxion/centinela/releases/download/v1.4.0/Centinela-1.4.0-windows-x64.exe) | Windows 10 u 11 de 64 bits |
+| **macOS** con Apple Silicon (M1 o posterior) | [`Centinela-1.4.0-macos-arm64.dmg`](https://github.com/tecxion/centinela/releases/download/v1.4.0/Centinela-1.4.0-macos-arm64.dmg) | macOS 14 Sonoma o posterior |
+| **macOS** con Intel | [`Centinela-1.4.0-macos-intel.dmg`](https://github.com/tecxion/centinela/releases/download/v1.4.0/Centinela-1.4.0-macos-intel.dmg) | macOS 14 Sonoma o posterior |
+| **Linux** | [`centinela_1.4.0_amd64.deb`](https://github.com/tecxion/centinela/releases/download/v1.4.0/centinela_1.4.0_amd64.deb) | Ubuntu 22.04 o posterior, o una derivada (64 bits) |
 
-Los archivos están al final de la página de la versión, en **Assets**.
+También: [huellas `SHA256SUMS.txt`](https://github.com/tecxion/centinela/releases/download/v1.4.0/SHA256SUMS.txt) ·
+código fuente en [.zip](https://github.com/tecxion/centinela/archive/refs/tags/v1.4.0.zip) o
+[.tar.gz](https://github.com/tecxion/centinela/archive/refs/tags/v1.4.0.tar.gz) ·
+[todas las versiones](https://github.com/tecxion/centinela/releases).
 
 > ¿Qué Mac tengo? Menú Apple › **Acerca de este Mac**: si pone «Chip Apple M…» es Apple Silicon; si pone
 > «Procesador … Intel», es Intel.
@@ -506,6 +509,7 @@ Cada subida a `master` crea los cuatro paquetes con el flujo
 3. En [Releases](https://github.com/tecxion/centinela/releases), abre el borrador, revisa las notas, prueba los
    archivos y pulsa **Publish release**. Las copias instaladas la verán en su siguiente comprobación (los borradores y
    las *pre-releases* no cuentan).
+4. Cambia la versión de los enlaces de [Descarga](#descarga) en este README (aparece en cada enlace).
 
 Para cambiar el icono, sustituye `src/Centinela.Desktop/Assets/centinela.png` y regenera el `.ico` con
 `powershell -ExecutionPolicy Bypass -File tools\make-icon.ps1`.
