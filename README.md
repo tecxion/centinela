@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://github.com/tecxion/centinela/releases/latest"><img alt="Última versión" src="https://img.shields.io/github/v/release/tecxion/centinela?label=versi%C3%B3n&color=2ea44f"></a>
   <img alt="Windows · macOS · Linux" src="https://img.shields.io/badge/sistemas-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-0a66c2">
+  <a href="https://github.com/tecxion/centinela/actions/workflows/paquetes.yml"><img alt="Paquetes" src="https://github.com/tecxion/centinela/actions/workflows/paquetes.yml/badge.svg"></a>
   <a href="https://github.com/tecxion/centinela/releases"><img alt="Descargas" src="https://img.shields.io/github/downloads/tecxion/centinela/total?label=descargas"></a>
   <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-blue"></a>
 </p>
@@ -22,6 +23,10 @@
   <a href="#instalación">Instalación</a> ·
   <a href="#guía-rápida">Guía rápida</a> ·
   <a href="#solución-de-problemas">Solución de problemas</a>
+</p>
+
+<p align="center">
+  <img src="docs/img/interfaz_centinela.png" width="900" alt="Ventana de Centinela con siete cámaras en la vista «Principal + miniaturas»">
 </p>
 
 ---
@@ -63,18 +68,21 @@ lleva todo lo necesario (.NET, FFmpeg y OpenAL): no hay que instalar nada más.
 
 | Sistema | Archivo | Requisitos |
 |---|---|---|
-| **Windows** | `Centinela-<versión>-windows-x64.exe` | Windows 10 u 11 de 64 bits |
-| **macOS** con Apple Silicon (M1 o posterior) | `Centinela-<versión>-macos-arm64.dmg` | macOS 14 Sonoma o posterior |
-| **macOS** con Intel | `Centinela-<versión>-macos-intel.dmg` | macOS 14 Sonoma o posterior |
-| **Linux** | `centinela_<versión>_amd64.deb` | Ubuntu 22.04 o posterior, o una derivada (64 bits) |
+| **Windows** | [`Centinela-<versión>-windows-x64.exe`](https://github.com/tecxion/centinela/releases/latest) | Windows 10 u 11 de 64 bits |
+| **macOS** con Apple Silicon (M1 o posterior) | [`Centinela-<versión>-macos-arm64.dmg`](https://github.com/tecxion/centinela/releases/latest) | macOS 14 Sonoma o posterior |
+| **macOS** con Intel | [`Centinela-<versión>-macos-intel.dmg`](https://github.com/tecxion/centinela/releases/latest) | macOS 14 Sonoma o posterior |
+| **Linux** | [`centinela_<versión>_amd64.deb`](https://github.com/tecxion/centinela/releases/latest) | Ubuntu 22.04 o posterior, o una derivada (64 bits) |
+
+Los archivos están al final de la página de la versión, en **Assets**.
 
 > ¿Qué Mac tengo? Menú Apple › **Acerca de este Mac**: si pone «Chip Apple M…» es Apple Silicon; si pone
 > «Procesador … Intel», es Intel.
 
 > [!IMPORTANT]
-> Los únicos archivos oficiales son los de [github.com/tecxion/centinela/releases](https://github.com/tecxion/centinela/releases).
-> Los de macOS van firmados por el autor y notarizados por Apple. Quien compila Centinela desde el código fuente
-> obtiene un programa **sin esa firma**, así que no te fíes de copias descargadas de otros sitios.
+> Los únicos archivos oficiales son los de [github.com/tecxion/centinela/releases](https://github.com/tecxion/centinela/releases),
+> generados por GitHub Actions a partir de este código. Todavía no llevan firma de código, así que Windows y macOS
+> avisan la primera vez que los abres (más abajo se explica qué hacer). No te fíes de copias descargadas de otros
+> sitios.
 
 ### Comprobar la descarga
 
@@ -95,20 +103,28 @@ con su línea:
 2. Si aparece **«Windows protegió su PC»**, pulsa **Más información › Ejecutar de todas formas**. El aviso sale
    porque el instalador de Windows no lleva firma de código; si lo has bajado de Releases y su huella coincide, es el
    oficial.
-3. Sigue el asistente. Centinela se instala solo para tu usuario, en `%LOCALAPPDATA%\Programs\Centinela`, y puedes
-   marcar **Arrancar con Windows**.
+3. Sigue el asistente. Centinela se instala solo para tu usuario (sin pedir permisos de administrador), en
+   `%LOCALAPPDATA%\Programs\Centinela`, con acceso en el menú Inicio y en el escritorio. Si quieres, marca
+   **Arrancar con Windows**.
 
 ¿Tenías la 1.3? Instala la nueva encima: tus cámaras, ajustes y contraseñas se conservan.
 
 ### macOS
 
 1. Abre el `.dmg` y arrastra **Centinela** a la carpeta **Aplicaciones**.
-2. Abre Centinela desde Aplicaciones o Launchpad.
+2. Abre Centinela desde Aplicaciones. La primera vez macOS no lo deja abrir, porque todavía no está notarizado por
+   Apple: cierra el aviso (sin elegir «Trasladar a la Papelera»), ve a *Ajustes del Sistema › Privacidad y
+   seguridad*, baja hasta *Seguridad* y pulsa **Abrir igualmente** junto a Centinela. Hay que hacerlo con cada versión
+   nueva.
+   Si no aparece el botón, escribe en Terminal `xattr -dr com.apple.quarantine /Applications/Centinela.app` y vuelve
+   a abrirlo.
 3. La primera vez, macOS te pide algunos permisos:
    - **Red local**: imprescindible, sin él Centinela no ve las cámaras. Si lo denegaste, actívalo en
      *Ajustes del Sistema › Privacidad y seguridad › Red local*.
    - **Notificaciones**: para los avisos de movimiento y de conexión.
    - **Documentos**: para guardar la copia automática de tus cámaras.
+   - **Llavero**: tras instalar cada versión nueva, macOS pregunta si Centinela puede usar las contraseñas guardadas,
+     una vez por cámara. Escribe la contraseña del Mac y pulsa **Permitir siempre**.
 
 El botón rojo esconde la ventana en la barra de menús y Centinela sigue grabando. Para cerrarla del todo, <kbd>⌘</kbd><kbd>Q</kbd>.
 
@@ -383,11 +399,8 @@ Tecnologías: C# / .NET 10, [Avalonia UI](https://avaloniaui.net), [FFmpeg](http
 
 ### Compilar desde el código
 
-> [!WARNING]
-> Lo que compiles tú no lleva la firma del autor. En macOS, Gatekeeper bloquea la primera apertura: permítela en
-> *Ajustes del Sistema › Privacidad y seguridad › Abrir igualmente*.
-
-Necesitas Git y el [SDK de .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0).
+Necesitas Git y el [SDK de .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0). Los paquetes que crees tú
+son iguales que los oficiales, pero solo los de Releases son oficiales.
 
 <details>
 <summary><strong>Windows</strong> (PowerShell)</summary>
@@ -399,9 +412,11 @@ git clone https://github.com/tecxion/centinela.git
 cd centinela
 powershell -ExecutionPolicy Bypass -File tools\get-ffmpeg.ps1     # FFmpeg LGPL en ffmpeg\
 dotnet run --project src\Centinela.Desktop -c Release
+powershell -ExecutionPolicy Bypass -File tools\build-installer.ps1 # crea dist\Centinela-<versión>-windows-x64.exe
 ```
 
-`-ExecutionPolicy Bypass` permite ese script sin cambiar la configuración de tu equipo.
+`-ExecutionPolicy Bypass` permite esos scripts sin cambiar la configuración de tu equipo. El instalador necesita
+[Inno Setup 6](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`.
 </details>
 
 <details>
@@ -474,11 +489,23 @@ En PowerShell: `$env:CENTINELA_DATA_DIR = "$env:TEMP\centinela-prueba"` y despu�
 
 ### Publicar una versión
 
-1. Cambia `<Version>` en `Directory.Build.props`.
-2. Sube la etiqueta `vX.Y.Z`. GitHub Actions crea los cuatro paquetes, firma y notariza los de macOS y deja una
-   *release* **borrador** con todo y el `SHA256SUMS.txt`.
-3. Prueba el borrador y publícalo. Las copias instaladas lo verán en su siguiente comprobación (los borradores y las
-   *pre-releases* no cuentan).
+Cada subida a `master` crea los cuatro paquetes con el flujo
+[Paquetes](https://github.com/tecxion/centinela/actions/workflows/paquetes.yml) de GitHub Actions; quedan en
+*Artifacts* de cada ejecución (hace falta haber iniciado sesión en GitHub), para probarlos antes de publicar.
+
+1. Cambia `<Version>` en `Directory.Build.props` y súbelo a `master`.
+2. Crea y sube la etiqueta de esa versión:
+
+   ```bash
+   git tag v1.4.0
+   git push origin v1.4.0
+   ```
+
+   El flujo crea los paquetes y deja una *release* **borrador** con ellos y el `SHA256SUMS.txt`. Si la etiqueta no
+   coincide con `<Version>`, falla y no crea nada.
+3. En [Releases](https://github.com/tecxion/centinela/releases), abre el borrador, revisa las notas, prueba los
+   archivos y pulsa **Publish release**. Las copias instaladas la verán en su siguiente comprobación (los borradores y
+   las *pre-releases* no cuentan).
 
 Para cambiar el icono, sustituye `src/Centinela.Desktop/Assets/centinela.png` y regenera el `.ico` con
 `powershell -ExecutionPolicy Bypass -File tools\make-icon.ps1`.

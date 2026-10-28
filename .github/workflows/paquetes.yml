@@ -1,0 +1,137 @@
+name: Paquetes
+
+# Every push to master builds the four packages (downloadable from the run's «Artifacts»); a vX.Y.Z tag also creates
+# a draft release with them and SHA256SUMS.txt, which is published by hand after testing it. Nothing is signed.
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+    paths-ignore: ['docs/**', '**/*.md']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Instalar Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Descargar FFmpeg
+        shell: bash
+        run: bash tools/ci-annotate.sh "FFmpeg windows" pwsh -File tools/get-ffmpeg.ps1
+
+      - name: Crear el instalador
+        shell: bash
+        run: bash tools/ci-annotate.sh "Instalador windows" pwsh -File tools/build-installer.ps1
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Centinela-windows-x64
+          path: dist/*.exe
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      # Scales the 300x300 icon to the 256x256 folder the package puts it in.
+      - name: Instalar ImageMagick
+        run: sudo apt-get update -q && sudo apt-get install -y -q imagemagick
+
+      - name: Descargar FFmpeg
+        run: bash tools/ci-annotate.sh "FFmpeg linux" bash tools/get-ffmpeg.sh
+
+      - name: Crear el .deb
+        run: bash tools/ci-annotate.sh "deb" bash tools/build-deb.sh
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Centinela-linux-x64
+          path: dist/*.deb
+          if-no-files-found: error
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: FFmpeg en caché
+        id: ffmpeg-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ffmpeg/osx-${{ matrix.arch }}
+          key: ffmpeg-osx-${{ matrix.arch }}-${{ hashFiles('tools/get-ffmpeg-mac.sh') }}
+
+      - name: Instalar nasm
+        if: matrix.arch == 'x64' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: brew install nasm
+
+      - name: Compilar FFmpeg
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: bash tools/ci-annotate.sh "FFmpeg ${{ matrix.arch }}" bash tools/get-ffmpeg-mac.sh ${{ matrix.arch }}
+
+      # Saved right after compiling, so a later failure does not lose the compiled FFmpeg.
+      - name: Guardar FFmpeg en caché
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ffmpeg/osx-${{ matrix.arch }}
+          key: ffmpeg-osx-${{ matrix.arch }}-${{ hashFiles('tools/get-ffmpeg-mac.sh') }}
+
+      - name: Crear el .dmg
+        run: bash tools/ci-annotate.sh "dmg ${{ matrix.arch }}" bash tools/build-dmg.sh ${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Centinela-macos-${{ matrix.arch }}
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Crear la release borrador
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          cd dist
+          # The names the app's update notice points to (UpdateAssets); a tag that differs from <Version> has none.
+          for f in "Centinela-$version-windows-x64.exe" "Centinela-$version-macos-arm64.dmg" \
+                   "Centinela-$version-macos-intel.dmg" "centinela_${version}_amd64.deb"; do
+              [ -f "$f" ] || { echo "::error title=Release::Falta $f: la etiqueta $GITHUB_REF_NAME no coincide con <Version> de Directory.Build.props."; exit 1; }
+          done
+          sha256sum -- * > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" ./* --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+              --title "Centinela $version" --generate-notes

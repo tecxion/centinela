@@ -10,14 +10,14 @@ Terminal (⌘ + Espacio y escribe «Terminal») y se confirman con Intro.
 
 ## 1. Descargar
 
-- [ ] En Windows, sube la rama: `git push -u origin feat/v1.4`. Cada subida que cambia algo más que documentos crea
-      un `.dmg` nuevo en GitHub. La primera vez tarda más, porque compila FFmpeg; después lo guarda y lo reutiliza.
+- [ ] En Windows, sube los cambios a `master`: `git push origin master`. Cada subida que cambia algo más que
+      documentos crea los paquetes nuevos en GitHub. La primera vez tarda más, porque compila FFmpeg; después lo guarda
+      y lo reutiliza.
 - [ ] Inicia sesión en GitHub (sin sesión no se pueden descargar los archivos). Entra en
-      https://github.com/tecxion/centinela, pestaña «Actions», y a la izquierda elige «macOS (.dmg de prueba)».
-- [ ] Abre la última ejecución de `feat/v1.4` con la marca verde. Abajo, en «Artifacts», descarga
+      https://github.com/tecxion/centinela, pestaña «Actions», y a la izquierda elige «Paquetes».
+- [ ] Abre la última ejecución de `master` con la marca verde. Abajo, en «Artifacts», descarga
       `Centinela-macos-arm64`.
-- [ ] Se descarga un `.zip`. Ábrelo con doble clic en Finder: dentro está `Centinela-1.3.0-macos-arm64.dmg` (pone
-      1.3.0 hasta que se cambie la versión al final).
+- [ ] Se descarga un `.zip`. Ábrelo con doble clic en Finder: dentro está `Centinela-<versión>-macos-arm64.dmg`.
 
 ## 2. Instalar y primer arranque
 
