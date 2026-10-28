@@ -27,6 +27,8 @@ if (Test-Path $publish) { Remove-Item $publish -Recurse -Force }
 
 dotnet publish (Join-Path $root 'src\Centinela.Desktop') -c Release -r win-x64 --self-contained true -o $publish
 if ($LASTEXITCODE) { throw 'dotnet publish ha fallado.' }
+# FFmpeg's license goes with its DLLs, as in the .deb and the .dmg.
+Copy-Item (Join-Path $root 'ffmpeg\LICENSE.txt') (Join-Path $publish 'ffmpeg\LICENSE.txt')
 
 & $iscc "/DAppVersion=$Version" "/DSourceDir=$publish" "/DOutputDir=$dist" (Join-Path $root 'packaging\windows\Centinela.iss')
 if ($LASTEXITCODE) { throw 'Inno Setup ha fallado.' }

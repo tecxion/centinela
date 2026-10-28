@@ -34,7 +34,7 @@ static class InfoDocuments
         new InfoParagraph("Puedes usar, copiar, modificar, distribuir e incluso vender Centinela, siempre que mantengas el aviso de copyright y la licencia. Se ofrece «tal cual», sin garantías."),
         new InfoCode(MitLicense),
         new InfoHeading("FFmpeg"),
-        new InfoParagraph("Centinela usa FFmpeg bajo licencia LGPL v2.1+ como bibliotecas separadas (carpeta ffmpeg); puedes sustituirlas por otra compilación compatible."),
+        new InfoParagraph("Centinela usa FFmpeg como bibliotecas separadas (carpeta ffmpeg), bajo licencia LGPL: v3 en Windows y Linux, v2.1 o posterior en macOS. Puedes sustituirlas por otra compilación compatible."),
         new InfoLink("https://ffmpeg.org", "https://ffmpeg.org"),
         new InfoLink("https://github.com/BtbN/FFmpeg-Builds", "https://github.com/BtbN/FFmpeg-Builds"),
         new InfoHeading("Sonido"),

@@ -29,6 +29,12 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
+  <!-- Every package carries Centinela's license and the licenses of what it bundles. -->
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Link="LICENSE.txt" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Centinela.Desktop.Tests" />
   </ItemGroup>
